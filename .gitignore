@@ -1,42 +1,94 @@
 ##### Folders #####
-.apdisk
+.apdisk/
 .tmp/
 .venv/
-.vscode/*
+.vscode/
+.idea/
 $RECYCLE.BIN/
 build/
 dist/
-Network Trash Folder
 node_modules/
 resources/
 temp/
-Temporary Items
 var/
 vendor/
 wip/
+logs/
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.esbuild/
+out/
+target/
+bin/
 
-##### Files #####
+##### OS Files #####
+.DS_Store
+.DS_Store?
 ._*
 .com.apple.timemachine.donotpresent
 .DocumentRevisions-V100
-.DS_Store
-.fseventsd
-.hugo_build.lock
-.hvm
-.idea
-.Spotlight-V100
-.TemporaryItems
-.Trashes
+.fseventsd/
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
 .VolumeIcon.icns
+.AppleDouble
+.LSOverride
+Network Trash Folder/
+Temporary Items/
+Desktop.ini
 [Dd]esktop.ini
-*.ignore.*
-*.lnk
-ehthumbs.db
-ignore.*
-package-lock.json
 Thumbs.db
+ehthumbs.db
 
-##### Environment variables and secret keys #####
+##### Logs #####
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+##### IDE / Editor #####
+*.swp
+*.swo
+*~
+*.iml
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+
+##### Dependencies / Build #####
+*.tgz
+*.tar.gz
+*.zip
+*.o
+*.out
+*.exe
+*.class
+cmake-build-*/
+
+##### Language Specific #####
+__pycache__/
+*.py[cod]
+.Python
+*.pyd
+
+##### Secrets / Env #####
 .env
-.env.test
+.env.*
+!.env.example
 *.pem
+*.key
+*.crt
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+##### Misc #####
+package-lock.json
+*.seed

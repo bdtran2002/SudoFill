@@ -90,6 +90,7 @@ credentials.json
 secrets.json
 
 ##### Misc #####
+AGENTS.md
 package-lock.json
 *.seed
 .wxt/

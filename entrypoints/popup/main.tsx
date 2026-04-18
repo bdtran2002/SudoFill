@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import {
+  Copy,
+  Inbox,
+  ExternalLink,
+  RefreshCw,
+  Trash2,
+  Plus,
+  Mail,
+  ChevronRight,
+} from 'lucide-react';
 
 import '../../src/styles.css';
 import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
@@ -20,13 +30,24 @@ function formatTimestamp(value: string) {
 
 async function sendMailboxCommand(command: MailboxCommand) {
   const response = (await chrome.runtime.sendMessage(command)) as MailboxResponse;
-
-  if (!response.ok) {
-    throw new Error(response.error);
-  }
-
+  if (!response.ok) throw new Error(response.error);
   return response.snapshot;
 }
+
+/* ── Copied toast hook ─────────────────────────────────────────────── */
+
+function useCopiedFlash() {
+  const [copied, setCopied] = useState(false);
+
+  function flash() {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return { copied, flash } as const;
+}
+
+/* ── Message detail panel ──────────────────────────────────────────── */
 
 function MessagePanel({
   snapshot,
@@ -37,8 +58,11 @@ function MessagePanel({
 }) {
   if (!snapshot.selectedMessage) {
     return (
-      <section className='flex min-h-48 items-center justify-center rounded-3xl border border-slate-200 bg-white/90 p-4 text-center text-sm text-slate-500 shadow-sm'>
-        Select an email to read it here.
+      <section className="flex min-h-36 animate-fade-in-up items-center justify-center rounded-xl border border-border bg-surface p-5 text-center text-sm text-text-muted">
+        <div className="flex flex-col items-center gap-2">
+          <Mail className="h-5 w-5 opacity-40" />
+          <span>Select an email to read it here</span>
+        </div>
       </section>
     );
   }
@@ -46,72 +70,78 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section className='space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm'>
-      <div className='space-y-1'>
-        <p className='text-xs font-medium uppercase tracking-[0.24em] text-slate-500'>Message</p>
-        <h2 className='text-lg font-semibold text-slate-950'>{message.subject}</h2>
-        <p className='text-xs text-slate-500'>{message.from}</p>
+    <section className="animate-fade-in-up space-y-4 rounded-xl border border-border bg-surface p-5">
+      <div className="space-y-1">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-accent-dim">
+          Message
+        </p>
+        <h2 className="text-base font-semibold leading-snug text-text-primary">
+          {message.subject}
+        </h2>
+        <p className="font-mono text-xs text-text-secondary">{message.from}</p>
       </div>
 
-      {message.links.length > 0 ? (
-        <div className='space-y-2'>
-          <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-500'>
+      {message.links.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-accent-dim">
             Verification links
           </p>
-          <div className='flex flex-wrap gap-2'>
+          <div className="flex flex-wrap gap-2">
             {message.links.map((link) => (
               <button
                 key={link.url}
-                className='rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100'
+                className="group flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent-glow px-3 py-1.5 font-mono text-xs font-medium text-accent transition-all hover:border-accent/40 hover:bg-accent-glow-strong hover:shadow-[0_0_12px_rgba(45,212,191,0.15)]"
                 onClick={() => onOpenLink(link.url)}
-                type='button'
+                type="button"
               >
+                <ExternalLink className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
                 {link.label}
               </button>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div className='space-y-3 text-sm text-slate-700'>
-        {message.text ? <pre className='whitespace-pre-wrap font-sans'>{message.text}</pre> : null}
-        {!message.text && message.html ? (
-          <div className='rounded-2xl bg-slate-50 p-3 text-xs text-slate-600'>
+      <div className="text-sm leading-relaxed text-text-secondary">
+        {message.text ? (
+          <pre className="whitespace-pre-wrap font-display">{message.text}</pre>
+        ) : message.html ? (
+          <div className="rounded-lg bg-surface-raised p-3 font-mono text-xs text-text-muted">
             HTML email received. Open the detected link above if available.
           </div>
-        ) : null}
-        {!message.text && !message.html ? <p>No readable email body was returned.</p> : null}
+        ) : (
+          <p className="text-text-muted">No readable email body was returned.</p>
+        )}
       </div>
     </section>
   );
 }
 
+/* ── Main popup ────────────────────────────────────────────────────── */
+
 function PopupApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const { copied, flash } = useCopiedFlash();
 
   useEffect(() => {
     let disposed = false;
 
     async function loadState() {
       try {
-        const nextSnapshot = await sendMailboxCommand({ type: 'mailbox:get-state' });
-        if (!disposed) {
-          setSnapshot(nextSnapshot);
-        }
+        const next = await sendMailboxCommand({ type: 'mailbox:get-state' });
+        if (!disposed) setSnapshot(next);
       } catch (error) {
-        if (!disposed) {
-          setSnapshot((current) => ({
-            ...current,
+        if (!disposed)
+          setSnapshot((c) => ({
+            ...c,
             error: error instanceof Error ? error.message : 'Failed to load mailbox state',
           }));
-        }
       }
     }
 
     void loadState();
     const interval = window.setInterval(loadState, 2_500);
-
     return () => {
       disposed = true;
       window.clearInterval(interval);
@@ -120,13 +150,11 @@ function PopupApp() {
 
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
-
     try {
-      const nextSnapshot = await sendMailboxCommand(command);
-      setSnapshot(nextSnapshot);
+      setSnapshot(await sendMailboxCommand(command));
     } catch (error) {
-      setSnapshot((current) => ({
-        ...current,
+      setSnapshot((c) => ({
+        ...c,
         error: error instanceof Error ? error.message : 'Mailbox request failed',
       }));
     } finally {
@@ -135,65 +163,89 @@ function PopupApp() {
   }
 
   async function copyAddress() {
-    if (!snapshot.address) {
-      return;
-    }
-
+    if (!snapshot.address) return;
     await navigator.clipboard.writeText(snapshot.address);
+    flash();
   }
 
   return (
-    <main className='min-h-screen bg-slate-50 p-4 text-slate-950'>
-      <div className='mx-auto flex w-full max-w-md flex-col gap-4'>
-        <section className='rounded-[28px] bg-slate-950 p-5 text-white shadow-lg'>
-          <div className='space-y-2'>
-            <p className='text-xs font-medium uppercase tracking-[0.24em] text-slate-400'>
-              SudoFill
-            </p>
-            <h1 className='text-2xl font-semibold'>Temp mailbox</h1>
-            <p className='text-sm text-slate-300'>
-              Create a disposable inbox, keep polling while the session is active, and open
-              verification emails fast.
-            </p>
+    <main className="relative min-h-screen bg-void p-3 font-display text-text-primary antialiased">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+        {/* ── Header card ─────────────────────────────────────────── */}
+        <section className="animate-fade-in-up rounded-xl border border-border bg-surface p-5">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-accent">
+                SudoFill
+              </p>
+              <h1 className="text-xl font-semibold tracking-tight text-text-primary">
+                Temp mailbox
+              </h1>
+            </div>
+            {snapshot.unreadCount > 0 && (
+              <span className="flex items-center gap-1.5 rounded-md bg-unread/10 px-2 py-0.5 font-mono text-xs font-medium text-unread">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse-dot rounded-full bg-unread" />
+                {snapshot.unreadCount}
+              </span>
+            )}
           </div>
 
-          <div className='mt-5 rounded-3xl bg-white/8 p-4'>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            Disposable inbox with auto-polling. Verification links are extracted automatically.
+          </p>
+
+          {/* ── Address / create area ──────────────────────────────── */}
+          <div className="mt-4 rounded-lg border border-border-bright bg-surface-raised p-3">
             {snapshot.address ? (
-              <div className='space-y-3'>
-                <p className='break-all text-sm font-medium'>{snapshot.address}</p>
-                <div className='flex gap-2'>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-accent">
+                    {snapshot.address}
+                  </p>
                   <button
-                    className='flex-1 rounded-2xl bg-white px-3 py-2 text-sm font-medium text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-300'
+                    className="flex shrink-0 items-center gap-1 rounded-md border border-border-bright px-2 py-1 text-xs text-text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={isBusy}
                     onClick={() => void copyAddress()}
-                    type='button'
+                    type="button"
                   >
-                    Copy address
-                  </button>
-                  <button
-                    className='rounded-2xl border border-white/20 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60'
-                    disabled={isBusy}
-                    onClick={() => void runCommand({ type: 'mailbox:refresh' })}
-                    type='button'
-                  >
-                    Refresh
+                    <Copy className="h-3 w-3" />
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
+                <button
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-bright bg-surface px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isBusy}
+                  onClick={() => void runCommand({ type: 'mailbox:refresh' })}
+                  type="button"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
               </div>
             ) : (
               <button
-                className='w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-300'
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-void transition-all hover:bg-accent-dim hover:shadow-[0_0_20px_rgba(45,212,191,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={isBusy || snapshot.status === 'creating'}
                 onClick={() => void runCommand({ type: 'mailbox:create' })}
-                type='button'
+                type="button"
               >
-                {snapshot.status === 'creating' ? 'Creating mailbox...' : 'Create temp email'}
+                <Plus className="h-4 w-4" />
+                {snapshot.status === 'creating' ? 'Creating...' : 'Create temp email'}
               </button>
             )}
           </div>
 
-          <div className='mt-4 flex items-center justify-between text-xs text-slate-300'>
-            <span>{snapshot.unreadCount} unread</span>
+          {/* ── Status bar ─────────────────────────────────────────── */}
+          <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-text-muted">
+            <span className="uppercase tracking-widest">
+              {snapshot.status === 'idle'
+                ? 'Idle'
+                : snapshot.status === 'creating'
+                  ? 'Creating...'
+                  : snapshot.status === 'error'
+                    ? 'Error'
+                    : 'Active'}
+            </span>
             <span>
               {snapshot.lastCheckedAt
                 ? `Checked ${formatTimestamp(snapshot.lastCheckedAt)}`
@@ -202,69 +254,79 @@ function PopupApp() {
           </div>
         </section>
 
-        {snapshot.error ? (
-          <section className='rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm'>
+        {/* ── Error banner ────────────────────────────────────────── */}
+        {snapshot.error && (
+          <section className="animate-fade-in-up rounded-xl border border-danger-border bg-danger-bg p-4 font-mono text-xs text-danger">
             {snapshot.error}
           </section>
-        ) : null}
+        )}
 
+        {/* ── Inbox / detail ──────────────────────────────────────── */}
         {snapshot.address ? (
           <>
-            <section className='rounded-3xl border border-slate-200 bg-white p-4 shadow-sm'>
-              <div className='mb-3 flex items-center justify-between'>
-                <div>
-                  <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-500'>
-                    Inbox
-                  </p>
-                  <h2 className='text-lg font-semibold text-slate-950'>Incoming mail</h2>
+            <section className="animate-fade-in-up rounded-xl border border-border bg-surface p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Inbox className="h-4 w-4 text-text-muted" />
+                  <h2 className="text-sm font-semibold text-text-primary">Inbox</h2>
                 </div>
                 <button
-                  className='text-sm font-medium text-slate-500 transition hover:text-rose-600 disabled:cursor-not-allowed disabled:text-slate-300'
+                  className="flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={isBusy}
                   onClick={() => void runCommand({ type: 'mailbox:discard' })}
-                  type='button'
+                  type="button"
                 >
+                  <Trash2 className="h-3 w-3" />
                   Discard
                 </button>
               </div>
 
-              <div className='space-y-2'>
+              <div className="space-y-1">
                 {snapshot.messages.length > 0 ? (
                   snapshot.messages.map((message) => (
                     <button
                       key={message.id}
-                      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                      className={`group flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
                         snapshot.selectedMessageId === message.id
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100'
+                          ? 'border-accent/30 bg-accent-glow'
+                          : 'border-transparent hover:border-border-bright hover:bg-surface-hover'
                       }`}
                       onClick={() =>
                         void runCommand({ type: 'mailbox:open-message', messageId: message.id })
                       }
-                      type='button'
+                      type="button"
                     >
-                      <div className='flex items-start justify-between gap-3'>
-                        <div className='min-w-0 space-y-1'>
-                          <div className='flex items-center gap-2'>
-                            {!message.seen ? (
-                              <span className='h-2.5 w-2.5 rounded-full bg-blue-500' />
-                            ) : null}
-                            <p className='truncate text-sm font-semibold text-slate-950'>
-                              {message.subject}
-                            </p>
-                          </div>
-                          <p className='truncate text-xs text-slate-500'>{message.from}</p>
-                          <p className='line-clamp-2 text-sm text-slate-600'>{message.intro}</p>
-                        </div>
-                        <p className='shrink-0 text-xs text-slate-400'>
-                          {formatTimestamp(message.createdAt)}
-                        </p>
+                      {/* unread dot */}
+                      <div className="flex h-5 w-3 shrink-0 items-center justify-center">
+                        {!message.seen && (
+                          <span className="inline-block h-2 w-2 animate-pulse-dot rounded-full bg-unread" />
+                        )}
                       </div>
+
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={`truncate text-sm ${!message.seen ? 'font-semibold text-text-primary' : 'font-medium text-text-secondary'}`}
+                          >
+                            {message.subject}
+                          </p>
+                          <p className="shrink-0 font-mono text-[10px] text-text-muted">
+                            {formatTimestamp(message.createdAt)}
+                          </p>
+                        </div>
+                        <p className="truncate font-mono text-[11px] text-text-muted">
+                          {message.from}
+                        </p>
+                        <p className="line-clamp-1 text-xs text-text-secondary">{message.intro}</p>
+                      </div>
+
+                      <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
                     </button>
                   ))
                 ) : (
-                  <div className='rounded-2xl bg-slate-50 p-4 text-sm text-slate-500'>
-                    Nothing received yet. Keep the mailbox active and refresh if you just signed up.
+                  <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-6 text-center text-xs text-text-muted">
+                    <Inbox className="h-5 w-5 opacity-30" />
+                    Nothing received yet. Keep the mailbox active.
                   </div>
                 )}
               </div>
@@ -276,9 +338,9 @@ function PopupApp() {
             />
           </>
         ) : (
-          <section className='rounded-3xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm'>
-            The mailbox is session-only. Close the popup if you want; the extension will keep trying
-            to poll while the browser session remains active.
+          <section className="animate-fade-in-up rounded-xl border border-border bg-surface p-4 text-sm leading-relaxed text-text-muted">
+            The mailbox is session-only. Close the popup if you want; polling continues while the
+            browser session is active.
           </section>
         )}
       </div>

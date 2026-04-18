@@ -179,9 +179,11 @@ function MessageDetail({
 function PopupApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(initialSnapshot);
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<SavedEmailTemplate[]>([]);
   const [historyItems, setHistoryItems] = useState<EmailHistoryItem[]>([]);
   const [versions, setVersions] = useState<EmailVersion[]>([]);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
   const { copied, flash } = useCopyFlash();
 
   useEffect(() => {
@@ -230,15 +232,29 @@ function PopupApp() {
     void loadState();
     void loadSavedData();
 
-    const intervalId = window.setInterval(() => {
-      void loadState();
-    }, 2500);
+    const intervalId = window.setInterval(async () => {
+      setSyncing(true);
+      try {
+        const response = await sendRuntimeMessage<{ snapshot: MailboxSnapshot }>({
+          type: 'mailbox:get-state',
+        });
+        if (!stopped) {
+          if (response.snapshot.messages.length > lastMessageCount) {
+            setLastMessageCount(response.snapshot.messages.length);
+          }
+          setSnapshot(response.snapshot);
+        }
+      } catch {
+        // Ignore polling errors
+      }
+      setSyncing(false);
+    }, 3000);
 
     return () => {
       stopped = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [lastMessageCount]);
 
   async function reloadSavedData() {
     const response = await sendRuntimeMessage<{
@@ -410,7 +426,12 @@ function PopupApp() {
 
             <div className='flex items-center justify-between border-t border-border-dim bg-surface-raised px-4 py-2 text-[10px] font-medium text-ink-muted'>
               <span className='uppercase tracking-widest'>
-                {snapshot.status === 'idle'
+                {syncing ? (
+                  <span className='flex items-center gap-1'>
+                    <RefreshCw className='h-2.5 w-2.5 animate-spin' />
+                    Syncing
+                  </span>
+                ) : snapshot.status === 'idle'
                   ? 'Idle'
                   : snapshot.status === 'creating'
                     ? 'Creating'

@@ -74,7 +74,7 @@ function MessagePanel({
             {message.links.map((link) => (
               <button
                 key={link.url}
-                className='group flex items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
+                className='group flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
                 onClick={() => onOpenLink(link.url)}
                 type='button'
               >
@@ -166,7 +166,7 @@ function PopupApp() {
                     {snapshot.address}
                   </p>
                   <button
-                    className='flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-40'
+                    className='flex shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void copyAddress()}
                     type='button'
@@ -178,7 +178,7 @@ function PopupApp() {
 
                 <div className='mt-3 flex gap-2'>
                   <button
-                    className='flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:opacity-40'
+                    className='flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
@@ -187,7 +187,7 @@ function PopupApp() {
                     Refresh
                   </button>
                   <button
-                    className='flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:opacity-40'
+                    className='flex cursor-pointer items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:discard' })}
                     type='button'
@@ -200,7 +200,7 @@ function PopupApp() {
             ) : (
               <div className='p-4'>
                 <button
-                  className='flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50'
+                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
                   disabled={isBusy || snapshot.status === 'creating'}
                   onClick={() => void runCommand({ type: 'mailbox:create' })}
                   type='button'
@@ -258,7 +258,7 @@ function PopupApp() {
                   {snapshot.messages.map((message) => (
                     <button
                       key={message.id}
-                      className={`group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
+                      className={`group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors ${
                         snapshot.selectedMessageId === message.id
                           ? 'bg-accent-bg'
                           : 'hover:bg-surface-hover'

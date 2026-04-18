@@ -431,13 +431,15 @@ function PopupApp() {
                     <RefreshCw className='h-2.5 w-2.5 animate-spin' />
                     Syncing
                   </span>
-                ) : snapshot.status === 'idle'
-                  ? 'Idle'
-                  : snapshot.status === 'creating'
-                    ? 'Creating'
-                    : snapshot.status === 'error'
-                      ? 'Error'
-                      : 'Active'}
+                ) : snapshot.status === 'idle' ? (
+                  'Idle'
+                ) : snapshot.status === 'creating' ? (
+                  'Creating'
+                ) : snapshot.status === 'error' ? (
+                  'Error'
+                ) : (
+                  'Active'
+                )}
               </span>
 
               <span>

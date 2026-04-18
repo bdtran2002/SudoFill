@@ -79,6 +79,7 @@ export type ActiveMailboxSession = {
   selectedMessageId: string | null;
   selectedMessage: MailMessage | null;
   lastCheckedAt: string | null;
+  createdAt: string;
 };
 
 export type MailboxCommand =

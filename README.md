@@ -2,28 +2,31 @@
 
 SudoFill is a browser extension for generating temporary email inboxes and supporting verification-email workflows during signup and testing flows.
 
-This repository currently includes an MVP mailbox flow built with WXT, React, and Mail.tm integration.
+Built with WXT, React, and Mail.tm integration.
 
 ## Stack
 
 - `Bun`: package manager and script runner
-- `WXT`: framework for building browser extensions, including Manifest V3 support
-- `React`: UI for extension pages like the popup and options screen
-- `TypeScript`: typed JavaScript for safer code
-- `Tailwind CSS`: utility-first styling
-- `ESLint`: linting for code quality
-- `Prettier`: code formatting
+- `WXT`: framework for building browser extensions (Manifest V3 for Chrome, MV2 for Firefox)
+- `React`: UI for extension pages (popup, options)
+- `TypeScript`: typed JavaScript
+- `Tailwind CSS`: styling
+- `ESLint` + `Prettier`: code quality
 
-## Current Structure
+## Project Structure
 
-- `entrypoints/background.ts`: background worker for mailbox session state, polling, and badge updates
-- `entrypoints/content.ts`: content script entrypoint placeholder
-- `entrypoints/popup/`: popup UI for mailbox creation and inbox viewing
-- `entrypoints/options/`: options page placeholder
-- `src/features/email/`: Mail.tm integration, mailbox state, types, and link extraction
-- `src/lib/`: shared helpers
-- `src/types/`: shared types
-- `src/styles.css`: shared Tailwind styles
+```
+entrypoints/
+├── background.ts      # Background worker: mailbox polling (every 3s), session state
+├── content.ts        # Content script placeholder
+├── popup/           # Popup UI: create inbox, view messages
+└── options/        # Options page placeholder
+src/
+├── features/email/  # Mail.tm API, types, state, link extraction
+├── lib/            # Shared helpers
+├── types/          # Shared types
+└── styles.css      # Tailwind styles
+```
 
 ## Commands
 
@@ -32,20 +35,28 @@ This repository currently includes an MVP mailbox flow built with WXT, React, an
 bun install
 
 # Development
-bun run dev              # Start Chrome dev server
-bun run dev:firefox      # Start Firefox dev server
+bun run dev              # Chrome dev server
+bun run dev:firefox      # Firefox dev server
 
 # Build
-bun run build            # Build Chrome extension
-bun run build --browser firefox   # Build Firefox extension
+bun run build            # Build Chrome (MV3)
+bun run build --browser firefox  # Build Firefox (MV2)
 bun run zip              # Build and zip both browsers
 
 # Code quality
-bun run lint             # Run ESLint
-bun run format           # Format with Prettier
-bun run format:check     # Check formatting
-bun run typecheck        # Run TypeScript type checking
+bun run lint             # ESLint
+bun run format          # Format with Prettier
+bun run format:check    # Check formatting
+bun run typecheck       # TypeScript
 ```
+
+## Features
+
+- Create temporary email inboxes via Mail.tm
+- Auto-refresh inbox every 3 seconds with syncing indicator
+- Auto-detect verification links in emails
+- Save email templates for reuse
+- Track email history
 
 ## Getting Started
 

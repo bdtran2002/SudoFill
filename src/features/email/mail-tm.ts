@@ -132,6 +132,7 @@ export function createMailTmSession(): ResultAsync<ActiveMailboxSession, Mailbox
           password,
         }),
       }).map((tokenResponse) => ({
+        id: faker.string.uuid(),
         address: account.address,
         password,
         token: tokenResponse.token,

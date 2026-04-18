@@ -3,6 +3,9 @@ import { defineConfig } from 'wxt';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
+  suppressWarnings: {
+    firefoxDataCollection: true,
+  },
   manifest: {
     name: 'SudoFill',
     description: 'Temporary identity and email extension',

@@ -3,6 +3,23 @@ export type MessageLink = {
   url: string;
 };
 
+export type MailboxMessageSummary = {
+  id: string;
+  from: string;
+  subject: string;
+  intro: string;
+  createdAt: string;
+  seen: boolean;
+  hasAttachments?: boolean;
+};
+
+export type MailboxMessageDetail = MailboxMessageSummary & {
+  to: string[];
+  text?: string;
+  html?: string;
+  links: MessageLink[];
+};
+
 export type MailMessage = {
   id: string;
   from: string;

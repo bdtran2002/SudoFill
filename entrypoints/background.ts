@@ -23,6 +23,7 @@ import type {
   MailboxCommand,
   MailboxResponse,
   MailboxSnapshot,
+  MailboxMessageSummary,
   MailMessage,
 } from '../src/features/email/types';
 
@@ -101,9 +102,7 @@ function createId(): string {
   return crypto.randomUUID();
 }
 
-async function addHistoryItem(
-  item: Omit<EmailHistoryItem, 'id' | 'createdAt'>,
-): Promise<void> {
+async function addHistoryItem(item: Omit<EmailHistoryItem, 'id' | 'createdAt'>): Promise<void> {
   const history = await getEmailHistory();
   history.unshift({
     id: createId(),
@@ -113,9 +112,7 @@ async function addHistoryItem(
   await setEmailHistory(history.slice(0, 100));
 }
 
-async function addVersion(
-  version: Omit<EmailVersion, 'id' | 'createdAt'>,
-): Promise<void> {
+async function addVersion(version: Omit<EmailVersion, 'id' | 'createdAt'>): Promise<void> {
   const versions = await getEmailVersions();
   versions.unshift({
     id: createId(),
@@ -143,10 +140,7 @@ function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   );
 }
 
-function setBadge(
-  unreadCount: number,
-  error: string | null,
-): ResultAsync<void, MailboxError> {
+function setBadge(unreadCount: number, error: string | null): ResultAsync<void, MailboxError> {
   return fromBrowserPromise(
     chrome.action.setBadgeBackgroundColor({
       color: error ? '#b91c1c' : '#2563eb',
@@ -216,10 +210,16 @@ function replaceSession(
     });
 }
 
-function syncMessages(
-  session: ActiveMailboxSession,
-  nextMessages: MailMessage[],
-) {
+function syncMessages(session: ActiveMailboxSession, nextMessages: MailboxMessageSummary[]) {
+  const messages: MailMessage[] = nextMessages.map((msg) => ({
+    id: msg.id,
+    from: msg.from,
+    subject: msg.subject,
+    intro: msg.intro,
+    createdAt: msg.createdAt,
+    seen: msg.seen,
+    links: [],
+  }));
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
 
@@ -229,7 +229,7 @@ function syncMessages(
     }
   }
 
-  session.messages = nextMessages;
+  session.messages = messages;
   session.knownMessageIds = nextMessages.map((message) => message.id);
   session.unreadMessageIds = [...unreadMessageIds].filter((messageId) =>
     nextMessageIds.has(messageId),
@@ -265,12 +265,10 @@ function pollMailbox(force = false) {
         syncMessages(session, messages);
 
         if (session.selectedMessageId && (!session.selectedMessage || force)) {
-          return getMailTmMessage(session.token, session.selectedMessageId).andThen(
-            (message) => {
-              session.selectedMessage = message;
-              return okAsync(undefined);
-            },
-          );
+          return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {
+            session.selectedMessage = message;
+            return okAsync(undefined);
+          });
         }
 
         return okAsync(undefined);
@@ -299,9 +297,7 @@ function createMailbox(): ResultAsync<void, MailboxError> {
   })
     .andThen(() => createMailTmSession())
     .andThen((session) => replaceSession(session))
-    .andThen(() =>
-      fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'),
-    );
+    .andThen(() => fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'));
 }
 
 function discardMailbox(): ResultAsync<void, MailboxError> {
@@ -348,9 +344,7 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
     storageArea.get(MAILBOX_STORAGE_KEY),
     'Failed to restore mailbox session',
   ).andThen((stored) => {
-    const session = stored[MAILBOX_STORAGE_KEY] as
-      | ActiveMailboxSession
-      | undefined;
+    const session = stored[MAILBOX_STORAGE_KEY] as ActiveMailboxSession | undefined;
 
     if (!session) {
       return updateSnapshot(createEmptyMailboxSnapshot());
@@ -362,10 +356,7 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
       .andThen(() => {
         scheduleFastPoll();
-        return fromBrowserPromise(
-          pollMailbox(),
-          'Failed to restore mailbox session',
-        );
+        return fromBrowserPromise(pollMailbox(), 'Failed to restore mailbox session');
       });
   });
 }
@@ -382,10 +373,7 @@ async function handleCommand(command: MailboxCommand): Promise<MailboxResponse> 
       );
 
     case 'mailbox:refresh':
-      return fromBrowserPromise(
-        pollMailbox(true),
-        'Failed to refresh mailbox',
-      ).match(
+      return fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox').match(
         () => ({ ok: true, snapshot: currentSnapshot }),
         handleCommandError,
       );
@@ -406,10 +394,7 @@ async function handleCommand(command: MailboxCommand): Promise<MailboxResponse> 
       return fromBrowserPromise(
         chrome.tabs.create({ url: command.url }),
         'Failed to open mailbox link',
-      ).match(
-        () => ({ ok: true, snapshot: currentSnapshot }),
-        handleCommandError,
-      );
+      ).match(() => ({ ok: true, snapshot: currentSnapshot }), handleCommandError);
 
     default:
       return { ok: false, error: 'Unknown command', snapshot: currentSnapshot };

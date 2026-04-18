@@ -1,4 +1,4 @@
-import type { MailboxLink } from './types';
+import type { MessageLink } from './types';
 
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
 
@@ -11,8 +11,8 @@ function normalizeLabel(url: string) {
   }
 }
 
-export function extractMailboxLinks(...sources: Array<string | null | undefined>): MailboxLink[] {
-  const uniqueLinks = new Map<string, MailboxLink>();
+export function extractMailboxLinks(...sources: Array<string | null | undefined>): MessageLink[] {
+  const uniqueLinks = new Map<string, MessageLink>();
 
   for (const source of sources) {
     if (!source) {

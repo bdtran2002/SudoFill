@@ -1,4 +1,96 @@
-.wxt/
-.output/
+##### Folders #####
+.apdisk/
+.tmp/
+.venv/
+.vscode/
+.idea/
+$RECYCLE.BIN/
+build/
 dist/
 node_modules/
+resources/
+temp/
+var/
+vendor/
+wip/
+logs/
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.esbuild/
+out/
+target/
+bin/
+
+##### OS Files #####
+.DS_Store
+.DS_Store?
+._*
+.com.apple.timemachine.donotpresent
+.DocumentRevisions-V100
+.fseventsd/
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
+.VolumeIcon.icns
+.AppleDouble
+.LSOverride
+Network Trash Folder/
+Temporary Items/
+Desktop.ini
+[Dd]esktop.ini
+Thumbs.db
+ehthumbs.db
+
+##### Logs #####
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+##### IDE / Editor #####
+*.swp
+*.swo
+*~
+*.iml
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+
+##### Dependencies / Build #####
+*.tgz
+*.tar.gz
+*.zip
+*.o
+*.out
+*.exe
+*.class
+cmake-build-*/
+
+##### Language Specific #####
+__pycache__/
+*.py[cod]
+.Python
+*.pyd
+
+##### Secrets / Env #####
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+##### Misc #####
+package-lock.json
+*.seed
+.wxt/
+.output/

@@ -92,3 +92,5 @@ secrets.json
 ##### Misc #####
 package-lock.json
 *.seed
+.wxt/
+.output/

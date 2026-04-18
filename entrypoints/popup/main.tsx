@@ -88,14 +88,16 @@ function formatTimestamp(value: string): string {
 }
 
 async function sendRuntimeMessage<T>(message: unknown): Promise<T> {
-  console.log('[Popup] Sending message:', message);
+  // First ensure the background is ready
+  await chrome.runtime.sendMessage({ type: 'ping' }).catch(() => {});
+
+  // Small delay to allow service worker to start
+  await new Promise((r) => setTimeout(r, 100));
+
   const response = await chrome.runtime.sendMessage(message);
 
   if (response === undefined) {
-    console.error('[Popup] No response from background');
-    throw new Error(
-      'Background script did not respond. Open chrome://extensions/ and check errors.',
-    );
+    throw new Error('Background did not respond. Try reloading the extension.');
   }
 
   return response as T;

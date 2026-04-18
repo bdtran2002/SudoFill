@@ -427,7 +427,12 @@ export default defineBackground(() => {
   );
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    console.log('[Background] Received message:', message.type);
+    // Ping handler - responds immediately to verify connection
+    if (message.type === 'ping') {
+      sendResponse({ ok: true, type: 'pong' });
+      return true;
+    }
+
     void (async () => {
       try {
         if (message.type === 'saved:list') {

@@ -36,7 +36,7 @@ import {
 
 const MAILBOX_STORAGE_KEY = 'email.activeMailbox';
 const MAILBOX_ALARM_NAME = 'email.pollMailbox';
-const FAST_POLL_INTERVAL_MS = 4_000;
+const FAST_POLL_INTERVAL_MS = 3_000;
 const FALLBACK_ALARM_PERIOD_MINUTES = 0.5;
 
 let activeSession: ActiveMailboxSession | null = null;

@@ -6,7 +6,8 @@ export default defineConfig({
   manifest: {
     name: 'SudoFill',
     description: 'Temporary identity and email extension',
-    permissions: ['storage'],
+    permissions: ['storage', 'alarms'],
+    host_permissions: ['https://api.mail.tm/*'],
   },
   vite: () => ({
     plugins: [tailwindcss()],

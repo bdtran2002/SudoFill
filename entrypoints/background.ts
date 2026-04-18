@@ -39,10 +39,26 @@ const MAILBOX_ALARM_NAME = 'email.pollMailbox';
 const FAST_POLL_INTERVAL_MS = 3_000;
 const FALLBACK_ALARM_PERIOD_MINUTES = 0.5;
 
+// Log startup
+console.log('[Background] Starting...', new Date().toISOString());
+
 let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = createEmptyMailboxSnapshot();
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
+
+// Simple sync message handler first - to test if basic messaging works
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  console.log('[Background] Sync received:', message);
+
+  if (message.type === 'ping') {
+    sendResponse({ ok: true, type: 'pong-sync' });
+    return true;
+  }
+
+  // Don't handle other messages here - let the async handler do it
+  return undefined;
+});
 
 function getSessionStorageArea(): chrome.storage.StorageArea {
   if (chrome.storage.session) {

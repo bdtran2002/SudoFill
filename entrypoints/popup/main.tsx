@@ -88,24 +88,32 @@ function formatTimestamp(value: string): string {
 }
 
 async function sendRuntimeMessage<T>(message: unknown): Promise<T> {
-  // Try to ping first to wake up service worker
-  try {
-    await chrome.runtime.sendMessage({ type: 'ping' });
-  } catch {
-    // Ignore ping errors
-  }
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Background timeout'));
+    }, 3000);
 
-  // Small delay to allow service worker to initialize
-  await new Promise((resolve) => setTimeout(resolve, 50));
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        clearTimeout(timeout);
 
-  // Try to send actual message
-  const result = await chrome.runtime.sendMessage(message);
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
 
-  if (result === undefined) {
-    throw new Error('Background did not respond');
-  }
+        if (response === undefined) {
+          reject(new Error('Background did not respond'));
+          return;
+        }
 
-  return result as T;
+        resolve(response as T);
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      reject(err instanceof Error ? err : new Error('Send failed'));
+    }
+  });
 }
 
 function useCopyFlash() {

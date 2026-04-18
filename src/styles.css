@@ -1,39 +1,40 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-void: #06080d;
-  --color-surface: #0d1117;
-  --color-surface-raised: #161b22;
-  --color-surface-hover: #1c2330;
-  --color-border: #21262d;
-  --color-border-bright: #30363d;
+  --color-void: #111010;
+  --color-surface: #1a1818;
+  --color-surface-raised: #242121;
+  --color-surface-hover: #2e2a2a;
+  --color-border: #353030;
+  --color-border-dim: #2a2626;
 
-  --color-accent: #2dd4bf;
-  --color-accent-dim: #14b8a6;
-  --color-accent-glow: rgba(45, 212, 191, 0.15);
-  --color-accent-glow-strong: rgba(45, 212, 191, 0.3);
+  --color-accent: #ef4b4b;
+  --color-accent-hover: #dc3c3c;
+  --color-accent-bg: rgba(239, 75, 75, 0.1);
+  --color-accent-bg-strong: rgba(239, 75, 75, 0.18);
 
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #8b949e;
-  --color-text-muted: #484f58;
+  --color-ink: #ede8e4;
+  --color-ink-secondary: #9a9290;
+  --color-ink-muted: #5c5755;
 
-  --color-danger: #f85149;
-  --color-danger-bg: rgba(248, 81, 73, 0.1);
-  --color-danger-border: rgba(248, 81, 73, 0.25);
+  --color-danger: #ef4b4b;
+  --color-danger-bg: rgba(239, 75, 75, 0.08);
+  --color-danger-border: rgba(239, 75, 75, 0.2);
 
-  --color-unread: #58a6ff;
+  --color-unread: #6ea8fe;
+  --color-unread-bg: rgba(110, 168, 254, 0.1);
 
-  --font-display: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-brand: 'Fraunces', 'Georgia', serif;
+  --font-body: 'Figtree', 'Segoe UI', sans-serif;
 
-  --animate-fade-in-up: fade-in-up 0.35s ease-out both;
-  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-pulse-unread: pulse-unread 2.5s ease-in-out infinite;
 }
 
-@keyframes fade-in-up {
+@keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -41,30 +42,30 @@
   }
 }
 
-@keyframes pulse-dot {
+@keyframes pulse-unread {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(88, 166, 255, 0.5);
+    box-shadow: 0 0 0 0 rgba(110, 168, 254, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0);
+    box-shadow: 0 0 0 3px rgba(110, 168, 254, 0);
   }
 }
 
-/* popup sizing — Chrome sizes popups to content; explicit dimensions prevent clipping */
+/* popup sizing */
 html.popup {
   width: 400px;
 }
 
-/* noise texture — no Tailwind equivalent for pseudo-element background SVG */
+/* grain texture */
 #root::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   background-repeat: repeat;
-  background-size: 256px 256px;
+  background-size: 200px 200px;
   z-index: 999;
 }

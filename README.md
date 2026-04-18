@@ -39,9 +39,8 @@ bun run dev              # Chrome dev server
 bun run dev:firefox      # Firefox dev server
 
 # Build
-bun run build            # Build Chrome (MV3)
-bun run build --browser firefox  # Build Firefox (MV2)
-bun run zip              # Build and zip both browsers
+bun run build            # Build (Chrome by default)
+bun run build --browser firefox  # Build Firefox
 
 # Code quality
 bun run lint             # ESLint
@@ -77,3 +76,11 @@ bun run dev
    - Enable "Developer mode"
    - Click "Load unpacked"
    - Select the `.output/chrome-mv3-dev` directory
+
+## CI
+
+CI runs on push to `main` and pull requests:
+
+```bash
+bun run lint && bun run format:check && bun run typecheck && bun run build
+```

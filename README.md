@@ -36,6 +36,7 @@ bun install
 
 ```bash
 bun run dev
+bun run dev:firefox
 ```
 
 3. Build the extension:
@@ -43,6 +44,8 @@ bun run dev
 ```bash
 bun run build
 ```
+
+
 
 ## Useful Scripts
 

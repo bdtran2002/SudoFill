@@ -29,9 +29,7 @@ function formatTimestamp(value: string) {
 }
 
 async function sendMailboxCommand(command: MailboxCommand) {
-  const response = (await chrome.runtime.sendMessage(command)) as MailboxResponse;
-  if (!response.ok) throw new Error(response.error);
-  return response.snapshot;
+  return (await chrome.runtime.sendMessage(command)) as MailboxResponse;
 }
 
 /* ── Copied toast hook ─────────────────────────────────────────────── */
@@ -128,15 +126,9 @@ function PopupApp() {
     let disposed = false;
 
     async function loadState() {
-      try {
-        const next = await sendMailboxCommand({ type: 'mailbox:get-state' });
-        if (!disposed) setSnapshot(next);
-      } catch (error) {
-        if (!disposed)
-          setSnapshot((c) => ({
-            ...c,
-            error: error instanceof Error ? error.message : 'Failed to load mailbox state',
-          }));
+      const response = await sendMailboxCommand({ type: 'mailbox:get-state' });
+      if (!disposed) {
+        setSnapshot(response.snapshot);
       }
     }
 
@@ -150,16 +142,9 @@ function PopupApp() {
 
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
-    try {
-      setSnapshot(await sendMailboxCommand(command));
-    } catch (error) {
-      setSnapshot((c) => ({
-        ...c,
-        error: error instanceof Error ? error.message : 'Mailbox request failed',
-      }));
-    } finally {
-      setIsBusy(false);
-    }
+    const response = await sendMailboxCommand(command);
+    setSnapshot(response.snapshot);
+    setIsBusy(false);
   }
 
   async function copyAddress() {

@@ -1,3 +1,10 @@
+import { errAsync, okAsync, ResultAsync } from 'neverthrow';
+
+import {
+  toMailboxErrorMessage,
+  toUnexpectedMailboxError,
+  type MailboxError,
+} from '../src/features/email/errors';
 import {
   createMailTmSession,
   deleteMailTmAccount,
@@ -22,30 +29,47 @@ let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 
-async function writeSessionToStorage() {
+function fromBrowserPromise<T>(promise: Promise<T>, fallbackMessage: string) {
+  return ResultAsync.fromPromise(promise, (error) =>
+    toUnexpectedMailboxError(error, fallbackMessage),
+  );
+}
+
+function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   if (!activeSession) {
-    await chrome.storage.session.remove(MAILBOX_STORAGE_KEY);
-    return;
+    return fromBrowserPromise(
+      chrome.storage.session.remove(MAILBOX_STORAGE_KEY),
+      'Failed to update session storage',
+    );
   }
 
-  await chrome.storage.session.set({
-    [MAILBOX_STORAGE_KEY]: activeSession,
-  });
+  return fromBrowserPromise(
+    chrome.storage.session.set({
+      [MAILBOX_STORAGE_KEY]: activeSession,
+    }),
+    'Failed to update session storage',
+  );
 }
 
-async function setBadge(unreadCount: number, error: string | null) {
-  await chrome.action.setBadgeBackgroundColor({
-    color: error ? '#b91c1c' : '#2563eb',
-  });
-
-  await chrome.action.setBadgeText({
-    text: error ? '!' : unreadCount > 0 ? String(Math.min(unreadCount, 99)) : '',
-  });
+function setBadge(unreadCount: number, error: string | null): ResultAsync<void, MailboxError> {
+  return fromBrowserPromise(
+    chrome.action.setBadgeBackgroundColor({
+      color: error ? '#b91c1c' : '#2563eb',
+    }),
+    'Failed to update extension badge',
+  ).andThen(() =>
+    fromBrowserPromise(
+      chrome.action.setBadgeText({
+        text: error ? '!' : unreadCount > 0 ? String(Math.min(unreadCount, 99)) : '',
+      }),
+      'Failed to update extension badge',
+    ),
+  );
 }
 
-async function updateSnapshot(snapshot: MailboxSnapshot) {
+function updateSnapshot(snapshot: MailboxSnapshot): ResultAsync<void, MailboxError> {
   currentSnapshot = snapshot;
-  await setBadge(snapshot.unreadCount, snapshot.error);
+  return setBadge(snapshot.unreadCount, snapshot.error);
 }
 
 function clearPollTimer() {
@@ -67,26 +91,33 @@ function scheduleFastPoll() {
   }, FAST_POLL_INTERVAL_MS);
 }
 
-async function ensureFallbackAlarm(enabled: boolean) {
+function ensureFallbackAlarm(enabled: boolean): ResultAsync<void, MailboxError> {
   if (!enabled) {
-    await chrome.alarms.clear(MAILBOX_ALARM_NAME);
-    return;
+    return fromBrowserPromise(
+      chrome.alarms.clear(MAILBOX_ALARM_NAME),
+      'Failed to update mailbox polling alarm',
+    ).map(() => undefined);
   }
 
-  await chrome.alarms.create(MAILBOX_ALARM_NAME, {
-    periodInMinutes: FALLBACK_ALARM_PERIOD_MINUTES,
-  });
+  return fromBrowserPromise(
+    chrome.alarms.create(MAILBOX_ALARM_NAME, {
+      periodInMinutes: FALLBACK_ALARM_PERIOD_MINUTES,
+    }),
+    'Failed to update mailbox polling alarm',
+  );
 }
 
-async function replaceSession(
+function replaceSession(
   session: ActiveMailboxSession | null,
   snapshot?: Partial<MailboxSnapshot>,
-) {
+): ResultAsync<void, MailboxError> {
   activeSession = session;
-  await writeSessionToStorage();
-  await ensureFallbackAlarm(Boolean(session));
-  scheduleFastPoll();
-  await updateSnapshot(toMailboxSnapshot(session, snapshot));
+  return writeSessionToStorage()
+    .andThen(() => ensureFallbackAlarm(Boolean(session)))
+    .andThen(() => {
+      scheduleFastPoll();
+      return updateSnapshot(toMailboxSnapshot(session, snapshot));
+    });
 }
 
 function syncMessages(
@@ -115,9 +146,9 @@ function syncMessages(
   }
 }
 
-async function pollMailbox(force = false) {
+function pollMailbox(force = false) {
   if (!activeSession) {
-    return;
+    return Promise.resolve();
   }
 
   if (pollInFlight) {
@@ -125,23 +156,36 @@ async function pollMailbox(force = false) {
   }
 
   pollInFlight = (async () => {
-    try {
-      const messages = await listMailTmMessages(activeSession!.token);
-      syncMessages(activeSession!, messages);
+    const session = activeSession;
 
-      if (activeSession!.selectedMessageId && (!activeSession!.selectedMessage || force)) {
-        activeSession!.selectedMessage = await getMailTmMessage(
-          activeSession!.token,
-          activeSession!.selectedMessageId,
-        );
-      }
+    if (!session) {
+      pollInFlight = null;
+      scheduleFastPoll();
+      return;
+    }
 
-      await writeSessionToStorage();
-      await updateSnapshot(toMailboxSnapshot(activeSession));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to refresh mailbox';
-      await updateSnapshot(toMailboxSnapshot(activeSession, { error: message }));
-    } finally {
+    await listMailTmMessages(session.token)
+      .andThen((messages) => {
+        syncMessages(session, messages);
+
+        if (session.selectedMessageId && (!session.selectedMessage || force)) {
+          return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {
+            session.selectedMessage = message;
+            return okAsync(undefined);
+          });
+        }
+
+        return okAsync(undefined);
+      })
+      .andThen(() => writeSessionToStorage())
+      .andThen(() => updateSnapshot(toMailboxSnapshot(session)))
+      .orElse((error) =>
+        updateSnapshot(toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) })).orElse(
+          () => okAsync(undefined),
+        ),
+      );
+
+    {
       pollInFlight = null;
       scheduleFastPoll();
     }
@@ -150,30 +194,35 @@ async function pollMailbox(force = false) {
   return pollInFlight;
 }
 
-async function createMailbox() {
-  await updateSnapshot({
+function createMailbox(): ResultAsync<void, MailboxError> {
+  return updateSnapshot({
     ...EMPTY_MAILBOX_SNAPSHOT,
     status: 'creating',
-  });
-
-  const session = await createMailTmSession();
-  await replaceSession(session);
-  await pollMailbox(true);
+  })
+    .andThen(() => createMailTmSession())
+    .andThen((session) => replaceSession(session))
+    .andThen(() => fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'));
 }
 
-async function discardMailbox() {
+function discardMailbox(): ResultAsync<void, MailboxError> {
   const sessionToDelete = activeSession;
   clearPollTimer();
-  await replaceSession(null);
 
-  if (sessionToDelete) {
-    await deleteMailTmAccount(sessionToDelete);
-  }
+  return replaceSession(null).andThen(() => {
+    if (!sessionToDelete) {
+      return okAsync(undefined);
+    }
+
+    return deleteMailTmAccount(sessionToDelete);
+  });
 }
 
-async function openMessage(messageId: string) {
+function openMessage(messageId: string): ResultAsync<void, MailboxError> {
   if (!activeSession) {
-    throw new Error('Create a mailbox first');
+    return errAsync({
+      type: 'mailbox-missing-session',
+      message: 'Create a mailbox first',
+    });
   }
 
   activeSession.selectedMessageId = messageId;
@@ -181,63 +230,93 @@ async function openMessage(messageId: string) {
   activeSession.messages = activeSession.messages.map((message) =>
     message.id === messageId ? { ...message, seen: true } : message,
   );
-  activeSession.selectedMessage = await getMailTmMessage(activeSession.token, messageId);
-  await writeSessionToStorage();
-  await updateSnapshot(toMailboxSnapshot(activeSession));
+  return getMailTmMessage(activeSession.token, messageId)
+    .andThen((message) => {
+      activeSession!.selectedMessage = message;
+      return writeSessionToStorage();
+    })
+    .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)));
 }
 
-async function restoreMailboxFromSessionStorage() {
-  const stored = await chrome.storage.session.get(MAILBOX_STORAGE_KEY);
-  const session = stored[MAILBOX_STORAGE_KEY] as ActiveMailboxSession | undefined;
+function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
+  return fromBrowserPromise(
+    chrome.storage.session.get(MAILBOX_STORAGE_KEY),
+    'Failed to restore mailbox session',
+  ).andThen((stored) => {
+    const session = stored[MAILBOX_STORAGE_KEY] as ActiveMailboxSession | undefined;
 
-  if (!session) {
-    await updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
-    return;
-  }
+    if (!session) {
+      return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
+    }
 
-  activeSession = session;
-  await ensureFallbackAlarm(true);
-  await updateSnapshot(toMailboxSnapshot(activeSession));
-  scheduleFastPoll();
-  await pollMailbox();
+    activeSession = session;
+    return ensureFallbackAlarm(true)
+      .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
+      .andThen(() => {
+        scheduleFastPoll();
+        return fromBrowserPromise(pollMailbox(), 'Failed to restore mailbox session');
+      });
+  });
 }
 
 async function handleCommand(command: MailboxCommand): Promise<MailboxResponse> {
-  try {
-    switch (command.type) {
-      case 'mailbox:get-state':
-        return { ok: true, snapshot: currentSnapshot };
-      case 'mailbox:create':
-        await createMailbox();
-        return { ok: true, snapshot: currentSnapshot };
-      case 'mailbox:refresh':
-        await pollMailbox(true);
-        return { ok: true, snapshot: currentSnapshot };
-      case 'mailbox:discard':
-        await discardMailbox();
-        return { ok: true, snapshot: currentSnapshot };
-      case 'mailbox:open-message':
-        await openMessage(command.messageId);
-        return { ok: true, snapshot: currentSnapshot };
-      case 'mailbox:open-link':
-        await chrome.tabs.create({ url: command.url });
-        return { ok: true, snapshot: currentSnapshot };
-      default:
-        return { ok: false, error: 'Unknown command', snapshot: currentSnapshot };
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Mailbox request failed';
-    const snapshot = toMailboxSnapshot(activeSession, {
-      error: message,
-      status: activeSession ? 'active' : 'error',
-    });
-    await updateSnapshot(snapshot);
-    return { ok: false, error: message, snapshot };
+  switch (command.type) {
+    case 'mailbox:get-state':
+      return { ok: true, snapshot: currentSnapshot };
+    case 'mailbox:create':
+      return createMailbox().match(
+        () => ({ ok: true, snapshot: currentSnapshot }),
+        handleCommandError,
+      );
+    case 'mailbox:refresh':
+      return fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox').match(
+        () => ({ ok: true, snapshot: currentSnapshot }),
+        handleCommandError,
+      );
+    case 'mailbox:discard':
+      return discardMailbox().match(
+        () => ({ ok: true, snapshot: currentSnapshot }),
+        handleCommandError,
+      );
+    case 'mailbox:open-message':
+      return openMessage(command.messageId).match(
+        () => ({ ok: true, snapshot: currentSnapshot }),
+        handleCommandError,
+      );
+    case 'mailbox:open-link':
+      return fromBrowserPromise(
+        chrome.tabs.create({ url: command.url }),
+        'Failed to open mailbox link',
+      ).match(() => ({ ok: true, snapshot: currentSnapshot }), handleCommandError);
+    default:
+      return { ok: false, error: 'Unknown command', snapshot: currentSnapshot };
   }
 }
 
+function handleCommandError(error: MailboxError): Promise<MailboxResponse> {
+  const message = toMailboxErrorMessage(error);
+  const snapshot = toMailboxSnapshot(activeSession, {
+    error: message,
+    status: activeSession ? 'active' : 'error',
+  });
+
+  return updateSnapshot(snapshot)
+    .orElse(() => okAsync(undefined))
+    .map(() => ({ ok: false as const, error: message, snapshot }))
+    .match(
+      (response) => response,
+      () => ({ ok: false as const, error: message, snapshot }),
+    );
+}
+
 export default defineBackground(() => {
-  void restoreMailboxFromSessionStorage();
+  void restoreMailboxFromSessionStorage().orElse((error) =>
+    updateSnapshot({
+      ...EMPTY_MAILBOX_SNAPSHOT,
+      status: 'error',
+      error: toMailboxErrorMessage(error),
+    }).orElse(() => okAsync(undefined)),
+  );
 
   chrome.runtime.onMessage.addListener(
     (message: MailboxCommand, _sender, sendResponse: (response: MailboxResponse) => void) => {

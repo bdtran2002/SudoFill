@@ -1,5 +1,7 @@
 import { faker } from '@faker-js/faker';
+import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 
+import { toUnexpectedMailboxError, type MailboxError } from './errors';
 import { extractMailboxLinks } from './link-extractor';
 import type { ActiveMailboxSession, MailboxMessageDetail, MailboxMessageSummary } from './types';
 
@@ -40,25 +42,37 @@ interface MailTmMessageDetailResponse extends MailTmMessageListItem {
   html?: string[] | string | null;
 }
 
-async function mailTmFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${MAIL_TM_API_BASE_URL}${path}`, init);
+function mailTmFetch<T>(path: string, init?: RequestInit): ResultAsync<T, MailboxError> {
+  return ResultAsync.fromPromise(fetch(`${MAIL_TM_API_BASE_URL}${path}`, init), (error) =>
+    toUnexpectedMailboxError(error, 'Mail.tm request failed'),
+  ).andThen((response) => {
+    if (!response.ok) {
+      return errAsync({
+        type: 'mail-tm-request' as const,
+        status: response.status,
+        message: `Mail.tm request failed with ${response.status}`,
+      });
+    }
 
-  if (!response.ok) {
-    throw new Error(`Mail.tm request failed with ${response.status}`);
-  }
-
-  return (await response.json()) as T;
+    return ResultAsync.fromPromise(response.json() as Promise<T>, (error) =>
+      toUnexpectedMailboxError(error, 'Mail.tm returned an invalid response'),
+    );
+  });
 }
 
-async function getAvailableDomain() {
-  const response = await mailTmFetch<MailTmCollection<MailTmDomain>>('/domains');
-  const domain = response['hydra:member'].find((item) => item.isActive && !item.isPrivate);
+function getAvailableDomain(): ResultAsync<string, MailboxError> {
+  return mailTmFetch<MailTmCollection<MailTmDomain>>('/domains').andThen((response) => {
+    const domain = response['hydra:member'].find((item) => item.isActive && !item.isPrivate);
 
-  if (!domain) {
-    throw new Error('No Mail.tm domains are currently available');
-  }
+    if (!domain) {
+      return errAsync({
+        type: 'mail-tm-no-domain' as const,
+        message: 'No Mail.tm domains are currently available',
+      });
+    }
 
-  return domain.domain;
+    return okAsync(domain.domain);
+  });
 }
 
 function createMailboxAddress(domain: string) {
@@ -93,86 +107,92 @@ function normalizeHtml(html: MailTmMessageDetailResponse['html']) {
   return html ?? '';
 }
 
-export async function createMailTmSession(): Promise<ActiveMailboxSession> {
-  const domain = await getAvailableDomain();
-  const address = createMailboxAddress(domain);
-  const password = createMailboxPassword();
+export function createMailTmSession(): ResultAsync<ActiveMailboxSession, MailboxError> {
+  return getAvailableDomain().andThen((domain) => {
+    const address = createMailboxAddress(domain);
+    const password = createMailboxPassword();
 
-  const account = await mailTmFetch<MailTmAccount>('/accounts', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      address,
-      password,
-    }),
+    return mailTmFetch<MailTmAccount>('/accounts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        address,
+        password,
+      }),
+    }).andThen((account) =>
+      mailTmFetch<MailTmToken>('/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address,
+          password,
+        }),
+      }).map((tokenResponse) => ({
+        address: account.address,
+        password,
+        token: tokenResponse.token,
+        accountId: account.id,
+        messages: [],
+        selectedMessageId: null,
+        selectedMessage: null,
+        unreadMessageIds: [],
+        knownMessageIds: [],
+        lastCheckedAt: null,
+        createdAt: new Date().toISOString(),
+      })),
+    );
   });
-
-  const tokenResponse = await mailTmFetch<MailTmToken>('/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      address,
-      password,
-    }),
-  });
-
-  return {
-    address: account.address,
-    password,
-    token: tokenResponse.token,
-    accountId: account.id,
-    messages: [],
-    selectedMessageId: null,
-    selectedMessage: null,
-    unreadMessageIds: [],
-    knownMessageIds: [],
-    lastCheckedAt: null,
-    createdAt: new Date().toISOString(),
-  };
 }
 
-export async function listMailTmMessages(token: string) {
-  const response = await mailTmFetch<MailTmCollection<MailTmMessageListItem>>('/messages', {
+export function listMailTmMessages(
+  token: string,
+): ResultAsync<MailboxMessageSummary[], MailboxError> {
+  return mailTmFetch<MailTmCollection<MailTmMessageListItem>>('/messages', {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-  });
-
-  return response['hydra:member'].map(normalizeMessageSummary);
+  }).map((response) => response['hydra:member'].map(normalizeMessageSummary));
 }
 
-export async function getMailTmMessage(
+export function getMailTmMessage(
   token: string,
   messageId: string,
-): Promise<MailboxMessageDetail> {
-  const message = await mailTmFetch<MailTmMessageDetailResponse>(`/messages/${messageId}`, {
+): ResultAsync<MailboxMessageDetail, MailboxError> {
+  return mailTmFetch<MailTmMessageDetailResponse>(`/messages/${messageId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  }).map((message) => {
+    const summary = normalizeMessageSummary(message);
+    const text = message.text?.trim() ?? '';
+    const html = normalizeHtml(message.html);
+
+    return {
+      ...summary,
+      to: (message.to ?? []).map((recipient) => recipient.address).filter(Boolean) as string[],
+      text,
+      html,
+      links: extractMailboxLinks(text, html),
+    };
   });
-
-  const summary = normalizeMessageSummary(message);
-  const text = message.text?.trim() ?? '';
-  const html = normalizeHtml(message.html);
-
-  return {
-    ...summary,
-    to: (message.to ?? []).map((recipient) => recipient.address).filter(Boolean) as string[],
-    text,
-    html,
-    links: extractMailboxLinks(text, html),
-  };
 }
 
-export async function deleteMailTmAccount(session: ActiveMailboxSession) {
-  await fetch(`${MAIL_TM_API_BASE_URL}/accounts/${session.accountId}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${session.token}`,
-    },
-  }).catch(() => undefined);
+export function deleteMailTmAccount(
+  session: ActiveMailboxSession,
+): ResultAsync<void, MailboxError> {
+  return ResultAsync.fromPromise(
+    fetch(`${MAIL_TM_API_BASE_URL}/accounts/${session.accountId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+      },
+    }),
+    (error) => toUnexpectedMailboxError(error, 'Failed to delete Mail.tm account'),
+  )
+    .andThen(() => okAsync(undefined))
+    .orElse(() => okAsync(undefined));
 }

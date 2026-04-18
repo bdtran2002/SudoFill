@@ -88,19 +88,24 @@ function formatTimestamp(value: string): string {
 }
 
 async function sendRuntimeMessage<T>(message: unknown): Promise<T> {
-  // First ensure the background is ready
-  await chrome.runtime.sendMessage({ type: 'ping' }).catch(() => {});
-
-  // Small delay to allow service worker to start
-  await new Promise((r) => setTimeout(r, 100));
-
-  const response = await chrome.runtime.sendMessage(message);
-
-  if (response === undefined) {
-    throw new Error('Background did not respond. Try reloading the extension.');
+  // Try to ping first to wake up service worker
+  try {
+    await chrome.runtime.sendMessage({ type: 'ping' });
+  } catch {
+    // Ignore ping errors
   }
 
-  return response as T;
+  // Small delay to allow service worker to initialize
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  // Try to send actual message
+  const result = await chrome.runtime.sendMessage(message);
+
+  if (result === undefined) {
+    throw new Error('Background did not respond');
+  }
+
+  return result as T;
 }
 
 function useCopyFlash() {

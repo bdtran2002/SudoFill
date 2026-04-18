@@ -95,3 +95,15 @@ package-lock.json
 *.seed
 .wxt/
 .output/
+
+# dependencies
+node_modules/
+
+# build output
+.output/
+.wxt/
+dist/
+
+# local env / misc
+*.log
+.DS_Store

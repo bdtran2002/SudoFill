@@ -88,11 +88,13 @@ function formatTimestamp(value: string): string {
 }
 
 async function sendRuntimeMessage<T>(message: unknown): Promise<T> {
+  console.log('[Popup] Sending message:', message);
   const response = await chrome.runtime.sendMessage(message);
 
   if (response === undefined) {
+    console.error('[Popup] No response from background');
     throw new Error(
-      'Background script did not respond. Open the extension background inspector and check errors.',
+      'Background script did not respond. Open chrome://extensions/ and check errors.',
     );
   }
 

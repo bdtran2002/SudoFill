@@ -427,6 +427,7 @@ export default defineBackground(() => {
   );
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    console.log('[Background] Received message:', message.type);
     void (async () => {
       try {
         if (message.type === 'saved:list') {

@@ -36,7 +36,6 @@ bun install
 
 ```bash
 bun run dev
-bun run dev:firefox
 ```
 
 3. Build the extension:
@@ -49,6 +48,7 @@ bun run build
 
 ## Useful Scripts
 
+- `bun run dev:firefox`: start run dev mode in FireFox.
 - `bun run dev`: start WXT dev mode.
 - `bun run build`: build the extension.
 - `bun run zip`: create a distributable zip.

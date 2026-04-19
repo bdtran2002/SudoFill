@@ -11,7 +11,7 @@ SudoFill is a browser extension for temporary email signup flows. It can create 
 - autofill profile generation for names, email, DOB, sex, and address fields with state-aware ZIP/city sampling
 - settings normalization and validation for autofill preferences
 - field matching for common labels, autocomplete tokens, camelCase/concatenated identifiers, and DOB variants
-- safer autofill targeting that skips readonly/hidden fields and reduces cross-form spills
+- safer autofill targeting that skips readonly/hidden fields and prefers a single relevant form
 - mailbox helper, Mail.tm client, state, error, link-extraction, and autofill test coverage
 
 Important current behavior:
@@ -19,6 +19,7 @@ Important current behavior:
 - phone fields are intentionally **not autofilled**
 - temp mailbox email is required before running popup autofill
 - generic DOB fields support multiple date formats, while split DOB fields are handled separately
+- autofill prefers a single relevant form instead of filling every visible field on the page
 
 ## Remaining Work
 

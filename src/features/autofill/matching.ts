@@ -33,7 +33,6 @@ function isSplitDobField(key: string) {
   return (
     hasAnyToken(key, ['bday day', 'birth day', 'dob day', 'day of birth']) ||
     (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob'])) ||
-    hasToken(key, 'birthday') ||
     hasAnyToken(key, ['bday month', 'birth month', 'dob month']) ||
     hasToken(key, 'birthmonth') ||
     hasAnyToken(key, ['bday year', 'birth year', 'dob year']) ||
@@ -109,11 +108,6 @@ export function resolveAutofillMatch(
 
   if (hasAnyToken(normalizedKey, ['email', 'e mail']) || hasToken(normalizedKey, 'emailaddress'))
     return { field: 'email', values: [profile.email] };
-  if (
-    hasAnyToken(normalizedKey, ['phone', 'mobile', 'tel']) ||
-    hasToken(normalizedKey, 'phonenumber')
-  )
-    return { field: 'phone', values: [profile.phone] };
 
   if (
     hasAnyToken(normalizedKey, [
@@ -169,7 +163,7 @@ export function resolveAutofillMatch(
   }
 
   if (
-    hasAnyToken(normalizedKey, ['dob', 'birth date', 'date of birth']) ||
+    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
     hasToken(normalizedKey, 'birthdate')
   ) {
     return { field: 'birthDateIso', values: dobValues(profile) };

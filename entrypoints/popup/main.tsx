@@ -215,6 +215,14 @@ function PopupApp() {
     setIsBusy(true);
 
     try {
+      if (!snapshot.address) {
+        setAutofillStatus({
+          tone: 'error',
+          message: 'Create a temp mailbox first, then run autofill.',
+        });
+        return;
+      }
+
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       if (!tab?.id) {

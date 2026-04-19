@@ -86,7 +86,7 @@ function OptionsApp() {
 
   return (
     <main className='min-h-screen bg-void px-5 py-6 font-body text-ink antialiased sm:px-6 sm:py-8'>
-      <div className='mx-auto flex w-full max-w-3xl flex-col'>
+      <div className='flex w-full flex-col'>
         <header className='animate-fade-in px-1 pb-4 sm:px-0'>
           <div className='flex items-baseline justify-between gap-4'>
             <div>

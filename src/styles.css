@@ -101,6 +101,7 @@ html.sidepanel body {
 html.sidepanel #root {
   max-width: 840px;
   margin: 0 auto;
+
 }
 
 html.popup body,

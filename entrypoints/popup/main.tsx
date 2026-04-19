@@ -175,7 +175,7 @@ function PopupApp() {
   }
 
   return (
-    <main className='min-h-screen bg-void font-body text-ink antialiased'>
+    <main className='min-h-screen overflow-hidden bg-void font-body text-ink antialiased'>
       <div className='mx-auto max-w-md'>
         {/* ── Header ─────────────────────────────────────────────── */}
         <header className='animate-fade-in px-5 pt-5 pb-4'>

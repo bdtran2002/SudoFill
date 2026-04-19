@@ -130,11 +130,7 @@ function isLikelyShortFirstNameField(key: string) {
   );
 }
 
-function isGuardrailedFirstNameLabel(key: string) {
-  return hasAnyToken(key, ['preferred', 'display', 'middle', 'card', 'account', 'screen']);
-}
-
-function isGuardrailedLastNameLabel(key: string) {
+function isGuardrailedNameLabel(key: string) {
   return hasAnyToken(key, ['preferred', 'display', 'middle', 'card', 'account', 'screen']);
 }
 
@@ -212,7 +208,7 @@ export function resolveAutofillMatch(
       (hasAnyToken(normalizedKey, ['given name', 'first name']) ||
         hasToken(normalizedKey, 'givenname') ||
         hasToken(normalizedKey, 'firstname'))) ||
-    (isLikelyShortFirstNameField(normalizedKey) && !isGuardrailedFirstNameLabel(normalizedKey))
+    (isLikelyShortFirstNameField(normalizedKey) && !isGuardrailedNameLabel(normalizedKey))
   ) {
     return { field: 'firstName', values: [profile.firstName] };
   }
@@ -222,7 +218,7 @@ export function resolveAutofillMatch(
       (hasAnyToken(normalizedKey, ['family name', 'last name', 'surname']) ||
         hasToken(normalizedKey, 'familyname') ||
         hasToken(normalizedKey, 'lastname'))) ||
-    (isLikelyShortLastNameField(normalizedKey) && !isGuardrailedLastNameLabel(normalizedKey))
+    (isLikelyShortLastNameField(normalizedKey) && !isGuardrailedNameLabel(normalizedKey))
   ) {
     return { field: 'lastName', values: [profile.lastName] };
   }
@@ -471,6 +467,8 @@ function resolveFuzzyFallback(key: string, profile: GeneratedProfile): AutofillF
   );
   if (directMatch) {
     switch (directMatch.field) {
+      case 'businessName':
+        return { field: 'businessName', values: [profile.businessName] };
       case 'firstName':
         return { field: 'firstName', values: [profile.firstName] };
       case 'lastName':
@@ -488,6 +486,8 @@ function resolveFuzzyFallback(key: string, profile: GeneratedProfile): AutofillF
   if (!result || result.score === undefined || result.score > 0.24) return null;
 
   switch (result.item.field) {
+    case 'businessName':
+      return { field: 'businessName', values: [profile.businessName] };
     case 'firstName':
       return { field: 'firstName', values: [profile.firstName] };
     case 'lastName':

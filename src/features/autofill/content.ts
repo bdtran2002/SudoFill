@@ -386,25 +386,30 @@ function hasPasswordField(elements: FillableElement[]) {
   );
 }
 
-function hasSubmitControl(root: HTMLElement | null) {
-  if (!root) return false;
+const SUBMIT_CONTROL_SELECTOR =
+  'button[type="submit"], input[type="submit"], input[type="button"], button:not([type]), button[type="button"]';
 
-  return Boolean(
-    root.querySelector(
-      'button[type="submit"], input[type="submit"], button:not([type]), button[type="button"]',
-    ),
-  );
+function getSubmitControls(scope: ParentNode | null) {
+  if (!scope) return [];
+
+  if (scope instanceof Element && scope.matches(SUBMIT_CONTROL_SELECTOR)) {
+    return [scope];
+  }
+
+  return [...scope.querySelectorAll(SUBMIT_CONTROL_SELECTOR)];
 }
 
-function getSubmitControlText(root: HTMLElement | null) {
+function hasSubmitControl(root: ParentNode | null) {
+  if (!root) return false;
+
+  return getSubmitControls(root).length > 0;
+}
+
+function getSubmitControlText(root: ParentNode | null) {
   if (!root) return '';
 
   return normalizeCueText(
-    [
-      ...root.querySelectorAll(
-        'button[type="submit"], input[type="submit"], input[type="button"], button:not([type]), button[type="button"]',
-      ),
-    ]
+    getSubmitControls(root)
       .map((control) =>
         control instanceof HTMLInputElement
           ? [control.value, control.getAttribute('aria-label') ?? ''].join(' ')
@@ -465,12 +470,41 @@ function isEmailFirstAuthFlow(
   profile: GeneratedProfile,
   doc: Document,
 ) {
-  if (!root) return false;
+  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
+
+  if (!root) {
+    if (elements.length !== 1) return false;
+
+    const submitScope =
+      getAssociatedForm(elements[0]) ??
+      elements[0]?.closest('fieldset, section, article, main, [role="form"], div') ??
+      doc;
+    const text =
+      submitScope instanceof HTMLElement ? getScopeText(submitScope) : getDocumentIntentText(doc);
+    const submitText = getSubmitControlText(submitScope);
+    const authContextText = [text, getDocumentIntentText(doc), submitText]
+      .filter(Boolean)
+      .join(' ');
+    const hasAuthStepCue =
+      hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) ||
+      hasCue(authContextText, EMAIL_FIRST_AUTH_CONTEXT_CUES);
+
+    return (
+      !hasPasswordField(elements) &&
+      hasSubmitControl(submitScope) &&
+      matchingFieldCount === 1 &&
+      matchedFields.size === 1 &&
+      matchedFields.has('email') &&
+      hasCue(authContextText, LOGIN_CUES) &&
+      hasAuthStepCue &&
+      !hasCue(authContextText, NON_SIGNUP_ACCOUNT_CUES) &&
+      !hasCue(authContextText, LOW_INTENT_CUES)
+    );
+  }
 
   const text = getScopeText(root);
   const authContextText = [text, getDocumentIntentText(doc)].filter(Boolean).join(' ');
   const submitText = getSubmitControlText(root);
-  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
   const hasAuthStepCue =
     hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) || hasCue(text, EMAIL_FIRST_AUTH_CONTEXT_CUES);
 

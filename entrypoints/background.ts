@@ -86,12 +86,12 @@ function registerChromeSidePanelActionHandler() {
 
   chrome.action.onClicked.addListener((tab) => {
     if (tab.id !== undefined) {
-      void chrome.sidePanel.open({ tabId: tab.id });
+      void chrome.sidePanel.open({ tabId: tab.id }).catch(() => undefined);
       return;
     }
 
     if (tab.windowId !== undefined) {
-      void chrome.sidePanel.open({ windowId: tab.windowId });
+      void chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => undefined);
     }
   });
 }

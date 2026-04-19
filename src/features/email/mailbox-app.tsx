@@ -92,7 +92,7 @@ function MessagePanel({
 }) {
   if (!snapshot.selectedMessage) {
     return (
-      <section className='flex min-h-32 animate-fade-in items-center justify-center border-t border-border-dim p-6 text-center'>
+      <section className='flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center'>
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
           <span className='text-sm'>Select a message to read it</span>
@@ -104,7 +104,7 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section className='animate-fade-in flex flex-col border-t border-border-dim p-5'>
+    <section className='animate-fade-in flex flex-col border-t border-border-dim px-4 py-4'>
       <div>
         <h2 className='font-brand break-words text-lg font-semibold leading-snug text-ink'>
           {message.subject}
@@ -275,7 +275,7 @@ export function MailboxApp() {
   }
 
   return (
-    <main className='flex h-screen w-full bg-void font-body text-ink antialiased'>
+    <main className='flex h-full min-h-0 w-full bg-void font-body text-ink antialiased'>
       <div className='flex min-h-0 w-full flex-1 flex-col overflow-y-auto'>
         <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
@@ -296,12 +296,12 @@ export function MailboxApp() {
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
                   Your address
                 </p>
-                <div className='mt-2 flex items-center gap-2'>
+                <div className='mt-2 flex flex-col gap-2 sm:flex-row sm:items-center'>
                   <p className='min-w-0 flex-1 truncate text-sm font-semibold text-accent'>
                     {snapshot.address}
                   </p>
                   <button
-                    className='flex shrink-0 cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                    className='flex w-full cursor-pointer items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0'
                     disabled={isBusy}
                     onClick={() => void copyAddress()}
                     type='button'
@@ -311,9 +311,9 @@ export function MailboxApp() {
                   </button>
                 </div>
 
-                <div className='mt-3 flex flex-wrap gap-2'>
+                <div className='mt-3 flex flex-col gap-2 sm:flex-row'>
                   <button
-                    className='flex min-w-[140px] flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                    className='flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
@@ -322,7 +322,7 @@ export function MailboxApp() {
                     Refresh
                   </button>
                   <button
-                    className='flex min-w-[120px] flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                    className='flex w-full cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:discard' })}
                     type='button'
@@ -383,9 +383,9 @@ export function MailboxApp() {
                 <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
               </div>
 
-              <div className='mt-4 flex flex-wrap gap-2'>
+              <div className='mt-4 flex flex-col gap-2 sm:flex-row'>
                 <button
-                  className='flex min-w-[160px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1'
                   disabled={isBusy}
                   onClick={() => void autofillCurrentPage()}
                   type='button'
@@ -394,7 +394,7 @@ export function MailboxApp() {
                   Autofill page
                 </button>
                 <button
-                  className='flex min-w-[120px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
                   disabled={isBusy}
                   onClick={() => void openAutofillSettings()}
                   type='button'
@@ -451,7 +451,7 @@ export function MailboxApp() {
                     {snapshot.messages.map((message) => (
                       <button
                         key={message.id}
-                        className={`group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors ${
+                        className={`group flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors ${
                           snapshot.selectedMessageId === message.id
                             ? 'bg-accent-bg'
                             : 'hover:bg-surface-hover'
@@ -492,12 +492,10 @@ export function MailboxApp() {
                       </button>
                     ))}
                   </div>
-                  {snapshot.selectedMessage && (
-                    <MessagePanel
-                      onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
-                      snapshot={snapshot}
-                    />
-                  )}
+                  <MessagePanel
+                    onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+                    snapshot={snapshot}
+                  />
                 </div>
               ) : (
                 <div className='flex flex-col items-center gap-2 px-4 py-8 text-center text-ink-muted'>
@@ -506,17 +504,6 @@ export function MailboxApp() {
                   <p className='text-xs'>Keep the mailbox active and refresh after signing up.</p>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {snapshot.address && !snapshot.selectedMessage && snapshot.messages.length > 0 && (
-          <div className='animate-fade-in px-4 pb-5 sm:px-5' style={{ animationDelay: '180ms' }}>
-            <div className='flex items-center justify-center rounded-xl border border-dashed border-border p-6 text-ink-muted'>
-              <div className='flex flex-col items-center gap-2 text-center'>
-                <Mail className='h-5 w-5 opacity-30' />
-                <p className='text-sm'>Select a message above</p>
-              </div>
             </div>
           </div>
         )}

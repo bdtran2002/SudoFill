@@ -56,6 +56,7 @@ html,
 body,
 #root {
   width: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -64,8 +65,10 @@ body {
 
 /* popup sizing */
 html.popup {
-  width: min(100vw, 400px);
-  height: 100%;
+  width: 100%;
+  max-width: 400px;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
 }
 
@@ -88,7 +91,7 @@ html.sidepanel #root {
 
 html.popup body,
 html.popup #root {
-  height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 

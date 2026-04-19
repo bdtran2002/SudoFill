@@ -545,9 +545,10 @@ fetch('https://your-burner-api.com/create', {
               btn.innerHTML = original;
             }, 1800);
           })
-          .catch(() => {
-            const original = document.querySelector('button[onclick="copyEmail()"]').innerHTML;
+          .catch((error) => {
+            console.error('Clipboard copy failed:', error);
             const btn = document.querySelector('button[onclick="copyEmail()"]');
+            const original = btn.innerHTML;
             btn.innerHTML = `❌ FAILED`;
             setTimeout(() => {
               btn.innerHTML = original;
@@ -556,20 +557,27 @@ fetch('https://your-burner-api.com/create', {
       }
 
       function showFullList(type) {
-        if (!Object.prototype.hasOwnProperty.call(wordLists, type)) {
-          console.error('Invalid wordlist type:', type);
-          return;
-        }
+        // Validate that the requested type exists in wordLists
+        let list;
+        let title;
 
-        const list = wordLists[type];
-        const title =
-          type === 'firstNames'
-            ? 'First Names'
-            : type === 'lastNames'
-              ? 'Last Names'
-              : type === 'adjectives'
-                ? 'Adjectives'
-                : 'Nouns';
+        if (Object.prototype.hasOwnProperty.call(wordLists, type)) {
+          list = wordLists[type];
+          title =
+            type === 'firstNames'
+              ? 'First Names'
+              : type === 'lastNames'
+                ? 'Last Names'
+                : type === 'adjectives'
+                  ? 'Adjectives'
+                  : type === 'nouns'
+                    ? 'Nouns'
+                    : type.charAt(0).toUpperCase() + type.slice(1);
+        } else {
+          // Fallback for unknown types
+          list = [];
+          title = 'Unknown List';
+        }
 
         document.getElementById('modalTitle').textContent = `${title} (${list.length} total)`;
         document.getElementById('modalContent').innerHTML = `

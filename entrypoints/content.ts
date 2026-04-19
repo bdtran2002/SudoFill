@@ -56,17 +56,19 @@ export default defineContentScript({
           return true;
         }
 
-        try {
-          sendResponse(fillProfile(message.profile));
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            filledCount: 0,
-            fields: [],
-            error: error instanceof Error ? error.message : 'Autofill failed on this page.',
-            reason: 'runtime',
-          });
-        }
+        void (async () => {
+          try {
+            sendResponse(await fillProfile(message.profile));
+          } catch (error) {
+            sendResponse({
+              ok: false,
+              filledCount: 0,
+              fields: [],
+              error: error instanceof Error ? error.message : 'Autofill failed on this page.',
+              reason: 'runtime',
+            });
+          }
+        })();
         return true;
       },
     );

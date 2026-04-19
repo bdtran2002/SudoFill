@@ -1,34 +1,29 @@
 import { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import {
+  ArrowRight,
   Copy,
   ExternalLink,
-  RefreshCw,
-  Trash2,
-  Plus,
   Mail,
-  ArrowRight,
-  WandSparkles,
+  Plus,
+  RefreshCw,
   SlidersHorizontal,
+  Trash2,
+  WandSparkles,
 } from 'lucide-react';
 
-import '../../src/styles.css';
 import {
   getAutofillErrorMessage,
-  getInvalidAutofillResponseMessage,
   getAutofillResponseMessage,
+  getInvalidAutofillResponseMessage,
   isAutofillContentResponse,
   normalizeAutofillTabError,
-} from '../../src/features/autofill/popup-errors';
-import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
-import type { AutofillContentResponse } from '../../src/features/autofill/types';
-import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
-import type {
-  MailboxCommand,
-  MailboxDiagnostics,
-  MailboxResponse,
-  MailboxSnapshot,
-} from '../../src/features/email/types';
+} from '../autofill/popup-errors';
+import { generateAutofillProfile } from '../autofill/profile';
+import { getStoredAutofillSettings } from '../autofill/settings';
+import type { AutofillContentResponse } from '../autofill/types';
+import { EMPTY_MAILBOX_SNAPSHOT } from './state';
+import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import { callWebExtensionApi } from '../../lib/webext-async';
 
 function toTransportFailureResponse(
   error: unknown,
@@ -65,7 +60,11 @@ function formatTimestamp(value: string) {
 }
 
 async function sendMailboxCommand(command: MailboxCommand) {
-  return (await chrome.runtime.sendMessage(command)) as MailboxResponse;
+  return (await callWebExtensionApi<MailboxResponse>(
+    'runtime',
+    'sendMessage',
+    command,
+  )) as MailboxResponse;
 }
 
 function useCopiedFlash() {
@@ -83,8 +82,6 @@ type AutofillStatus =
   | { tone: 'idle'; message: string }
   | { tone: 'success'; message: string }
   | { tone: 'error'; message: string };
-
-/* ── Message detail ────────────────────────────────────────────────── */
 
 function MessagePanel({
   snapshot,
@@ -107,7 +104,7 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section className='animate-fade-in flex max-h-60 flex-col border-t border-border-dim p-5'>
+    <section className='animate-fade-in flex flex-col border-t border-border-dim p-5'>
       <div>
         <h2 className='font-brand break-words text-lg font-semibold leading-snug text-ink'>
           {message.subject}
@@ -136,7 +133,7 @@ function MessagePanel({
         </div>
       )}
 
-      <div className='mt-4 min-h-0 overflow-y-auto text-sm leading-relaxed text-ink-secondary'>
+      <div className='mt-4 overflow-x-hidden text-sm leading-relaxed text-ink-secondary'>
         {message.text ? (
           <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
         ) : message.html ? (
@@ -151,9 +148,7 @@ function MessagePanel({
   );
 }
 
-/* ── Main popup ────────────────────────────────────────────────────── */
-
-function PopupApp() {
+export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
@@ -211,7 +206,10 @@ function PopupApp() {
         return;
       }
 
-      [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+        active: true,
+        currentWindow: true,
+      });
 
       const tabError = normalizeAutofillTabError(activeTab);
 
@@ -234,9 +232,8 @@ function PopupApp() {
       }
 
       const settings = await getStoredAutofillSettings();
-      const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const rawResponse = await chrome.tabs.sendMessage(tabId, {
+      const rawResponse = await callWebExtensionApi<unknown>('tabs', 'sendMessage', tabId, {
         type: 'autofill:fill-profile',
         profile,
       });
@@ -274,13 +271,12 @@ function PopupApp() {
   }
 
   async function openAutofillSettings() {
-    await chrome.runtime.openOptionsPage();
+    await callWebExtensionApi('runtime', 'openOptionsPage');
   }
 
   return (
-    <main className='h-screen overflow-hidden bg-void font-body text-ink antialiased'>
-      <div className='mx-auto flex h-full max-w-md flex-col'>
-        {/* ── Header ─────────────────────────────────────────────── */}
+    <main className='min-h-screen bg-void font-body text-ink antialiased'>
+      <div className='flex min-h-screen w-full flex-col'>
         <header className='animate-fade-in px-5 pt-5 pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>
@@ -293,7 +289,6 @@ function PopupApp() {
           </div>
         </header>
 
-        {/* ── Address card ───────────────────────────────────────── */}
         <div className='animate-fade-in px-5 pb-4' style={{ animationDelay: '60ms' }}>
           <div className='overflow-hidden rounded-xl border border-border bg-surface'>
             {snapshot.address ? (
@@ -316,9 +311,9 @@ function PopupApp() {
                   </button>
                 </div>
 
-                <div className='mt-3 flex gap-2'>
+                <div className='mt-3 flex flex-wrap gap-2'>
                   <button
-                    className='flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                    className='flex min-w-[140px] flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
@@ -327,7 +322,7 @@ function PopupApp() {
                     Refresh
                   </button>
                   <button
-                    className='flex cursor-pointer items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                    className='flex min-w-[120px] flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:discard' })}
                     type='button'
@@ -354,7 +349,6 @@ function PopupApp() {
               </div>
             )}
 
-            {/* status strip */}
             <div className='flex items-center justify-between border-t border-border-dim bg-surface-raised px-4 py-2 text-[10px] font-medium text-ink-muted'>
               <span className='uppercase tracking-widest'>
                 {snapshot.status === 'idle'
@@ -389,9 +383,9 @@ function PopupApp() {
                 <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
               </div>
 
-              <div className='mt-4 flex gap-2'>
+              <div className='mt-4 flex flex-wrap gap-2'>
                 <button
-                  className='flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                  className='flex min-w-[160px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
                   disabled={isBusy}
                   onClick={() => void autofillCurrentPage()}
                   type='button'
@@ -400,7 +394,7 @@ function PopupApp() {
                   Autofill page
                 </button>
                 <button
-                  className='flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex min-w-[120px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => void openAutofillSettings()}
                   type='button'
@@ -427,7 +421,6 @@ function PopupApp() {
           </div>
         </div>
 
-        {/* ── Error ──────────────────────────────────────────────── */}
         {snapshot.error && (
           <div className='animate-fade-in px-5 pb-4'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
@@ -443,13 +436,9 @@ function PopupApp() {
           </div>
         )}
 
-        {/* ── Inbox ──────────────────────────────────────────────── */}
         {snapshot.address && (
-          <div
-            className='flex min-h-0 flex-1 animate-fade-in px-5 pb-5'
-            style={{ animationDelay: '120ms' }}
-          >
-            <div className='flex min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-surface'>
+          <div className='animate-fade-in px-5 pb-5' style={{ animationDelay: '120ms' }}>
+            <div className='w-full overflow-hidden rounded-xl border border-border bg-surface'>
               <div className='border-b border-border-dim px-4 py-3'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
                   Inbox
@@ -457,8 +446,8 @@ function PopupApp() {
               </div>
 
               {snapshot.messages.length > 0 ? (
-                <div className='flex min-h-0 flex-1 flex-col'>
-                  <div className='min-h-0 flex-1 divide-y divide-border-dim overflow-y-auto'>
+                <div>
+                  <div className='divide-y divide-border-dim'>
                     {snapshot.messages.map((message) => (
                       <button
                         key={message.id}
@@ -535,5 +524,3 @@ function PopupApp() {
     </main>
   );
 }
-
-createRoot(document.getElementById('root')!).render(<PopupApp />);

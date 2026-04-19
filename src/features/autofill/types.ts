@@ -24,6 +24,8 @@ export interface GeneratedProfile {
   city: string;
   state: string;
   stateName: string;
+  country: string;
+  countryName: string;
   postalCode: string;
 }
 

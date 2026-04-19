@@ -54,9 +54,26 @@
 
 /* popup sizing */
 html.popup {
-  width: 400px;
+  width: 360px;
   height: 100%;
   overflow: hidden;
+}
+
+html.sidepanel {
+  min-height: 100%;
+}
+
+html.popup body,
+html.popup #root,
+html.sidepanel body,
+html.sidepanel #root {
+  min-height: 100%;
+}
+
+html.sidepanel body,
+html.sidepanel #root {
+  width: min(100%, 360px);
+  margin: 0 auto;
 }
 
 html.popup body,

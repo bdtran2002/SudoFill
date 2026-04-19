@@ -2,9 +2,13 @@ import type { AutofillSettings } from './types';
 
 export const AUTOFILL_SETTINGS_STORAGE_KEY = 'sudofill:autofill-settings';
 
+export const DEFAULT_AUTOFILL_STATE = 'CA';
+export const DEFAULT_AUTOFILL_COUNTRY_CODE = 'US';
+export const DEFAULT_AUTOFILL_COUNTRY_NAME = 'United States';
+
 export const DEFAULT_AUTOFILL_SETTINGS: AutofillSettings = {
   generateAddress: true,
-  state: '',
+  state: DEFAULT_AUTOFILL_STATE,
   sex: '',
   ageMin: '',
   ageMax: '',

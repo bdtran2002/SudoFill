@@ -50,6 +50,7 @@ const FIELD_WEIGHTS: Partial<Record<keyof GeneratedProfile, number>> = {
   addressLine1: 2,
   addressLine2: 1,
   city: 2,
+  country: 2,
   state: 2,
   postalCode: 2,
 };
@@ -91,6 +92,89 @@ function getFieldsetLegendText(element: Element) {
   return fieldset?.querySelector('legend')?.textContent?.trim() ?? '';
 }
 
+function normalizeLooseText(text: string | null | undefined) {
+  return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function isLikelyFieldLabelText(text: string) {
+  const normalized = normalizeLooseText(text).toLowerCase();
+
+  if (!normalized || normalized.length > 80) return false;
+
+  return /(first|last|full|given|family|sur|mail|email|phone|mobile|birth|dob|date|day|month|year|gender|sex|address|city|state|province|country|zip|postal|name)/.test(
+    normalized,
+  );
+}
+
+function getStandaloneText(node: Node | null | undefined) {
+  if (!node) return '';
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    return normalizeLooseText(node.textContent);
+  }
+
+  if (!(node instanceof Element)) return '';
+  if (node.matches('input, select, textarea, button')) return '';
+  if (node.querySelector('input, select, textarea, button')) return '';
+
+  return normalizeLooseText(node.textContent);
+}
+
+function collectNearbyLabelText(container: Element | null, blockedNode: Node | null) {
+  if (!container) return '';
+
+  if (container.querySelectorAll('input, select, textarea').length > 1) {
+    return '';
+  }
+
+  const parts = [...container.childNodes]
+    .filter((node) => node !== blockedNode)
+    .map((node) => getStandaloneText(node))
+    .filter((text) => isLikelyFieldLabelText(text));
+
+  return [...new Set(parts)].join(' ');
+}
+
+function getNearbyLabelText(element: FillableElement) {
+  const parent = element.parentElement;
+  const parts = [
+    getStandaloneText(element.previousSibling as Node | null),
+    getStandaloneText(element.previousElementSibling),
+    collectNearbyLabelText(parent, element),
+    collectNearbyLabelText(parent?.parentElement ?? null, parent),
+    getStandaloneText(parent?.previousElementSibling ?? null),
+  ].filter((text) => isLikelyFieldLabelText(text));
+
+  return [...new Set(parts)].join(' ');
+}
+
+function getNearbyDobGroupingText(element: FillableElement) {
+  const nameLike = [
+    element instanceof HTMLInputElement ? element.name : '',
+    element.id,
+    element.getAttribute('aria-label') ?? '',
+    element.getAttribute('autocomplete') ?? '',
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  if (!/(month|day|year)/.test(nameLike)) return '';
+
+  const container = element.closest('div, li, section, article, fieldset');
+  if (!container) return '';
+
+  const text = [
+    container.getAttribute('aria-label') ?? '',
+    getReferencedText(container, 'aria-labelledby'),
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  return /birth|dob|date of birth|birthday/.test(text) ? text : '';
+}
+
 function getAssociatedLabelText(element: FillableElement) {
   return element.labels
     ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
@@ -105,6 +189,8 @@ export function buildFieldKey(element: FillableElement) {
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const describedByText = getReferencedText(element, 'aria-describedby');
   const legendText = getFieldsetLegendText(element);
+  const nearbyLabelText = getNearbyLabelText(element);
+  const dobGroupingText = getNearbyDobGroupingText(element);
 
   return [
     element.name,
@@ -115,7 +201,9 @@ export function buildFieldKey(element: FillableElement) {
     describedByText,
     placeholder,
     getAssociatedLabelText(element),
+    nearbyLabelText,
     legendText,
+    dobGroupingText,
   ]
     .join(' ')
     .trim()
@@ -151,11 +239,21 @@ function getElementContext(element: FillableElement) {
       : '';
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const legendText = getFieldsetLegendText(element);
+  const nearbyLabelText = getNearbyLabelText(element);
+  const dobGroupingText = getNearbyDobGroupingText(element);
 
   return {
     inputType: element instanceof HTMLInputElement ? element.type : undefined,
     placeholder,
-    labelText: [getAssociatedLabelText(element), labelledByText, legendText].join(' ').trim(),
+    labelText: [
+      getAssociatedLabelText(element),
+      nearbyLabelText,
+      labelledByText,
+      legendText,
+      dobGroupingText,
+    ]
+      .join(' ')
+      .trim(),
     keyText: buildFieldKey(element),
   };
 }
@@ -413,48 +511,83 @@ function selectTargetScope(
   return scoredScopes[0]?.root ?? null;
 }
 
-export function fillProfile(
+async function yieldToNextTick() {
+  await new Promise<void>((resolve) => setTimeout(resolve, 100));
+}
+
+export async function fillProfile(
   profile: GeneratedProfile,
   doc: Document = document,
-): AutofillContentResponse {
-  const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
-  const visibleElements = elements.filter(
-    (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
+): Promise<AutofillContentResponse> {
+  const targetRoot = selectTargetScope(
+    [...doc.querySelectorAll('input, select, textarea')]
+      .filter(isFillableElement)
+      .filter((element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element)),
+    profile,
+    doc,
   );
-  const targetRoot = selectTargetScope(visibleElements, profile, doc);
-  const prioritizedElements = visibleElements.filter((element) => {
-    if (targetRoot) {
-      return element.form === targetRoot || targetRoot.contains(element);
-    }
-
-    return element.form === null && getScopeRoot(element) === null;
-  });
 
   const filledFields = new Set<string>();
   let filledCount = 0;
+  // Bounded rescans catch dependent selects like country -> state without turning
+  // autofill into an open-ended DOM watcher.
+  const maxPasses = 6;
+  let shouldKeepRescanning = false;
 
-  for (const element of prioritizedElements) {
-    if (element.disabled) continue;
-    if (
-      element instanceof HTMLInputElement &&
-      ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
-    ) {
-      continue;
-    }
-    if (hasExistingUserValue(element)) continue;
-
-    const match = resolveAutofillMatch(buildFieldKey(element), profile);
-    if (!match) continue;
-    if (!match.values.some(Boolean)) continue;
-
-    const didFill = assignValue(
-      element,
-      prioritizeValuesForElement(element, match.field, match.values.filter(Boolean)),
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
+    const visibleElements = elements.filter(
+      (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
     );
-    if (!didFill) continue;
 
-    filledCount += 1;
-    filledFields.add(match.field);
+    const prioritizedElements = visibleElements.filter((element) => {
+      if (targetRoot) {
+        return element.form === targetRoot || targetRoot.contains(element);
+      }
+
+      return element.form === null && getScopeRoot(element) === null;
+    });
+
+    let didFillAny = false;
+    let didFillSelect = false;
+
+    for (const element of prioritizedElements) {
+      if (element.disabled) continue;
+      if (
+        element instanceof HTMLInputElement &&
+        ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
+      ) {
+        continue;
+      }
+      if (hasExistingUserValue(element)) continue;
+
+      const match = resolveAutofillMatch(buildFieldKey(element), profile);
+      if (!match) continue;
+      if (!match.values.some(Boolean)) continue;
+
+      const didFill = assignValue(
+        element,
+        prioritizeValuesForElement(element, match.field, match.values.filter(Boolean)),
+      );
+      if (!didFill) continue;
+
+      filledCount += 1;
+      filledFields.add(match.field);
+      didFillAny = true;
+      if (element instanceof HTMLSelectElement) {
+        didFillSelect = true;
+      }
+    }
+
+    shouldKeepRescanning ||= didFillSelect;
+
+    if (!didFillAny && !shouldKeepRescanning) break;
+
+    if (pass < maxPasses - 1) {
+      if (didFillSelect || shouldKeepRescanning) {
+        await yieldToNextTick();
+      }
+    }
   }
 
   return {

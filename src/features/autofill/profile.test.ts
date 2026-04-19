@@ -45,7 +45,18 @@ describe('generateAutofillProfile', () => {
     expect(profile.city).toBe('');
     expect(profile.state).toBe('');
     expect(profile.stateName).toBe('');
+    expect(profile.country).toBe('');
+    expect(profile.countryName).toBe('');
     expect(profile.postalCode).toBe('');
+  });
+
+  it('defaults generated addresses to California in the United States', () => {
+    const profile = generateAutofillProfile(DEFAULT_AUTOFILL_SETTINGS);
+
+    expect(profile.state).toBe('CA');
+    expect(profile.stateName).toBe('California');
+    expect(profile.country).toBe('US');
+    expect(profile.countryName).toBe('United States');
   });
 
   it('uses the selected state when constraining postal codes', () => {

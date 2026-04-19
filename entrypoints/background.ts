@@ -44,6 +44,9 @@ type ActionLikeApi = {
 type FirefoxBrowserApi = {
   action?: ActionLikeApi;
   browserAction?: ActionLikeApi;
+  sidebarAction?: {
+    open?: () => Promise<void>;
+  };
 };
 
 function getFirefoxBrowserApi(): FirefoxBrowserApi | undefined {
@@ -76,6 +79,37 @@ function configureSidePanelActionBehavior() {
 
   void chrome.sidePanel.setPanelBehavior({
     openPanelOnActionClick: true,
+  });
+}
+
+function openExtensionPane(tab: chrome.tabs.Tab) {
+  if (chrome.sidePanel?.open) {
+    if (tab.windowId !== undefined) {
+      void chrome.sidePanel.open({ windowId: tab.windowId });
+      return;
+    }
+
+    if (tab.id !== undefined) {
+      void chrome.sidePanel.open({ tabId: tab.id });
+      return;
+    }
+  }
+
+  const browserApi = getFirefoxBrowserApi();
+  if (browserApi?.sidebarAction?.open) {
+    void browserApi.sidebarAction.open();
+  }
+}
+
+function registerActionClickBehavior() {
+  const actionApi = getActionApi();
+
+  if (!actionApi?.onClicked) {
+    return;
+  }
+
+  actionApi.onClicked.addListener((tab) => {
+    openExtensionPane(tab);
   });
 }
 
@@ -370,6 +404,7 @@ function handleCommandError(error: unknown, command: MailboxCommand): Promise<Ma
 
 export default defineBackground(() => {
   configureSidePanelActionBehavior();
+  registerActionClickBehavior();
 
   void restoreMailboxFromSessionStorage().orElse((error) =>
     updateSnapshot({

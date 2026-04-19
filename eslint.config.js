@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['.output/**', '.wxt/**', 'dist/**', 'node_modules/**'],
+    ignores: ['.output/**', '.wxt/**', 'dist/**', 'node_modules/**', 'firefox-addon/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -8,6 +8,8 @@ SudoFill helps you get through sign-up forms faster.
 
 It gives you a temporary email address, fills common fields for you, and lets you check verification emails without bouncing between tabs.
 
+If you download this branch as a ZIP and want the ready-to-load Firefox extension files, use the `firefox-addon/` folder inside the archive. That folder contains the built `manifest.json`.
+
 SudoFill connects to Mail.tm over HTTPS to create disposable inboxes and read incoming verification emails. Chrome uses a side panel; Firefox uses a toolbar popup for the same flow. Autofill runs on standard HTTPS pages, and page-fill data stays in the browser unless you choose to submit the form yourself.
 
 ## What it does

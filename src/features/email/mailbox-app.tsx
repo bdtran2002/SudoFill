@@ -86,13 +86,19 @@ type AutofillStatus =
 function MessagePanel({
   snapshot,
   onOpenLink,
+  isSidepanel,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
+  isSidepanel: boolean;
 }) {
   if (!snapshot.selectedMessage) {
     return (
-      <section className='flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center'>
+      <section
+        className={`flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center ${
+          isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
+        }`}
+      >
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
           <span className='text-sm'>Select a message to read it</span>
@@ -104,7 +110,11 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section className='animate-fade-in flex flex-col border-t border-border-dim px-4 py-4'>
+    <section
+      className={`animate-fade-in flex flex-col border-t border-border-dim px-4 py-4 ${
+        isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
+      }`}
+    >
       <div>
         <h2 className='font-brand break-words text-lg font-semibold leading-snug text-ink'>
           {message.subject}
@@ -156,6 +166,7 @@ export function MailboxApp() {
     message: 'Generate a profile, then fill the page you already have open.',
   });
   const { copied, flash } = useCopiedFlash();
+  const isSidepanel = document.documentElement.classList.contains('sidepanel');
 
   useEffect(() => {
     let disposed = false;
@@ -275,7 +286,13 @@ export function MailboxApp() {
   }
 
   return (
-    <main className='flex h-full min-h-0 w-full bg-void font-body text-ink antialiased'>
+    <main
+      className={`flex h-full min-h-0 w-full font-body text-ink antialiased ${
+        isSidepanel
+          ? 'overflow-hidden rounded-[28px] border border-border/80 bg-void/92 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm'
+          : 'bg-void'
+      }`}
+    >
       <div className='flex min-h-0 w-full flex-1 flex-col overflow-y-auto'>
         <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
@@ -287,6 +304,12 @@ export function MailboxApp() {
               </span>
             )}
           </div>
+          {isSidepanel && (
+            <p className='mt-2 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
+              Generate a temporary inbox, autofill signup forms, and review verification links
+              without leaving the page.
+            </p>
+          )}
         </header>
 
         <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '60ms' }}>
@@ -446,7 +469,11 @@ export function MailboxApp() {
               </div>
 
               {snapshot.messages.length > 0 ? (
-                <div>
+                <div
+                  className={
+                    isSidepanel ? 'md:grid md:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]' : ''
+                  }
+                >
                   <div className='divide-y divide-border-dim'>
                     {snapshot.messages.map((message) => (
                       <button
@@ -493,6 +520,7 @@ export function MailboxApp() {
                     ))}
                   </div>
                   <MessagePanel
+                    isSidepanel={isSidepanel}
                     onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
                     snapshot={snapshot}
                   />

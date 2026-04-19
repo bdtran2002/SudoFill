@@ -1,6 +1,7 @@
 import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 
 import {
+  getMailboxErrorType,
   toMailboxErrorMessage,
   toUnexpectedMailboxError,
   type MailboxError,
@@ -12,9 +13,11 @@ import {
   listMailTmMessages,
 } from '../src/features/email/mail-tm';
 import { EMPTY_MAILBOX_SNAPSHOT, toMailboxSnapshot } from '../src/features/email/state';
+import { createCommandHandler } from '../src/features/email/command-router';
 import type {
   ActiveMailboxSession,
   MailboxCommand,
+  MailboxDiagnostics,
   MailboxResponse,
   MailboxSnapshot,
 } from '../src/features/email/types';
@@ -259,49 +262,51 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
   });
 }
 
-function successResponse(): MailboxResponse {
-  return { ok: true, snapshot: currentSnapshot };
-}
-
-function matchCommandResult<T>(result: ResultAsync<T, MailboxError>) {
-  return result.match(successResponse, handleCommandError);
-}
-
-async function handleCommand(command: MailboxCommand): Promise<MailboxResponse> {
-  switch (command.type) {
-    case 'mailbox:get-state':
-      return successResponse();
-    case 'mailbox:create':
-      return matchCommandResult(createMailbox());
-    case 'mailbox:refresh':
-      return matchCommandResult(fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'));
-    case 'mailbox:discard':
-      return matchCommandResult(discardMailbox());
-    case 'mailbox:open-message':
-      return matchCommandResult(openMessage(command.messageId));
-    case 'mailbox:open-link':
-      return matchCommandResult(
-        fromBrowserPromise(chrome.tabs.create({ url: command.url }), 'Failed to open mailbox link'),
-      );
-    default:
-      return { ok: false, error: 'Unknown command', snapshot: currentSnapshot };
-  }
-}
-
-function handleCommandError(error: MailboxError): Promise<MailboxResponse> {
+function createMailboxResponseError(
+  error: MailboxError,
+  diagnostics: MailboxDiagnostics = {},
+): Promise<MailboxResponse> {
   const message = toMailboxErrorMessage(error);
+  const nextDiagnostics: MailboxDiagnostics = {
+    ...diagnostics,
+    errorType: getMailboxErrorType(error),
+  };
   const snapshot = toMailboxSnapshot(activeSession, {
     error: message,
+    diagnostics: nextDiagnostics,
     status: activeSession ? 'active' : 'error',
   });
 
   return updateSnapshot(snapshot)
     .orElse(() => okAsync(undefined))
-    .map(() => ({ ok: false as const, error: message, snapshot }))
+    .map(() => ({ ok: false as const, error: message, snapshot, diagnostics: nextDiagnostics }))
     .match(
       (response) => response,
-      () => ({ ok: false as const, error: message, snapshot }),
+      () => ({ ok: false as const, error: message, snapshot, diagnostics: nextDiagnostics }),
     );
+}
+
+const handleCommand = createCommandHandler({
+  getSnapshot: () => currentSnapshot,
+  createMailbox,
+  refreshMailbox: () => fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'),
+  discardMailbox,
+  openMessage,
+  openLink: (url) =>
+    fromBrowserPromise(chrome.tabs.create({ url }), 'Failed to open mailbox link').map(
+      () => undefined,
+    ),
+  onError: createMailboxResponseError,
+});
+
+function handleCommandError(error: unknown, command: MailboxCommand): Promise<MailboxResponse> {
+  return createMailboxResponseError(
+    toUnexpectedMailboxError(error, 'Mailbox command failed before responding'),
+    {
+      command: command.type,
+      phase: 'handleCommand',
+    },
+  );
 }
 
 export default defineBackground(() => {
@@ -315,7 +320,11 @@ export default defineBackground(() => {
 
   chrome.runtime.onMessage.addListener(
     (message: MailboxCommand, _sender, sendResponse: (response: MailboxResponse) => void) => {
-      void handleCommand(message).then(sendResponse);
+      void handleCommand(message)
+        .then(sendResponse)
+        .catch((error) => {
+          void handleCommandError(error, message).then(sendResponse);
+        });
       return true;
     },
   );

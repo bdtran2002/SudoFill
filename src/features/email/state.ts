@@ -9,6 +9,7 @@ export const EMPTY_MAILBOX_SNAPSHOT: MailboxSnapshot = {
   selectedMessage: null,
   lastCheckedAt: null,
   error: null,
+  diagnostics: null,
 };
 
 export function toMailboxSnapshot(
@@ -31,6 +32,7 @@ export function toMailboxSnapshot(
     selectedMessage: session.selectedMessage,
     lastCheckedAt: session.lastCheckedAt,
     error: null,
+    diagnostics: null,
     ...overrides,
   };
 }

@@ -22,6 +22,12 @@ export interface MailboxMessageDetail extends MailboxMessageSummary {
   links: MailboxLink[];
 }
 
+export interface MailboxDiagnostics {
+  command?: MailboxCommand['type'];
+  phase?: string;
+  errorType?: string;
+}
+
 export interface MailboxSnapshot {
   status: MailboxStatus;
   address: string | null;
@@ -31,6 +37,7 @@ export interface MailboxSnapshot {
   selectedMessage: MailboxMessageDetail | null;
   lastCheckedAt: string | null;
   error: string | null;
+  diagnostics: MailboxDiagnostics | null;
 }
 
 export interface ActiveMailboxSession {
@@ -57,4 +64,4 @@ export type MailboxCommand =
 
 export type MailboxResponse =
   | { ok: true; snapshot: MailboxSnapshot }
-  | { ok: false; error: string; snapshot: MailboxSnapshot };
+  | { ok: false; error: string; snapshot: MailboxSnapshot; diagnostics?: MailboxDiagnostics };

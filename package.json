@@ -12,6 +12,8 @@
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
@@ -39,6 +41,7 @@
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.30.1",
+    "vitest": "^3.2.4",
     "wxt": "^0.20.24"
   }
 }

@@ -5,6 +5,10 @@ export type MailboxError =
   | { type: 'browser'; message: string }
   | { type: 'unexpected'; message: string };
 
+export function getMailboxErrorType(error: MailboxError) {
+  return error.type;
+}
+
 export function toMailboxErrorMessage(error: MailboxError) {
   return error.message;
 }

@@ -42,6 +42,9 @@ interface MailTmMessageDetailResponse extends MailTmMessageListItem {
   html?: string[] | string | null;
 }
 
+/**
+ * Performs a Mail.tm API request and normalizes transport and response errors.
+ */
 function mailTmFetch<T>(path: string, init?: RequestInit): ResultAsync<T, MailboxError> {
   return ResultAsync.fromPromise(fetch(`${MAIL_TM_API_BASE_URL}${path}`, init), (error) =>
     toUnexpectedMailboxError(error, 'Mail.tm request failed'),
@@ -60,6 +63,9 @@ function mailTmFetch<T>(path: string, init?: RequestInit): ResultAsync<T, Mailbo
   });
 }
 
+/**
+ * Finds the first public Mail.tm domain that can be used for account creation.
+ */
 function getAvailableDomain(): ResultAsync<string, MailboxError> {
   return mailTmFetch<MailTmCollection<MailTmDomain>>('/domains').andThen((response) => {
     const domain = response['hydra:member'].find((item) => item.isActive && !item.isPrivate);
@@ -75,15 +81,24 @@ function getAvailableDomain(): ResultAsync<string, MailboxError> {
   });
 }
 
+/**
+ * Generates a random Mail.tm mailbox address for a given domain.
+ */
 function createMailboxAddress(domain: string) {
   const localPart = faker.string.alphanumeric({ casing: 'lower', length: 12 });
   return `${localPart}@${domain}`;
 }
 
+/**
+ * Generates a random password for a temporary Mail.tm account.
+ */
 function createMailboxPassword() {
   return faker.string.alphanumeric({ length: 20 });
 }
 
+/**
+ * Converts a Mail.tm message list item into the extension summary shape.
+ */
 function normalizeMessageSummary(message: MailTmMessageListItem): MailboxMessageSummary {
   const fromAddress = message.from?.address ?? 'Unknown sender';
   const fromName = message.from?.name?.trim();
@@ -99,6 +114,9 @@ function normalizeMessageSummary(message: MailTmMessageListItem): MailboxMessage
   };
 }
 
+/**
+ * Normalizes Mail.tm HTML payloads into a single string.
+ */
 function normalizeHtml(html: MailTmMessageDetailResponse['html']) {
   if (Array.isArray(html)) {
     return html.join('\n\n');
@@ -107,6 +125,9 @@ function normalizeHtml(html: MailTmMessageDetailResponse['html']) {
   return html ?? '';
 }
 
+/**
+ * Creates a new temporary mailbox session backed by Mail.tm.
+ */
 export function createMailTmSession(): ResultAsync<ActiveMailboxSession, MailboxError> {
   return getAvailableDomain().andThen((domain) => {
     const address = createMailboxAddress(domain);
@@ -148,6 +169,9 @@ export function createMailTmSession(): ResultAsync<ActiveMailboxSession, Mailbox
   });
 }
 
+/**
+ * Lists message summaries for an authenticated Mail.tm mailbox.
+ */
 export function listMailTmMessages(
   token: string,
 ): ResultAsync<MailboxMessageSummary[], MailboxError> {
@@ -158,6 +182,9 @@ export function listMailTmMessages(
   }).map((response) => response['hydra:member'].map(normalizeMessageSummary));
 }
 
+/**
+ * Fetches a full Mail.tm message and enriches it with parsed links.
+ */
 export function getMailTmMessage(
   token: string,
   messageId: string,
@@ -181,6 +208,9 @@ export function getMailTmMessage(
   });
 }
 
+/**
+ * Best-effort deletes the underlying Mail.tm account for a session.
+ */
 export function deleteMailTmAccount(
   session: ActiveMailboxSession,
 ): ResultAsync<void, MailboxError> {

@@ -3,10 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { getMailboxErrorType, toMailboxErrorMessage, toUnexpectedMailboxError } from './errors';
 
 describe('mailbox errors', () => {
-  it('preserves Error messages and uses fallback for non-Error input', () => {
+  it('preserves Error messages and uses fallback for empty or non-Error input', () => {
     expect(toUnexpectedMailboxError(new Error('boom'))).toEqual({
       type: 'unexpected',
       message: 'boom',
+    });
+
+    expect(toUnexpectedMailboxError(new Error(''))).toEqual({
+      type: 'unexpected',
+      message: 'Unexpected mailbox error',
     });
 
     expect(toUnexpectedMailboxError('nope')).toEqual({

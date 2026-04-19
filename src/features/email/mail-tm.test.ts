@@ -1,16 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { alphanumericMock } = vi.hoisted(() => ({
-  alphanumericMock: vi.fn(),
-}));
-
 vi.mock('@faker-js/faker', () => ({
   faker: {
     string: {
-      alphanumeric: alphanumericMock,
+      alphanumeric: vi.fn(),
     },
   },
 }));
+
+import { faker } from '@faker-js/faker';
 
 import {
   createMailTmSession,
@@ -18,6 +16,22 @@ import {
   getMailTmMessage,
   listMailTmMessages,
 } from './mail-tm';
+
+const alphanumericMock = faker.string.alphanumeric as unknown as ReturnType<typeof vi.fn>;
+
+const session = {
+  address: 'test@example.com',
+  password: 'pw',
+  token: 'token',
+  accountId: 'acct-1',
+  messages: [],
+  selectedMessageId: null,
+  selectedMessage: null,
+  unreadMessageIds: [],
+  knownMessageIds: [],
+  lastCheckedAt: null,
+  createdAt: '2025-01-01T00:00:00.000Z',
+};
 
 function mockJsonResponse(body: unknown, init?: ResponseInit) {
   return {
@@ -122,6 +136,24 @@ describe('mail-tm', () => {
     }
   });
 
+  it('maps invalid JSON responses to unexpected mailbox errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockRejectedValue(new Error('bad json')),
+    } as unknown as Response);
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toEqual({
+        type: 'unexpected',
+        message: 'bad json',
+      });
+    }
+  });
+
   it('normalizes message summaries and details', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
@@ -155,7 +187,7 @@ describe('mail-tm', () => {
             { address: 'carol@example.com' },
           ],
           text: '  Check https://example.com  ',
-          html: ['<p>See https://example.org</p>', null],
+          html: ['<p>See https://example.org</p>', '<p>More</p>'],
           seen: true,
           hasAttachments: true,
         });
@@ -202,7 +234,7 @@ describe('mail-tm', () => {
         hasAttachments: true,
         to: ['bob@example.com', 'carol@example.com'],
         text: 'Check https://example.com',
-        html: '<p>See https://example.org</p>\n\n',
+        html: '<p>See https://example.org</p>\n\n<p>More</p>',
         links: [
           { label: 'example.com', url: 'https://example.com' },
           { label: 'example.org', url: 'https://example.org' },
@@ -213,22 +245,60 @@ describe('mail-tm', () => {
     expect(fetchMock).toHaveBeenCalled();
   });
 
+  it('normalizes detail html when Mail.tm returns a string or null', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.endsWith('/messages/msg-string')) {
+        return mockJsonResponse({
+          id: 'msg-string',
+          from: { address: 'alice@example.com' },
+          text: ' hi ',
+          html: '<p>Hello</p>',
+        });
+      }
+
+      if (url.endsWith('/messages/msg-null')) {
+        return mockJsonResponse({
+          id: 'msg-null',
+          from: { address: 'alice@example.com' },
+          text: ' hi ',
+          html: null,
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const stringHtml = await getMailTmMessage('token', 'msg-string');
+    const nullHtml = await getMailTmMessage('token', 'msg-null');
+
+    expect(stringHtml.isOk()).toBe(true);
+    expect(nullHtml.isOk()).toBe(true);
+
+    if (stringHtml.isOk()) {
+      expect(stringHtml.value.html).toBe('<p>Hello</p>');
+    }
+
+    if (nullHtml.isOk()) {
+      expect(nullHtml.value.html).toBe('');
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('swallows delete failures', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
 
-    const result = await deleteMailTmAccount({
-      address: 'test@example.com',
-      password: 'pw',
-      token: 'token',
-      accountId: 'acct-1',
-      messages: [],
-      selectedMessageId: null,
-      selectedMessage: null,
-      unreadMessageIds: [],
-      knownMessageIds: [],
-      lastCheckedAt: null,
-      createdAt: '2025-01-01T00:00:00.000Z',
-    });
+    const result = await deleteMailTmAccount(session);
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('swallows non-ok delete responses', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockJsonResponse({}, { status: 500 }));
+
+    const result = await deleteMailTmAccount(session);
 
     expect(result.isOk()).toBe(true);
   });

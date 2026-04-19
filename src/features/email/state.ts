@@ -12,6 +12,9 @@ export const EMPTY_MAILBOX_SNAPSHOT: MailboxSnapshot = {
   diagnostics: null,
 };
 
+/**
+ * Derives a popup-friendly snapshot from the current mailbox session.
+ */
 export function toMailboxSnapshot(
   session: ActiveMailboxSession | null,
   overrides?: Partial<MailboxSnapshot>,

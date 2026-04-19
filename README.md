@@ -2,18 +2,17 @@
 
 SudoFill is a browser extension for temporary email signup flows. It can create a disposable mailbox, poll for verification messages, surface detected verification links, and autofill common signup-form identity fields on the currently open page.
 
-## Current Status
+## Implemented
 
-Implemented today:
-
-- background mailbox runtime with Mail.tm account creation, refresh, cleanup, polling, and badge updates
-- popup UI for mailbox creation, refresh, copy, delete, message viewing, and verification-link launching
-- options UI for autofill defaults like address generation, state, age range, and sex bias
-- content-script autofill for common identity and address fields
-- autofill profile generation with DOB, address, state-aware ZIP/city sampling, and settings normalization
-- matching logic for common labels, autocomplete tokens, camelCase/concatenated identifiers, and DOB variants
-- safer autofill targeting to avoid readonly/hidden fields and reduce cross-form spills
-- test coverage for autofill matching/settings/profile and mailbox helpers/client/state/link extraction
+- background mailbox runtime with Mail.tm account creation, refresh, cleanup, polling, alarm fallback, diagnostics, and badge updates
+- popup UI for mailbox creation, refresh, copy, delete, message viewing, verification-link launching, and autofill triggering
+- options UI for autofill defaults including address generation, state preference, age range, and sex bias
+- content-script autofill for common identity and address fields on supported pages
+- autofill profile generation for names, email, DOB, sex, and address fields with state-aware ZIP/city sampling
+- settings normalization and validation for autofill preferences
+- field matching for common labels, autocomplete tokens, camelCase/concatenated identifiers, and DOB variants
+- safer autofill targeting that skips readonly/hidden fields and reduces cross-form spills
+- mailbox helper, Mail.tm client, state, error, link-extraction, and autofill test coverage
 
 Important current behavior:
 
@@ -29,6 +28,7 @@ Highest-value remaining items:
 - add DOM-level content-script tests for real fill behavior, not just string matching
 - improve matching for fields identified only through `aria-labelledby` / fieldset legend context
 - normalize more unsupported-page/content-script transport errors in the popup
+- harden success/failure reporting around content-script delivery on edge-case pages
 
 Nice-to-have later:
 

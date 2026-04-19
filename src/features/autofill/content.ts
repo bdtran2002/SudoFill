@@ -6,6 +6,13 @@ type FillableElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElemen
 const SIGN_UP_CUES = ['sign up', 'signup', 'create account', 'register', 'join', 'get started'];
 const ACCOUNT_CUES = ['create profile', 'new customer', 'new account'];
 const LOGIN_CUES = ['sign in', 'signin', 'log in', 'login'];
+const EMAIL_FIRST_AUTH_SUBMIT_CUES = ['next', 'continue'];
+const EMAIL_FIRST_AUTH_CONTEXT_CUES = [
+  'stay logged in',
+  'remember me',
+  'keep me logged in',
+  'keep me signed in',
+];
 const NON_SIGNUP_ACCOUNT_CUES = [
   'my account',
   'account details',
@@ -94,6 +101,14 @@ function getFieldsetLegendText(element: Element) {
 
 function normalizeLooseText(text: string | null | undefined) {
   return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeCueText(text: string | null | undefined) {
+  return normalizeLooseText(text)
+    .toLowerCase()
+    .replace(/[-_/|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isLikelyFieldLabelText(text: string) {
@@ -258,6 +273,35 @@ function getElementContext(element: FillableElement) {
   };
 }
 
+function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
+  if (element.disabled) return null;
+  if (
+    element instanceof HTMLInputElement &&
+    ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
+  ) {
+    return null;
+  }
+  if (hasExistingUserValue(element)) return null;
+
+  const match = resolveAutofillMatch(buildFieldKey(element), profile);
+  return match?.values.some(Boolean) ? match : null;
+}
+
+function getScopeMatchSummary(elements: FillableElement[], profile: GeneratedProfile) {
+  const matchedFields = new Map<keyof GeneratedProfile, number>();
+  let matchingFieldCount = 0;
+
+  for (const element of elements) {
+    const match = getFieldMatch(element, profile);
+    if (!match) continue;
+
+    matchingFieldCount += 1;
+    matchedFields.set(match.field, FIELD_WEIGHTS[match.field] ?? 1);
+  }
+
+  return { matchedFields, matchingFieldCount };
+}
+
 function assignValue(element: FillableElement, values: string[]) {
   if (element instanceof HTMLSelectElement) {
     const matchingOption = values
@@ -315,18 +359,20 @@ function prioritizeValuesForElement(
 function getScopeText(root: HTMLElement | null) {
   if (!root) return '';
 
-  return [
-    root.getAttribute('aria-label') ?? '',
-    getReferencedText(root, 'aria-labelledby'),
-    root.id,
-    root.getAttribute('name') ?? '',
-    root.matches('fieldset') ? (root.querySelector('legend')?.textContent ?? '') : '',
-    root.textContent ?? '',
-  ]
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return normalizeCueText(
+    [
+      root.getAttribute('aria-label') ?? '',
+      getReferencedText(root, 'aria-labelledby'),
+      root.id,
+      root.getAttribute('name') ?? '',
+      root.matches('fieldset') ? (root.querySelector('legend')?.textContent ?? '') : '',
+      root.textContent ?? '',
+    ].join(' '),
+  );
+}
+
+function getDocumentIntentText(doc: Document) {
+  return normalizeCueText([doc.title, doc.location?.pathname ?? ''].join(' '));
 }
 
 function hasCue(text: string, cues: string[]) {
@@ -346,6 +392,24 @@ function hasSubmitControl(root: HTMLElement | null) {
     root.querySelector(
       'button[type="submit"], input[type="submit"], button:not([type]), button[type="button"]',
     ),
+  );
+}
+
+function getSubmitControlText(root: HTMLElement | null) {
+  if (!root) return '';
+
+  return normalizeCueText(
+    [
+      ...root.querySelectorAll(
+        'button[type="submit"], input[type="submit"], input[type="button"], button:not([type]), button[type="button"]',
+      ),
+    ]
+      .map((control) =>
+        control instanceof HTMLInputElement
+          ? [control.value, control.getAttribute('aria-label') ?? ''].join(' ')
+          : [control.textContent ?? '', control.getAttribute('aria-label') ?? ''].join(' '),
+      )
+      .join(' '),
   );
 }
 
@@ -391,52 +455,56 @@ function getActiveScopeRoot(doc: Document) {
 }
 
 function getMatchingFieldCount(elements: FillableElement[], profile: GeneratedProfile) {
-  return elements.reduce((count, element) => {
-    if (element.disabled) return count;
-    if (
-      element instanceof HTMLInputElement &&
-      ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
-    ) {
-      return count;
-    }
-    if (hasExistingUserValue(element)) return count;
+  return getScopeMatchSummary(elements, profile).matchingFieldCount;
+}
 
-    const match = resolveAutofillMatch(buildFieldKey(element), profile);
-    return match?.values.some(Boolean) ? count + 1 : count;
-  }, 0);
+function isEmailFirstAuthFlow(
+  root: HTMLElement | null,
+  elements: FillableElement[],
+  profile: GeneratedProfile,
+  doc: Document,
+) {
+  if (!root) return false;
+
+  const text = getScopeText(root);
+  const authContextText = [text, getDocumentIntentText(doc)].filter(Boolean).join(' ');
+  const submitText = getSubmitControlText(root);
+  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
+  const hasAuthStepCue =
+    hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) || hasCue(text, EMAIL_FIRST_AUTH_CONTEXT_CUES);
+
+  return (
+    !hasPasswordField(elements) &&
+    hasSubmitControl(root) &&
+    matchingFieldCount === 1 &&
+    matchedFields.size === 1 &&
+    matchedFields.has('email') &&
+    hasCue(authContextText, LOGIN_CUES) &&
+    hasAuthStepCue &&
+    !hasCue(text, NON_SIGNUP_ACCOUNT_CUES) &&
+    !hasCue(text, LOW_INTENT_CUES)
+  );
 }
 
 function scoreScope(
   root: HTMLElement | null,
   elements: FillableElement[],
   profile: GeneratedProfile,
+  doc: Document,
 ) {
   const text = getScopeText(root);
-  const matchedFields = new Map<keyof GeneratedProfile, number>();
-
-  for (const element of elements) {
-    if (element.disabled) continue;
-    if (
-      element instanceof HTMLInputElement &&
-      ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
-    ) {
-      continue;
-    }
-    if (hasExistingUserValue(element)) continue;
-
-    const match = resolveAutofillMatch(buildFieldKey(element), profile);
-    if (!match?.values.some(Boolean)) continue;
-
-    matchedFields.set(match.field, FIELD_WEIGHTS[match.field] ?? 1);
-  }
+  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
+  const emailFirstAuthFlow = isEmailFirstAuthFlow(root, elements, profile, doc);
+  const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
+  const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
 
   const uniqueFieldScore = [...matchedFields.values()].reduce((sum, value) => sum + value, 0);
-  const totalMatchScore = getMatchingFieldCount(elements, profile) * 2;
+  const totalMatchScore = matchingFieldCount * 2;
   const identityFieldCount = ['email', 'firstName', 'lastName', 'fullName'].filter((field) =>
     matchedFields.has(field as keyof GeneratedProfile),
   ).length;
   const strongSignupIntent =
-    hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]) ||
+    (hasExplicitSignupCue && !hasLowIntentCue) ||
     (hasPasswordField(elements) && identityFieldCount >= 2);
   const richIdentityScope = identityFieldCount >= 3;
 
@@ -444,14 +512,15 @@ function scoreScope(
 
   if (identityFieldCount >= 2) score += 6;
   if (richIdentityScope) score += 4;
-  if (hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES])) score += 8;
-  if (hasCue(text, LOGIN_CUES)) score -= 8;
+  if (emailFirstAuthFlow) score += 4;
+  if (hasExplicitSignupCue && !hasLowIntentCue) score += 8;
+  if (hasCue(text, LOGIN_CUES) && !emailFirstAuthFlow) score -= 8;
   if (hasCue(text, NON_SIGNUP_ACCOUNT_CUES)) score -= 10;
-  if (matchedFields.size < 2) score -= 8;
-  if (hasCue(text, LOW_INTENT_CUES) && !strongSignupIntent) score -= 14;
+  if (matchedFields.size < 2 && !emailFirstAuthFlow) score -= 8;
+  if (hasLowIntentCue && !strongSignupIntent) score -= 14;
   if (hasPasswordField(elements) && identityFieldCount >= 2) score += 3;
-  if (!strongSignupIntent && identityFieldCount < 3) score -= 4;
-  if (!strongSignupIntent && !hasSubmitControl(root)) score -= 4;
+  if (!strongSignupIntent && identityFieldCount < 3 && !emailFirstAuthFlow) score -= 4;
+  if (!strongSignupIntent && !hasSubmitControl(root) && !emailFirstAuthFlow) score -= 4;
 
   return score;
 }
@@ -460,17 +529,20 @@ function isEligibleScope(
   root: HTMLElement | null,
   elements: FillableElement[],
   profile: GeneratedProfile,
+  doc: Document,
 ) {
   const text = getScopeText(root);
   const matchingFieldCount = getMatchingFieldCount(elements, profile);
   const hasNonSignupAccountCue = hasCue(text, NON_SIGNUP_ACCOUNT_CUES);
   const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
+  const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
   const hasStrongSignupCue =
-    hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]) ||
+    (hasExplicitSignupCue && !hasLowIntentCue) ||
     hasPasswordField(elements) ||
     (matchingFieldCount >= 3 && !hasNonSignupAccountCue && !hasLowIntentCue);
+  const emailFirstAuthFlow = isEmailFirstAuthFlow(root, elements, profile, doc);
 
-  return hasStrongSignupCue || (root === null && elements.length >= 3);
+  return hasStrongSignupCue || emailFirstAuthFlow || (root === null && elements.length >= 3);
 }
 
 function buildTargetScopes(visibleElements: FillableElement[]) {
@@ -498,13 +570,13 @@ function selectTargetScope(
     .map((scope) => ({
       ...scope,
       score:
-        scoreScope(scope.root, scope.elements, profile) +
+        scoreScope(scope.root, scope.elements, profile, doc) +
         (activeForm && scope.root === activeForm ? 5 : 0) +
         (activeScopeRoot && scope.root === activeScopeRoot ? 3 : 0),
     }))
     .filter(
       (candidate) =>
-        candidate.score > 0 && isEligibleScope(candidate.root, candidate.elements, profile),
+        candidate.score > 0 && isEligibleScope(candidate.root, candidate.elements, profile, doc),
     )
     .sort((left, right) => right.score - left.score);
 

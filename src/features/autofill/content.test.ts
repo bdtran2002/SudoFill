@@ -27,6 +27,7 @@ const profile = {
 
 beforeEach(() => {
   document.body.innerHTML = '';
+  document.title = '';
 
   Object.defineProperty(HTMLElement.prototype, 'getClientRects', {
     configurable: true,
@@ -102,6 +103,49 @@ describe('content autofill targeting', () => {
     expect(result.filledCount).toBe(4);
     expect(loginEmail.value).toBe('');
     expect((document.querySelector('#register [name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
+  it("fills a Wendy's-style email-first sign-in step when the page title indicates auth intent", async () => {
+    document.title = "Log In | Wendy's";
+    document.body.innerHTML = `
+      <form id="sign-in">
+        <fieldset>
+          <legend><label for="email">Email Address</label></legend>
+          <input id="email" type="email" name="email" />
+        </fieldset>
+        <label><input type="checkbox" name="stayLoggedIn" />Stay logged in</label>
+        <button type="submit">Next</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)?.id).toBe('sign-in');
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.filledCount).toBe(1);
+    expect((document.querySelector('#sign-in [name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
+  it('fills an email-first login flow when the form itself carries the login cue', async () => {
+    document.body.innerHTML = `
+      <form id="login" aria-label="Log in">
+        <label>Email <input name="email" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)?.id).toBe('login');
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.filledCount).toBe(1);
+    expect((document.querySelector('#login [name="email"]') as HTMLInputElement).value).toBe(
       'ada@example.com',
     );
   });
@@ -325,6 +369,26 @@ describe('content autofill targeting', () => {
     expect(result.ok).toBe(false);
     expect(result.filledCount).toBe(0);
     expect((document.querySelector('#sales [name="email"]') as HTMLInputElement).value).toBe('');
+  });
+
+  it('does not treat a newsletter form as an auth step just because the page title is login-ish', async () => {
+    document.title = 'Log In | Example';
+    document.body.innerHTML = `
+      <form id="newsletter" aria-label="Newsletter signup">
+        <label>Email <input name="email" /></label>
+        <button type="submit">Subscribe</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)).toBeNull();
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect(result.filledCount).toBe(0);
+    expect((document.querySelector('#newsletter [name="email"]') as HTMLInputElement).value).toBe(
+      '',
+    );
   });
 
   it('matches fields identified through aria-labelledby text', async () => {

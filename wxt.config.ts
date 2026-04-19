@@ -1,15 +1,17 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
+import { firefoxConfig } from './firefox.config';
+
 const DEFAULT_FIREFOX_EXTENSION_ID = 'sudofill@selfhosted';
 
 function getFirefoxExtensionId() {
-  const extensionId = process.env.FIREFOX_EXTENSION_ID?.trim();
+  const extensionId = firefoxConfig.gecko.id?.trim();
   return extensionId || DEFAULT_FIREFOX_EXTENSION_ID;
 }
 
 function getFirefoxUpdateUrl() {
-  const updateUrl = process.env.FIREFOX_UPDATE_URL?.trim();
+  const updateUrl = firefoxConfig.gecko.update_url?.trim();
   return updateUrl || undefined;
 }
 

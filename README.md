@@ -34,7 +34,7 @@ Click the SudoFill icon in your browser toolbar.
 
 ### 2. Create a mailbox
 
-In the popup, click **Create Mailbox**.
+In the extension UI, click **Create Mailbox**.
 
 SudoFill will generate a temporary email address for you.
 
@@ -152,12 +152,12 @@ bun run build:chrome
 
 Firefox release builds still need Mozilla signing, even when you host the add-on yourself.
 
-1. Copy `.env.example` to `.env` and set a stable `FIREFOX_EXTENSION_ID`.
+1. Set the stable Firefox add-on ID in `firefox.config.ts`.
 2. Run `bun run build:firefox`.
 3. Run `bun run zip:firefox` to create the Firefox package and source zip.
 4. Submit the Firefox package to AMO as an **unlisted** add-on for signing.
 5. Host the signed `.xpi` yourself after AMO returns it.
-6. If you want self-hosted automatic updates, set `FIREFOX_UPDATE_URL` to an HTTPS update manifest before packaging.
+6. If you want self-hosted automatic updates, set `gecko.update_url` in `firefox.config.ts` to your HTTPS update manifest before packaging.
 
 `SOURCE_CODE_REVIEW.md` includes the exact build and review notes for Firefox submission.
 
@@ -171,7 +171,7 @@ If you want this live as fast as possible, there are two paths:
 #### Fastest self-distribution path
 
 1. Create or sign into your AMO developer account at <https://addons.mozilla.org/developers/>.
-2. Set a real `FIREFOX_EXTENSION_ID` in `.env`.
+2. Set a real Firefox `gecko.id` in `firefox.config.ts`.
 3. Bump the extension version before packaging.
 4. Run:
 
@@ -189,7 +189,7 @@ If you want this live as fast as possible, there are two paths:
 7. Use `SOURCE_CODE_REVIEW.md` when AMO asks how to build and review the add-on.
 8. Make sure the submission description matches the real behavior: SudoFill creates a disposable mailbox through Mail.tm, reads incoming verification emails, and autofills fields locally on supported HTTPS pages.
 9. Wait for signing/review, then download the signed `.xpi`.
-10. Host that signed `.xpi` yourself. If you want self-hosted updates, also host an HTTPS update manifest and set `FIREFOX_UPDATE_URL` before the next release.
+10. Host that signed `.xpi` yourself. If you want self-hosted updates, also host an HTTPS update manifest and set `gecko.update_url` in `firefox.config.ts` before the next release.
 
 #### If you want a public Firefox Add-ons page
 

@@ -19,8 +19,8 @@ Verified locally with Bun 1.3.11.
 - The Firefox toolbar action opens `popup.html`.
 - Firefox also exposes the same mailbox UI through `sidebar_action` because the shared sidepanel entrypoint is still bundled.
 - Chrome keeps the side-panel workflow.
-- `FIREFOX_EXTENSION_ID` sets `browser_specific_settings.gecko.id`.
-- `FIREFOX_UPDATE_URL` is optional and only used for self-hosted Firefox updates.
+- `firefox.config.ts` sets `browser_specific_settings.gecko.id`.
+- `firefox.config.ts` may optionally set `browser_specific_settings.gecko.update_url` for self-hosted Firefox updates.
 
 ## External services
 
@@ -49,6 +49,7 @@ Verified locally with Bun 1.3.11.
 ## Main review entrypoints
 
 - `wxt.config.ts`
+- `firefox.config.ts`
 - `entrypoints/background.ts`
 - `entrypoints/popup/main.tsx`
 - `entrypoints/sidepanel/main.tsx`

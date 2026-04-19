@@ -52,11 +52,6 @@
   }
 }
 
-/* popup sizing */
-html.popup {
-  width: 400px;
-}
-
 /* grain texture */
 #root::before {
   content: '';

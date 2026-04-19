@@ -71,19 +71,51 @@ function getActiveForm(doc: Document) {
   return activeElement ? getAssociatedForm(activeElement) : null;
 }
 
+function getReferencedText(element: Element, attribute: 'aria-labelledby' | 'aria-describedby') {
+  const ids = element
+    .getAttribute(attribute)
+    ?.split(/\s+/)
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  if (!ids?.length) return '';
+
+  return ids
+    .map((id) => element.ownerDocument.getElementById(id)?.textContent ?? '')
+    .join(' ')
+    .trim();
+}
+
+function getFieldsetLegendText(element: Element) {
+  const fieldset = element.closest('fieldset');
+  return fieldset?.querySelector('legend')?.textContent?.trim() ?? '';
+}
+
+function getAssociatedLabelText(element: FillableElement) {
+  return element.labels
+    ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
+    : '';
+}
+
 export function buildFieldKey(element: FillableElement) {
   const placeholder =
     element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
       ? element.placeholder
       : '';
+  const labelledByText = getReferencedText(element, 'aria-labelledby');
+  const describedByText = getReferencedText(element, 'aria-describedby');
+  const legendText = getFieldsetLegendText(element);
 
   return [
     element.name,
     element.id,
     element.autocomplete,
     element.getAttribute('aria-label') ?? '',
+    labelledByText,
+    describedByText,
     placeholder,
-    element.labels ? [...element.labels].map((label) => label.textContent ?? '').join(' ') : '',
+    getAssociatedLabelText(element),
+    legendText,
   ]
     .join(' ')
     .trim()
@@ -117,13 +149,13 @@ function getElementContext(element: FillableElement) {
     element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
       ? element.placeholder
       : '';
+  const labelledByText = getReferencedText(element, 'aria-labelledby');
+  const legendText = getFieldsetLegendText(element);
 
   return {
     inputType: element instanceof HTMLInputElement ? element.type : undefined,
     placeholder,
-    labelText: element.labels
-      ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
-      : '',
+    labelText: [getAssociatedLabelText(element), labelledByText, legendText].join(' ').trim(),
     keyText: buildFieldKey(element),
   };
 }
@@ -187,8 +219,10 @@ function getScopeText(root: HTMLElement | null) {
 
   return [
     root.getAttribute('aria-label') ?? '',
+    getReferencedText(root, 'aria-labelledby'),
     root.id,
     root.getAttribute('name') ?? '',
+    root.matches('fieldset') ? (root.querySelector('legend')?.textContent ?? '') : '',
     root.textContent ?? '',
   ]
     .join(' ')

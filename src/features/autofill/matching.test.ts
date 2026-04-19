@@ -35,6 +35,8 @@ describe('resolveAutofillMatch', () => {
       'january',
       'jan',
     ]);
+    expect(resolveAutofillMatch('date of birth month', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('date of birth year', profile)?.field).toBe('birthYear');
   });
 
   it('avoids obvious false positives for full name fallback', () => {

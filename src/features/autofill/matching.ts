@@ -1,0 +1,151 @@
+import type { GeneratedProfile } from './types';
+
+export type AutofillFieldMatch = {
+  field: keyof GeneratedProfile;
+  values: string[];
+};
+
+function normalizeFieldKey(key: string) {
+  return key.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function hasToken(key: string, token: string) {
+  return new RegExp(`(^|[^a-z])${token}([^a-z]|$)`).test(key);
+}
+
+function hasAnyToken(key: string, tokens: string[]) {
+  return tokens.some((token) => hasToken(key, token));
+}
+
+function isSplitDobField(key: string) {
+  return (
+    hasAnyToken(key, ['bday day', 'birth day', 'dob day', 'day of birth']) ||
+    (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob'])) ||
+    hasAnyToken(key, ['bday month', 'birth month', 'dob month']) ||
+    hasAnyToken(key, ['bday year', 'birth year', 'dob year'])
+  );
+}
+
+export function resolveAutofillMatch(
+  key: string,
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  const normalizedKey = normalizeFieldKey(key);
+
+  if (
+    hasAnyToken(normalizedKey, ['given name', 'first name']) ||
+    hasToken(normalizedKey, 'givenname')
+  ) {
+    return { field: 'firstName', values: [profile.firstName] };
+  }
+
+  if (
+    hasAnyToken(normalizedKey, ['family name', 'last name', 'surname']) ||
+    hasToken(normalizedKey, 'familyname')
+  ) {
+    return { field: 'lastName', values: [profile.lastName] };
+  }
+
+  if (hasAnyToken(normalizedKey, ['email', 'e mail']))
+    return { field: 'email', values: [profile.email] };
+  if (hasAnyToken(normalizedKey, ['phone', 'mobile', 'tel']))
+    return { field: 'phone', values: [profile.phone] };
+
+  if (
+    hasAnyToken(normalizedKey, [
+      'address line 1',
+      'address1',
+      'address line1',
+      'street address',
+      'street',
+    ])
+  ) {
+    return { field: 'addressLine1', values: [profile.addressLine1] };
+  }
+  if (
+    hasAnyToken(normalizedKey, [
+      'address line 2',
+      'address2',
+      'address line2',
+      'apartment',
+      'suite',
+      'unit',
+    ])
+  ) {
+    return { field: 'addressLine2', values: [profile.addressLine2] };
+  }
+  if (hasAnyToken(normalizedKey, ['city', 'town']))
+    return { field: 'city', values: [profile.city] };
+  if (/address\s*level\s*2/.test(normalizedKey)) return { field: 'city', values: [profile.city] };
+  if (/address\s*level\s*1/.test(normalizedKey)) {
+    return { field: 'state', values: [profile.state, profile.stateName] };
+  }
+  if (hasAnyToken(normalizedKey, ['state', 'province', 'region'])) {
+    return { field: 'state', values: [profile.state, profile.stateName] };
+  }
+  if (hasAnyToken(normalizedKey, ['zip', 'postal']))
+    return { field: 'postalCode', values: [profile.postalCode] };
+
+  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'month')) {
+    return {
+      field: 'birthMonth',
+      values: [
+        profile.birthMonth,
+        String(Number(profile.birthMonth)),
+        monthName(profile.birthMonth),
+        shortMonthName(profile.birthMonth),
+      ].filter((value): value is string => Boolean(value)),
+    };
+  }
+  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'day')) {
+    return { field: 'birthDay', values: [profile.birthDay] };
+  }
+  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'year')) {
+    return { field: 'birthYear', values: [profile.birthYear] };
+  }
+
+  if (hasAnyToken(normalizedKey, ['dob', 'birth date', 'date of birth'])) {
+    return { field: 'birthDateIso', values: [profile.birthDateIso] };
+  }
+
+  if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };
+
+  if (isObviousNameFallback(normalizedKey)) {
+    return { field: 'fullName', values: [profile.fullName] };
+  }
+
+  return null;
+}
+
+function monthName(month: string) {
+  const index = Number(month) - 1;
+  return (
+    [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ][index] ?? ''
+  );
+}
+
+function shortMonthName(month: string) {
+  const index = Number(month) - 1;
+  return (
+    ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][index] ??
+    ''
+  );
+}
+
+function isObviousNameFallback(key: string) {
+  if (!hasToken(key, 'name')) return false;
+  return !hasAnyToken(key, ['username', 'user name', 'company', 'middle', 'preferred', 'display']);
+}

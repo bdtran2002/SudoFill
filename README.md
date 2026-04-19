@@ -44,8 +44,6 @@ bun run dev
 bun run build
 ```
 
-
-
 ## Useful Scripts
 
 - `bun run dev:firefox`: start run dev mode in FireFox.

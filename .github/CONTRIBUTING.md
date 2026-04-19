@@ -17,11 +17,11 @@ We use GitHub to host code, track issues/ feature requests, and review pull requ
 ## Code of Conduct
 
 We are committed to fostering a safe, inclusive, and harassment-free community.
-Please review our [code of conduct](.github/CODE_OF_CONDUCT.md) before contributing.
+Please review our [code of conduct](CODE_OF_CONDUCT.md) before contributing.
 
 ## Reporting Bugs & Issues :bug:
 
-:warning: Security issues must not be reported publicly, please follow our [security](.github/SECURITY.md) guidelines.
+:warning: Security issues must not be reported publicly, please follow our [security](SECURITY.md) guidelines.
 
 If you find a bug, open a new [issue](../../../issues/new/choose). A great bug report includes:
 
@@ -48,7 +48,7 @@ Here's the process:
 4. If you've changed APIs, update relevant documentation
 5. Open a pull request with a clear title and description
 
-By submitting a PR, you agree that your work will be licensed under this project's [License](LICENSE).
+By submitting a PR, you agree that your work will be licensed under this project's [License](../LICENSE).
 
 **Tips for Successful Contributions** :bulb:
 

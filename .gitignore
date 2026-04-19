@@ -8,6 +8,7 @@ $RECYCLE.BIN/
 build/
 dist/
 node_modules/
+package-lock.json
 resources/
 temp/
 var/
@@ -91,7 +92,6 @@ secrets.json
 
 ##### Misc #####
 AGENTS.md
-package-lock.json
 *.seed
 .wxt/
 .output/

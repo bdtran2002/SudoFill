@@ -2,6 +2,10 @@
   <img src="./assets/icon.png" alt="SudoFill icon" width="96" height="96" />
 </p>
 
+[![CI](https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml)
+[![Release](https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+
 # ⚡ SudoFill
 
 SudoFill helps you get through sign-up forms faster.
@@ -93,6 +97,11 @@ It is **not** a good fit for accounts you need to keep long term if the service 
 SudoFill is already usable today and supports the main temporary-email + autofill flow.
 
 We are still improving support for more complicated websites and edge-case forms.
+
+## CI/CD
+
+- **CI** runs on pushes and pull requests to `main`, checking lint, formatting, type safety, tests, and both browser builds.
+- **Release** runs on version tags and manual dispatches, repeats the checks, uploads workflow artifacts for both triggers, and publishes release assets for tagged versions.
 
 <details>
 <summary><strong>Developer setup</strong></summary>
@@ -201,4 +210,4 @@ Follow the same build steps, but choose **Listed** instead of **Unlisted** durin
 
 ## License
 
-MIT. See `LICENSE` for details.
+GPLv3. See `LICENSE` for the full text.

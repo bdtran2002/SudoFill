@@ -6,11 +6,7 @@ export type AutofillFieldMatch = {
 };
 
 function normalizeFieldKey(key: string) {
-  return key
-    .toLowerCase()
-    .replace(/[_\-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return key.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function hasToken(key: string, token: string) {

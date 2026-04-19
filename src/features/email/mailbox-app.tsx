@@ -293,7 +293,11 @@ export function MailboxApp() {
           : 'bg-void'
       }`}
     >
-      <div className='flex min-h-0 w-full flex-1 flex-col overflow-y-auto'>
+      <div
+        className={`flex min-h-0 w-full flex-1 flex-col overflow-y-auto ${
+          isSidepanel ? 'sidepanel-scroll-region' : ''
+        }`}
+      >
         <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>

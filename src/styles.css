@@ -73,7 +73,9 @@ html.popup {
 }
 
 html.sidepanel {
+  height: 100dvh;
   min-height: 100dvh;
+  overflow: hidden;
   background:
     radial-gradient(circle at top left, rgba(239, 75, 75, 0.08), transparent 32%),
     radial-gradient(circle at top right, rgba(110, 168, 254, 0.06), transparent 30%), #111010;
@@ -89,8 +91,9 @@ html.sidepanel #root {
 
 html.sidepanel body,
 html.sidepanel #root {
-  overflow-x: hidden;
+  height: 100dvh;
   min-height: 100dvh;
+  overflow: hidden;
 }
 
 html.sidepanel body {
@@ -101,6 +104,15 @@ html.sidepanel body {
 html.sidepanel #root {
   max-width: 840px;
   margin: 0 auto;
+}
+
+html.sidepanel .sidepanel-scroll-region {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.sidepanel .sidepanel-scroll-region::-webkit-scrollbar {
+  display: none;
 }
 
 html.popup body,

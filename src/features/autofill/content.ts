@@ -50,6 +50,7 @@ const FIELD_WEIGHTS: Partial<Record<keyof GeneratedProfile, number>> = {
   addressLine1: 2,
   addressLine2: 1,
   city: 2,
+  country: 2,
   state: 2,
   postalCode: 2,
 };

@@ -32,6 +32,16 @@ let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 
+function configureSidePanelActionBehavior() {
+  if (!chrome.sidePanel?.setPanelBehavior) {
+    return;
+  }
+
+  void chrome.sidePanel.setPanelBehavior({
+    openPanelOnActionClick: true,
+  });
+}
+
 function fromBrowserPromise<T>(promise: Promise<T>, fallbackMessage: string) {
   return ResultAsync.fromPromise(promise, (error) =>
     toUnexpectedMailboxError(error, fallbackMessage),
@@ -310,6 +320,8 @@ function handleCommandError(error: unknown, command: MailboxCommand): Promise<Ma
 }
 
 export default defineBackground(() => {
+  configureSidePanelActionBehavior();
+
   void restoreMailboxFromSessionStorage().orElse((error) =>
     updateSnapshot({
       ...EMPTY_MAILBOX_SNAPSHOT,

@@ -39,7 +39,9 @@ function normalizeAgeValue(value: unknown) {
 export function normalizeAutofillSettings(
   value: Partial<AutofillSettings> | null | undefined,
 ): AutofillSettings {
-  const state = normalizeString(value?.state);
+  const stateCandidate = value?.state;
+  const state =
+    typeof stateCandidate === 'string' ? stateCandidate : DEFAULT_AUTOFILL_SETTINGS.state;
   const ageMin = normalizeAgeValue(value?.ageMin);
   const ageMax = normalizeAgeValue(value?.ageMax);
   const sexCandidate = value?.sex ?? '';

@@ -1,7 +1,11 @@
 import { faker } from '@faker-js/faker';
 
 import { getAddressSampleForState } from './address-data';
-import { US_STATE_OPTIONS } from './constants';
+import {
+  DEFAULT_AUTOFILL_COUNTRY_CODE,
+  DEFAULT_AUTOFILL_COUNTRY_NAME,
+  US_STATE_OPTIONS,
+} from './constants';
 import { getStateName } from './settings';
 import type { AutofillSettings, GeneratedProfile } from './types';
 
@@ -98,6 +102,8 @@ export function generateAutofillProfile(
     city,
     state,
     stateName,
+    country: settings.generateAddress ? DEFAULT_AUTOFILL_COUNTRY_CODE : '',
+    countryName: settings.generateAddress ? DEFAULT_AUTOFILL_COUNTRY_NAME : '',
     postalCode,
   };
 }

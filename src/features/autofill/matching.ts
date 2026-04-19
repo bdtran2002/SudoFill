@@ -64,6 +64,22 @@ function dobValues(profile: GeneratedProfile) {
   ].filter((value): value is string => Boolean(value));
 }
 
+function countryValues(profile: GeneratedProfile) {
+  if (!profile.country && !profile.countryName) {
+    return [];
+  }
+
+  const isUnitedStates = profile.country === 'US' || profile.countryName === 'United States';
+
+  return [
+    ...new Set([
+      profile.countryName,
+      ...(isUnitedStates ? ['United States of America', 'America', 'USA'] : []),
+      profile.country,
+    ]),
+  ].filter((value): value is string => Boolean(value));
+}
+
 export function prioritizeDobValues(values: string[], context: DobFieldContext = {}) {
   const haystack = [context.inputType, context.placeholder, context.labelText, context.keyText]
     .filter(Boolean)
@@ -110,6 +126,13 @@ export function resolveAutofillMatch(
 
   if (hasAnyToken(normalizedKey, ['email', 'e mail']) || hasToken(normalizedKey, 'emailaddress'))
     return { field: 'email', values: [profile.email] };
+
+  if (
+    hasAnyToken(normalizedKey, ['country', 'country name', 'country region']) ||
+    hasToken(normalizedKey, 'countryname')
+  ) {
+    return { field: 'country', values: countryValues(profile) };
+  }
 
   if (
     hasAnyToken(normalizedKey, [

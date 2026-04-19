@@ -20,6 +20,8 @@ const profile = {
   city: 'Austin',
   state: 'TX',
   stateName: 'Texas',
+  country: 'US',
+  countryName: 'United States',
   postalCode: '78701',
 } as const;
 
@@ -367,5 +369,47 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('[name="month"]') as HTMLInputElement).value).toBe('01');
     expect((document.querySelector('[name="day"]') as HTMLInputElement).value).toBe('15');
     expect((document.querySelector('[name="year"]') as HTMLInputElement).value).toBe('1990');
+  });
+
+  it('fills country and state selects using United States and California defaults', () => {
+    const defaultLocationProfile = {
+      ...profile,
+      state: 'CA',
+      stateName: 'California',
+      country: 'US',
+      countryName: 'United States',
+    };
+
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Email <input name="email" /></label>
+        <label>
+          Country
+          <select name="country">
+            <option value="">Select</option>
+            <option value="America">America</option>
+            <option value="Canada">Canada</option>
+          </select>
+        </label>
+        <label>
+          State
+          <select name="state">
+            <option value="">Select</option>
+            <option value="NV">Nevada</option>
+            <option value="CA">California</option>
+          </select>
+        </label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = fillProfile(defaultLocationProfile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="country"]') as HTMLSelectElement).value).toBe('America');
+    expect((document.querySelector('[name="state"]') as HTMLSelectElement).value).toBe('CA');
   });
 });

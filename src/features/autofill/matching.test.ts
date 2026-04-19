@@ -18,6 +18,8 @@ const profile = {
   city: 'Austin',
   state: 'TX',
   stateName: 'Texas',
+  country: 'US',
+  countryName: 'United States',
   postalCode: '78701',
 } as const;
 
@@ -50,6 +52,7 @@ describe('resolveAutofillMatch', () => {
   it('supports common autocomplete tokens', () => {
     expect(resolveAutofillMatch('given-name', profile)?.field).toBe('firstName');
     expect(resolveAutofillMatch('family-name', profile)?.field).toBe('lastName');
+    expect(resolveAutofillMatch('country-name', profile)?.field).toBe('country');
     expect(resolveAutofillMatch('address-line1', profile)?.field).toBe('addressLine1');
     expect(resolveAutofillMatch('address-line2', profile)?.field).toBe('addressLine2');
     expect(resolveAutofillMatch('address-level1', profile)?.field).toBe('state');
@@ -59,6 +62,17 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('bday-month', profile)?.field).toBe('birthMonth');
     expect(resolveAutofillMatch('bday-year', profile)?.field).toBe('birthYear');
     expect(resolveAutofillMatch('sex', profile)?.field).toBe('sex');
+  });
+
+  it('matches country fields with common United States aliases', () => {
+    expect(resolveAutofillMatch('country', profile)?.values).toEqual([
+      'United States',
+      'United States of America',
+      'America',
+      'USA',
+      'US',
+    ]);
+    expect(resolveAutofillMatch('country region', profile)?.field).toBe('country');
   });
 
   it('does not match phone-like fields', () => {

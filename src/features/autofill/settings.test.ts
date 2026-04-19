@@ -33,4 +33,12 @@ describe('normalizeAutofillSettings', () => {
   it('never returns undefined for sex', () => {
     expect(normalizeAutofillSettings({ sex: undefined })).toEqual(DEFAULT_AUTOFILL_SETTINGS);
   });
+
+  it('uses the configured default state when none is stored', () => {
+    expect(normalizeAutofillSettings({})).toEqual(DEFAULT_AUTOFILL_SETTINGS);
+  });
+
+  it('preserves an explicit any-state choice', () => {
+    expect(normalizeAutofillSettings({ state: '' }).state).toBe('');
+  });
 });

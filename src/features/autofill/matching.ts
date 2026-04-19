@@ -32,10 +32,12 @@ function hasAnyToken(key: string, tokens: string[]) {
 function isSplitDobField(key: string) {
   return (
     hasAnyToken(key, ['bday day', 'birth day', 'dob day', 'day of birth']) ||
-    (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob'])) ||
-    hasAnyToken(key, ['bday month', 'birth month', 'dob month']) ||
+    (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
+    hasAnyToken(key, ['bday month', 'birth month', 'dob month', 'date of birth month']) ||
+    (hasToken(key, 'month') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
     hasToken(key, 'birthmonth') ||
-    hasAnyToken(key, ['bday year', 'birth year', 'dob year']) ||
+    hasAnyToken(key, ['bday year', 'birth year', 'dob year', 'date of birth year']) ||
+    (hasToken(key, 'year') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
     hasToken(key, 'birthyear')
   );
 }

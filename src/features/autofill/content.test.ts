@@ -324,4 +324,48 @@ describe('content autofill targeting', () => {
     expect(result.filledCount).toBe(0);
     expect((document.querySelector('#sales [name="email"]') as HTMLInputElement).value).toBe('');
   });
+
+  it('matches fields identified through aria-labelledby text', () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <span id="first-name-label">First name</span>
+        <input name="given" aria-labelledby="first-name-label" />
+
+        <span id="email-label">Email address</span>
+        <input name="contact" aria-labelledby="email-label" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="given"]') as HTMLInputElement).value).toBe('Ada');
+    expect((document.querySelector('[name="contact"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
+  it('uses fieldset legend context for split dob fields', () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Register">
+        <fieldset>
+          <legend>Date of birth</legend>
+          <input name="month" />
+          <input name="day" />
+          <input name="year" />
+        </fieldset>
+
+        <button type="submit">Register</button>
+      </form>
+    `;
+
+    const result = fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="month"]') as HTMLInputElement).value).toBe('01');
+    expect((document.querySelector('[name="day"]') as HTMLInputElement).value).toBe('15');
+    expect((document.querySelector('[name="year"]') as HTMLInputElement).value).toBe('1990');
+  });
 });

@@ -13,6 +13,11 @@ import {
 } from 'lucide-react';
 
 import '../../src/styles.css';
+import {
+  getAutofillErrorMessage,
+  getAutofillResponseMessage,
+  normalizeAutofillTabError,
+} from '../../src/features/autofill/popup-errors';
 import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
 import type { AutofillContentResponse } from '../../src/features/autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
@@ -46,26 +51,6 @@ function toTransportFailureResponse(
       diagnostics,
     },
   };
-}
-
-function isUnsupportedPageError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-
-  const message = error.message.toLowerCase();
-  return (
-    message.includes('could not establish connection') ||
-    message.includes('receiving end does not exist') ||
-    message.includes('no matching message listener') ||
-    message.includes('extension context invalidated')
-  );
-}
-
-function getAutofillErrorMessage(error: unknown) {
-  if (isUnsupportedPageError(error)) {
-    return 'Autofill is not available on this page yet.';
-  }
-
-  return error instanceof Error ? error.message : 'Autofill failed.';
 }
 
 function formatTimestamp(value: string) {
@@ -213,6 +198,7 @@ function PopupApp() {
 
   async function autofillCurrentPage() {
     setIsBusy(true);
+    let activeTab: chrome.tabs.Tab | undefined;
 
     try {
       if (!snapshot.address) {
@@ -223,20 +209,24 @@ function PopupApp() {
         return;
       }
 
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-      if (!tab?.id) {
+      const tabError = normalizeAutofillTabError(activeTab);
+
+      if (tabError) {
         setAutofillStatus({
           tone: 'error',
-          message: 'Open a page first, then try autofill again.',
+          message: tabError,
         });
         return;
       }
 
+      const tabId = activeTab.id;
+
       const settings = await getStoredAutofillSettings();
       const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const response = (await chrome.tabs.sendMessage(tab.id, {
+      const response = (await chrome.tabs.sendMessage(tabId, {
         type: 'autofill:fill-profile',
         profile,
       })) as AutofillContentResponse;
@@ -244,19 +234,19 @@ function PopupApp() {
       if (!response.ok) {
         setAutofillStatus({
           tone: 'error',
-          message: response.error ?? 'No supported fields found on this page.',
+          message: getAutofillResponseMessage(response),
         });
         return;
       }
 
       setAutofillStatus({
         tone: 'success',
-        message: `Filled ${response.filledCount} field${response.filledCount === 1 ? '' : 's'}.`,
+        message: getAutofillResponseMessage(response),
       });
     } catch (error) {
       setAutofillStatus({
         tone: 'error',
-        message: getAutofillErrorMessage(error),
+        message: getAutofillErrorMessage(error, activeTab),
       });
     } finally {
       setIsBusy(false);

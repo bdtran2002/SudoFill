@@ -1,28 +1,59 @@
 # SudoFill
 
-SudoFill is a browser extension project for generating temporary signup identities and helping with temporary email-based verification flows.
+SudoFill is a browser extension for temporary email signup flows. It can create a disposable mailbox, poll for verification messages, surface detected verification links, and autofill common signup-form identity fields on the currently open page.
 
-This repository is currently only the initial scaffold. No product logic has been implemented yet.
+## Current Status
+
+Implemented today:
+
+- background mailbox runtime with Mail.tm account creation, refresh, cleanup, polling, and badge updates
+- popup UI for mailbox creation, refresh, copy, delete, message viewing, and verification-link launching
+- options UI for autofill defaults like address generation, state, age range, and sex bias
+- content-script autofill for common identity and address fields
+- autofill profile generation with DOB, address, state-aware ZIP/city sampling, and settings normalization
+- matching logic for common labels, autocomplete tokens, camelCase/concatenated identifiers, and DOB variants
+- safer autofill targeting to avoid readonly/hidden fields and reduce cross-form spills
+- test coverage for autofill matching/settings/profile and mailbox helpers/client/state/link extraction
+
+Important current behavior:
+
+- phone fields are intentionally **not autofilled**
+- temp mailbox email is required before running popup autofill
+- generic DOB fields support multiple date formats, while split DOB fields are handled separately
+
+## Remaining Work
+
+Highest-value remaining items:
+
+- tighten form targeting further so autofill always stays within the single intended form on complex pages
+- add DOM-level content-script tests for real fill behavior, not just string matching
+- improve matching for fields identified only through `aria-labelledby` / fieldset legend context
+- normalize more unsupported-page/content-script transport errors in the popup
+
+Nice-to-have later:
+
+- iframe/all-frame autofill support
+- broader select alias support like `CA - California` or abbreviated sex/gender values
+- richer popup success feedback using the returned filled field names
 
 ## Stack
 
-- `Bun`: package manager and script runner.
-- `WXT`: framework for building browser extensions, including Manifest V3 support.
-- `React`: UI for extension pages like the popup and options screen.
-- `TypeScript`: typed JavaScript for safer code.
-- `Tailwind CSS`: utility-first styling.
-- `ESLint`: linting for code quality.
-- `Prettier`: code formatting.
+- `Bun` for package management and scripts
+- `WXT` for the browser extension framework and Manifest V3 build pipeline
+- `React` for popup and options UIs
+- `TypeScript` for typed application code
+- `Tailwind CSS` for styling
+- `Vitest` for tests
+- `ESLint` and `Prettier` for code quality and formatting
 
-## Current Structure
+## Project Structure
 
-- `entrypoints/background.ts`: future background worker.
-- `entrypoints/content.ts`: future content script.
-- `entrypoints/popup/`: popup UI.
-- `entrypoints/options/`: options UI.
-- `src/features/`: future feature code.
-- `src/lib/`: future shared helpers.
-- `src/types/`: future shared types.
+- `entrypoints/background.ts` — mailbox runtime, polling, alarms, badge updates, popup command handling
+- `entrypoints/content.ts` — signup-form autofill content script
+- `entrypoints/popup/main.tsx` — popup UI for mailbox actions and autofill trigger
+- `entrypoints/options/main.tsx` — autofill defaults/settings UI
+- `src/features/autofill/` — profile generation, matching, settings, constants, and tests
+- `src/features/email/` — Mail.tm client, command routing, state shaping, errors, link extraction, and tests
 
 ## Getting Started
 
@@ -46,17 +77,28 @@ bun run build
 
 ## Useful Scripts
 
-- `bun run dev:firefox`: start run dev mode in FireFox.
-- `bun run dev`: start WXT dev mode.
-- `bun run build`: build the extension.
-- `bun run zip`: create a distributable zip.
-- `bun run lint`: run ESLint.
-- `bun run format`: format files with Prettier.
-- `bun run format:check`: check formatting without changing files.
-- `bun run typecheck`: run TypeScript checks.
+- `bun run dev` — start Chrome extension dev mode
+- `bun run dev:firefox` — start Firefox dev mode
+- `bun run build` — production build
+- `bun run zip` — package extension zips
+- `bun run lint` — run ESLint
+- `bun run format` — write Prettier formatting
+- `bun run format:check` — verify formatting
+- `bun run typecheck` — run TypeScript checks
+- `bun run test` — run Vitest
+
+## Verification
+
+CI order:
+
+1. `bun run lint`
+2. `bun run format:check`
+3. `bun run typecheck`
+4. `bun run build`
 
 ## Notes
 
-- We are using Manifest V3 through WXT.
-- CI runs lint, formatting checks, typechecking, and build checks on PRs and pushes to `main`.
-- `neverthrow` is installed for future error-as-values patterns, but is not used yet.
+- Manifest V3 is built through WXT.
+- Generated directories like `.wxt/` and `.output/` are build artifacts.
+- Mailbox session state uses `chrome.storage.session`.
+- The popup is intentionally thin; mailbox behavior generally belongs in the background worker.

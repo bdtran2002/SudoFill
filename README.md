@@ -59,10 +59,7 @@ SudoFill is fully functional and ready for daily use\! We are currently working 
 
 ## 👩‍💻 For Contributors & Developers
 
-If you're looking to help build SudoFill or run it from the source code, check out our [Developer Guide](https://www.google.com/search?q=./DEVELOPER_GUIDE.md) (or expand the section below).
-
-\<details\>
-\<summary\>\<b\>Click to see Development Commands\</b\>\</summary\>
+If you're looking to help build SudoFill or run it from the source code:
 
 SudoFill is built with **Bun**.
 

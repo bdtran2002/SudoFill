@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronDown, RefreshCw, RotateCcw, Save, Settings } from 'lucide-react';
+import { ChevronDown, RotateCcw, Save, Settings } from 'lucide-react';
 
 import '../../src/styles.css';
 import {
@@ -14,7 +14,7 @@ import {
   isAutofillAgeRangeValid,
   setStoredAutofillSettings,
 } from '../../src/features/autofill/settings';
-import type { AutofillSettings, GeneratedProfile } from '../../src/features/autofill/types';
+import type { AutofillSettings } from '../../src/features/autofill/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -22,8 +22,6 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
-  const [previewSeed, setPreviewSeed] = useState(0);
-  const [previewProfile, setPreviewProfile] = useState<GeneratedProfile | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -43,35 +41,6 @@ function OptionsApp() {
 
   const canSave = useMemo(() => isAutofillAgeRangeValid(settings), [settings]);
   const ageHasError = !canSave && Boolean(settings.ageMin || settings.ageMax);
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPreview() {
-      const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
-
-      if (!cancelled) {
-        setPreviewProfile(generateAutofillProfile(settings));
-      }
-    }
-
-    void loadPreview();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previewSeed, settings]);
-
-  const previewDob = useMemo(
-    () => (previewProfile ? formatPreviewDate(previewProfile.birthDateIso) : 'Loading…'),
-    [previewProfile],
-  );
-  const previewStateLabel = useMemo(
-    () =>
-      US_STATE_OPTIONS.find((state) => state.code === previewProfile?.state)?.name ||
-      previewProfile?.stateName ||
-      'Any state',
-    [previewProfile],
-  );
 
   async function saveSettings() {
     if (saveState === 'saving') {
@@ -115,10 +84,6 @@ function OptionsApp() {
     }
   }
 
-  function regeneratePreview() {
-    setPreviewSeed((current) => current + 1);
-  }
-
   return (
     <main className='min-h-screen bg-void px-5 py-6 font-body text-ink antialiased sm:px-6 sm:py-8'>
       <div className='mx-auto flex w-full max-w-3xl flex-col'>
@@ -156,184 +121,87 @@ function OptionsApp() {
             </p>
           </div>
 
-          <div className='grid gap-0 lg:grid-cols-[1.15fr_0.85fr]'>
-            <div className='divide-y divide-border-dim'>
-              <SettingSection
-                description='Generate street, city, state, and postal details for forms that ask for a mailing address.'
-                title='Generated address'
+          <div className='divide-y divide-border-dim'>
+            <SettingSection
+              description='Generate street, city, state, and postal details for forms that ask for a mailing address.'
+              title='Generated address'
+            >
+              <ToggleField
+                checked={settings.generateAddress}
+                onChange={(checked) =>
+                  setSettings((current) => ({ ...current, generateAddress: checked }))
+                }
+              />
+            </SettingSection>
+
+            <SettingSection
+              description='Restrict generated profiles to a specific state when a form asks for one.'
+              title='State'
+            >
+              <SelectField
+                ariaLabel='State'
+                onChange={(event) =>
+                  setSettings((current) => ({ ...current, state: event.target.value }))
+                }
+                value={settings.state}
               >
-                <ToggleField
-                  checked={settings.generateAddress}
-                  onChange={(checked) =>
-                    setSettings((current) => ({ ...current, generateAddress: checked }))
+                {US_STATE_OPTIONS.map((option) => (
+                  <option key={option.name} value={option.code}>
+                    {option.name}
+                  </option>
+                ))}
+              </SelectField>
+            </SettingSection>
+
+            <SettingSection
+              description='Leave blank to keep age flexible, or set a small range to avoid outliers.'
+              title='Age range'
+            >
+              <div className='grid grid-cols-2 gap-3'>
+                <LabeledInput
+                  invalid={ageHasError}
+                  label='Min'
+                  onChange={(event) =>
+                    setSettings((current) => ({ ...current, ageMin: event.target.value }))
                   }
+                  placeholder='18'
+                  type='number'
+                  value={settings.ageMin}
                 />
-              </SettingSection>
-
-              <SettingSection
-                description='Restrict generated profiles to a specific state when a form asks for one.'
-                title='State'
-              >
-                <SelectField
-                  ariaLabel='State'
+                <LabeledInput
+                  invalid={ageHasError}
+                  label='Max'
                   onChange={(event) =>
-                    setSettings((current) => ({ ...current, state: event.target.value }))
+                    setSettings((current) => ({ ...current, ageMax: event.target.value }))
                   }
-                  value={settings.state}
-                >
-                  {US_STATE_OPTIONS.map((option) => (
-                    <option key={option.name} value={option.code}>
-                      {option.name}
-                    </option>
-                  ))}
-                </SelectField>
-              </SettingSection>
-
-              <SettingSection
-                description='Leave blank to keep age flexible, or set a small range to avoid outliers.'
-                title='Age range'
-              >
-                <div className='grid grid-cols-2 gap-3'>
-                  <LabeledInput
-                    invalid={ageHasError}
-                    label='Min'
-                    onChange={(event) =>
-                      setSettings((current) => ({ ...current, ageMin: event.target.value }))
-                    }
-                    placeholder='18'
-                    type='number'
-                    value={settings.ageMin}
-                  />
-                  <LabeledInput
-                    invalid={ageHasError}
-                    label='Max'
-                    onChange={(event) =>
-                      setSettings((current) => ({ ...current, ageMax: event.target.value }))
-                    }
-                    placeholder='99'
-                    type='number'
-                    value={settings.ageMax}
-                  />
-                </div>
-              </SettingSection>
-
-              <SettingSection
-                description='Bias generated names and profile data toward a sex when the site needs one.'
-                title='Sex'
-              >
-                <SelectField
-                  ariaLabel='Sex'
-                  onChange={(event) =>
-                    setSettings((current) => ({
-                      ...current,
-                      sex: event.target.value as AutofillSettings['sex'],
-                    }))
-                  }
-                  value={settings.sex}
-                >
-                  {AUTOFILL_SEX_OPTIONS.map((option) => (
-                    <option key={option.label} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </SelectField>
-              </SettingSection>
-            </div>
-
-            <aside className='border-t border-border-dim bg-surface-raised/60 p-4 lg:border-l lg:border-t-0 sm:p-5'>
-              <div className='overflow-hidden rounded-xl border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.18)]'>
-                <div className='border-b border-border-dim bg-[linear-gradient(135deg,rgba(239,75,75,0.12),transparent_58%)] px-4 py-3'>
-                  <div className='flex items-center justify-between gap-3'>
-                    <div>
-                      <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
-                        Live preview
-                      </p>
-                      <p className='mt-1 text-sm leading-relaxed text-ink-secondary'>
-                        What the next autofill profile is likely to look like.
-                      </p>
-                    </div>
-                    <button
-                      className='inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
-                      onClick={regeneratePreview}
-                      type='button'
-                    >
-                      <RefreshCw className='h-3.5 w-3.5' />
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
-
-                <div className='space-y-3 p-4'>
-                  <div className='rounded-xl border border-border-dim bg-void/45 p-4'>
-                    <div className='flex items-start justify-between gap-3'>
-                      <div className='min-w-0'>
-                        <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-                          Identity
-                        </p>
-                        <h2 className='mt-2 truncate font-brand text-xl font-semibold tracking-tight text-ink'>
-                          {previewProfile?.fullName ?? 'Generating profile…'}
-                        </h2>
-                      </div>
-                      <span className='rounded-full border border-accent/20 bg-accent-bg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent'>
-                        Live
-                      </span>
-                    </div>
-
-                    <div className='mt-3 space-y-3 text-sm leading-relaxed'>
-                      <PreviewRow label='Email' value={previewProfile?.email ?? 'Loading…'} />
-                      <div className='grid grid-cols-2 gap-2'>
-                        <PreviewPill label='DOB' value={previewDob} />
-                        <PreviewPill
-                          label='Sex'
-                          value={previewProfile ? formatSexLabel(previewProfile.sex) : 'Loading…'}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className='rounded-xl border border-border-dim bg-surface-raised/70 p-4'>
-                    <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-                      Address
-                    </p>
-                    {previewProfile?.addressLine1 ? (
-                      <div className='mt-3 space-y-1.5 text-sm text-ink-secondary'>
-                        <p className='font-medium text-ink'>{previewProfile.addressLine1}</p>
-                        {previewProfile.addressLine2 && <p>{previewProfile.addressLine2}</p>}
-                        <p>{previewProfile.city}</p>
-                        <p>
-                          {previewStateLabel} {previewProfile.postalCode}
-                        </p>
-                      </div>
-                    ) : !previewProfile ? (
-                      <p className='mt-3 text-sm leading-relaxed text-ink-muted'>
-                        Generating a preview profile…
-                      </p>
-                    ) : (
-                      <p className='mt-3 text-sm leading-relaxed text-ink-muted'>
-                        Address generation is off in the current settings.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className='rounded-xl border border-border-dim bg-void/30 px-4 py-3 text-sm text-ink-secondary'>
-                    <p className='font-semibold text-ink'>Quick guide</p>
-                    <ul className='mt-2 space-y-2 leading-relaxed'>
-                      <li>• Use broad defaults for maximum flexibility.</li>
-                      <li>• Set only the fields your workflow actually needs.</li>
-                      <li>• Reset anytime to return to the extension’s starter state.</li>
-                    </ul>
-                  </div>
-
-                  <div className='rounded-xl border border-border-dim bg-void/40 px-4 py-4 text-sm text-ink-secondary'>
-                    <p className='font-semibold text-ink'>Validation</p>
-                    <p className='mt-1'>
-                      Age values must stay between 18 and 99, and the minimum cannot exceed the
-                      maximum.
-                    </p>
-                  </div>
-                </div>
+                  placeholder='99'
+                  type='number'
+                  value={settings.ageMax}
+                />
               </div>
-            </aside>
+            </SettingSection>
+
+            <SettingSection
+              description='Bias generated names and profile data toward a sex when the site needs one.'
+              title='Sex'
+            >
+              <SelectField
+                ariaLabel='Sex'
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    sex: event.target.value as AutofillSettings['sex'],
+                  }))
+                }
+                value={settings.sex}
+              >
+                {AUTOFILL_SEX_OPTIONS.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
+            </SettingSection>
           </div>
 
           <div className='flex flex-col gap-3 border-t border-border-dim bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5'>
@@ -469,52 +337,14 @@ function ToggleField({
         }`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-void shadow-sm transition-transform ${
-            checked ? 'translate-x-5' : 'translate-x-0.5'
+          className={`absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-void shadow-sm transition-transform ${
+            checked ? '-translate-x-5' : 'translate-x-0'
           }`}
         />
       </span>
       <span className='text-sm font-medium'>{checked ? 'Enabled' : 'Disabled'}</span>
     </button>
   );
-}
-
-function PreviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className='rounded-lg border border-border-dim bg-surface px-3 py-2'>
-      <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted'>
-        {label}
-      </p>
-      <p className='mt-1 break-words text-sm text-ink'>{value}</p>
-    </div>
-  );
-}
-
-function PreviewPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className='rounded-lg border border-border-dim bg-surface px-3 py-2'>
-      <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted'>
-        {label}
-      </p>
-      <p className='mt-1 text-sm font-medium text-ink'>{value}</p>
-    </div>
-  );
-}
-
-function formatPreviewDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${value}T00:00:00Z`));
-}
-
-function formatSexLabel(value: string) {
-  if (value === 'female') return 'Female';
-  if (value === 'male') return 'Male';
-  if (value === 'nonbinary') return 'Non-binary';
-  return 'Unspecified';
 }
 
 createRoot(document.getElementById('root')!).render(<OptionsApp />);

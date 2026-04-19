@@ -80,6 +80,58 @@ function countryValues(profile: GeneratedProfile) {
   ].filter((value): value is string => Boolean(value));
 }
 
+function isLikelyShortFirstNameField(key: string) {
+  if (hasAnyToken(key, ['forename', 'fname'])) {
+    return true;
+  }
+
+  return (
+    hasToken(key, 'first') &&
+    !hasAnyToken(key, [
+      'last',
+      'surname',
+      'family',
+      'company',
+      'username',
+      'user name',
+      'display',
+      'preferred',
+      'email',
+      'address',
+      'purchase',
+      'order',
+      'visit',
+      'login',
+    ])
+  );
+}
+
+function isLikelyShortLastNameField(key: string) {
+  if (hasAnyToken(key, ['lname'])) {
+    return true;
+  }
+
+  return (
+    hasToken(key, 'last') &&
+    !hasAnyToken(key, [
+      'first',
+      'company',
+      'username',
+      'user name',
+      'display',
+      'email',
+      'address',
+      'purchase',
+      'order',
+      'visit',
+      'login',
+      'updated',
+      'modified',
+      'seen',
+    ])
+  );
+}
+
 export function prioritizeDobValues(values: string[], context: DobFieldContext = {}) {
   const haystack = [context.inputType, context.placeholder, context.labelText, context.keyText]
     .filter(Boolean)
@@ -111,7 +163,8 @@ export function resolveAutofillMatch(
   if (
     hasAnyToken(normalizedKey, ['given name', 'first name']) ||
     hasToken(normalizedKey, 'givenname') ||
-    hasToken(normalizedKey, 'firstname')
+    hasToken(normalizedKey, 'firstname') ||
+    isLikelyShortFirstNameField(normalizedKey)
   ) {
     return { field: 'firstName', values: [profile.firstName] };
   }
@@ -119,7 +172,8 @@ export function resolveAutofillMatch(
   if (
     hasAnyToken(normalizedKey, ['family name', 'last name', 'surname']) ||
     hasToken(normalizedKey, 'familyname') ||
-    hasToken(normalizedKey, 'lastname')
+    hasToken(normalizedKey, 'lastname') ||
+    isLikelyShortLastNameField(normalizedKey)
   ) {
     return { field: 'lastName', values: [profile.lastName] };
   }

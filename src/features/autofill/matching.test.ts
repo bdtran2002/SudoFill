@@ -64,6 +64,19 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('sex', profile)?.field).toBe('sex');
   });
 
+  it('matches short first and last name field tokens', () => {
+    expect(resolveAutofillMatch('first', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('fname', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('forename', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('last', profile)?.field).toBe('lastName');
+    expect(resolveAutofillMatch('lname', profile)?.field).toBe('lastName');
+  });
+
+  it('avoids false positives for non-name first and last fields', () => {
+    expect(resolveAutofillMatch('first purchase date', profile)).toBeNull();
+    expect(resolveAutofillMatch('last login', profile)).toBeNull();
+  });
+
   it('matches country fields with common United States aliases', () => {
     expect(resolveAutofillMatch('country', profile)?.values).toEqual([
       'United States',

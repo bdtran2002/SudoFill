@@ -412,4 +412,25 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('[name="country"]') as HTMLSelectElement).value).toBe('America');
     expect((document.querySelector('[name="state"]') as HTMLSelectElement).value).toBe('CA');
   });
+
+  it('fills short first and last labels that do not include the word name', () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label>First <input name="first" /></label>
+        <label>Last <input name="last" /></label>
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="first"]') as HTMLInputElement).value).toBe('Ada');
+    expect((document.querySelector('[name="last"]') as HTMLInputElement).value).toBe('Lovelace');
+    expect((document.querySelector('[name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
 });

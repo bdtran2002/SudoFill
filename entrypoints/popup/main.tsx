@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Copy, ExternalLink, RefreshCw, Trash2, Plus, Mail, ArrowRight } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  RefreshCw,
+  Trash2,
+  Plus,
+  Mail,
+  ArrowRight,
+  WandSparkles,
+  SlidersHorizontal,
+} from 'lucide-react';
 
 import '../../src/styles.css';
+import { generateAutofillProfile } from '../../src/features/autofill/profile';
+import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
+import type { AutofillContentResponse } from '../../src/features/autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
 import type {
   MailboxCommand,
@@ -58,6 +71,11 @@ function useCopiedFlash() {
 
   return { copied, flash } as const;
 }
+
+type AutofillStatus =
+  | { tone: 'idle'; message: string }
+  | { tone: 'success'; message: string }
+  | { tone: 'error'; message: string };
 
 /* ── Message detail ────────────────────────────────────────────────── */
 
@@ -131,6 +149,10 @@ function MessagePanel({
 function PopupApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
+    tone: 'idle',
+    message: 'Generate a profile, then fill the page you already have open.',
+  });
   const { copied, flash } = useCopiedFlash();
 
   useEffect(() => {
@@ -167,6 +189,54 @@ function PopupApp() {
     if (!snapshot.address) return;
     await navigator.clipboard.writeText(snapshot.address);
     flash();
+  }
+
+  async function autofillCurrentPage() {
+    setIsBusy(true);
+
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab?.id) {
+        setAutofillStatus({
+          tone: 'error',
+          message: 'Open a page first, then try autofill again.',
+        });
+        return;
+      }
+
+      const settings = await getStoredAutofillSettings();
+      const profile = generateAutofillProfile(settings, { email: snapshot.address });
+      const response = (await chrome.tabs.sendMessage(tab.id, {
+        type: 'autofill:fill-profile',
+        profile,
+      })) as AutofillContentResponse;
+
+      if (!response.ok) {
+        setAutofillStatus({
+          tone: 'error',
+          message: response.error ?? 'No supported fields found on this page.',
+        });
+        return;
+      }
+
+      setAutofillStatus({
+        tone: 'success',
+        message: `Filled ${response.filledCount} field${response.filledCount === 1 ? '' : 's'}.`,
+      });
+    } catch (error) {
+      setAutofillStatus({
+        tone: 'error',
+        message:
+          error instanceof Error ? error.message : 'Autofill is not available on this page yet.',
+      });
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function openAutofillSettings() {
+    await chrome.runtime.openOptionsPage();
   }
 
   return (
@@ -261,6 +331,59 @@ function PopupApp() {
                 {snapshot.lastCheckedAt
                   ? formatTimestamp(snapshot.lastCheckedAt)
                   : 'Not checked yet'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className='animate-fade-in px-5 pb-4' style={{ animationDelay: '90ms' }}>
+          <div className='overflow-hidden rounded-xl border border-border bg-surface'>
+            <div className='p-4'>
+              <div className='flex items-start justify-between gap-3'>
+                <div>
+                  <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                    Autofill
+                  </p>
+                  <p className='mt-2 text-sm leading-relaxed text-ink-secondary'>
+                    Use your saved ranges to generate a fake profile and fill common signup fields.
+                  </p>
+                </div>
+                <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
+              </div>
+
+              <div className='mt-4 flex gap-2'>
+                <button
+                  className='flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                  disabled={isBusy}
+                  onClick={() => void autofillCurrentPage()}
+                  type='button'
+                >
+                  <WandSparkles className='h-3.5 w-3.5' />
+                  Autofill page
+                </button>
+                <button
+                  className='flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={isBusy}
+                  onClick={() => void openAutofillSettings()}
+                  type='button'
+                >
+                  <SlidersHorizontal className='h-3.5 w-3.5' />
+                  Settings
+                </button>
+              </div>
+            </div>
+
+            <div className='border-t border-border-dim bg-surface-raised px-4 py-2 text-[11px] text-ink-muted'>
+              <span
+                className={
+                  autofillStatus.tone === 'error'
+                    ? 'text-danger'
+                    : autofillStatus.tone === 'success'
+                      ? 'text-accent'
+                      : 'text-ink-muted'
+                }
+              >
+                {autofillStatus.message}
               </span>
             </div>
           </div>

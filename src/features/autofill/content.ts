@@ -92,6 +92,33 @@ function getFieldsetLegendText(element: Element) {
   return fieldset?.querySelector('legend')?.textContent?.trim() ?? '';
 }
 
+function getNearbyDobGroupingText(element: FillableElement) {
+  const nameLike = [
+    element instanceof HTMLInputElement ? element.name : '',
+    element.id,
+    element.getAttribute('aria-label') ?? '',
+    element.getAttribute('autocomplete') ?? '',
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  if (!/(month|day|year)/.test(nameLike)) return '';
+
+  const container = element.closest('div, li, section, article, fieldset');
+  if (!container) return '';
+
+  const text = [
+    container.getAttribute('aria-label') ?? '',
+    getReferencedText(container, 'aria-labelledby'),
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  return /birth|dob|date of birth|birthday/.test(text) ? text : '';
+}
+
 function getAssociatedLabelText(element: FillableElement) {
   return element.labels
     ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
@@ -106,6 +133,7 @@ export function buildFieldKey(element: FillableElement) {
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const describedByText = getReferencedText(element, 'aria-describedby');
   const legendText = getFieldsetLegendText(element);
+  const dobGroupingText = getNearbyDobGroupingText(element);
 
   return [
     element.name,
@@ -117,6 +145,7 @@ export function buildFieldKey(element: FillableElement) {
     placeholder,
     getAssociatedLabelText(element),
     legendText,
+    dobGroupingText,
   ]
     .join(' ')
     .trim()
@@ -152,11 +181,14 @@ function getElementContext(element: FillableElement) {
       : '';
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const legendText = getFieldsetLegendText(element);
+  const dobGroupingText = getNearbyDobGroupingText(element);
 
   return {
     inputType: element instanceof HTMLInputElement ? element.type : undefined,
     placeholder,
-    labelText: [getAssociatedLabelText(element), labelledByText, legendText].join(' ').trim(),
+    labelText: [getAssociatedLabelText(element), labelledByText, legendText, dobGroupingText]
+      .join(' ')
+      .trim(),
     keyText: buildFieldKey(element),
   };
 }

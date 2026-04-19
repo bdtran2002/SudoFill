@@ -371,6 +371,27 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('[name="year"]') as HTMLInputElement).value).toBe('1990');
   });
 
+  it('uses nearby grouping text for split dob fields outside fieldsets', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Register">
+        <div aria-label="Date of birth">
+          <label>Month <input name="month" /></label>
+          <label>Day <input name="day" /></label>
+          <label>Year <input name="year" /></label>
+        </div>
+
+        <button type="submit">Register</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="month"]') as HTMLInputElement).value).toBe('01');
+    expect((document.querySelector('[name="day"]') as HTMLInputElement).value).toBe('15');
+    expect((document.querySelector('[name="year"]') as HTMLInputElement).value).toBe('1990');
+  });
+
   it('fills country and state selects using United States and California defaults', async () => {
     const defaultLocationProfile = {
       ...profile,

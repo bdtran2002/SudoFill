@@ -94,6 +94,9 @@ describe('resolveAutofillMatch', () => {
   it('matches additional safe aliases', () => {
     expect(resolveAutofillMatch('given name', profile)?.field).toBe('firstName');
     expect(resolveAutofillMatch('first_name', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('first name *', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('first name required', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('enter first name', profile)?.field).toBe('firstName');
     expect(resolveAutofillMatch('second name', profile)?.field).toBe('lastName');
     expect(resolveAutofillMatch('complete name', profile)?.field).toBe('fullName');
     expect(resolveAutofillMatch('birthdate', profile)?.field).toBe('birthDateIso');

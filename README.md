@@ -38,12 +38,13 @@ SudoFill already includes:
 
 - a working temporary mailbox flow powered by Mail.tm
 - automatic mailbox refresh, polling, cleanup, badge updates, and fallback refresh handling
-- a popup interface for creating, refreshing, copying, and deleting mailboxes
-- message viewing and verification-link launching from the popup
+- a Firefox popup UI and a Chrome side panel UI for creating, refreshing, copying, and deleting mailboxes
+- message viewing and verification-link launching from the extension UI
 - autofill for common signup fields
 - autofill profile generation for names, email, date of birth, sex, and address details
 - settings for autofill defaults like age range, state preference, and address generation behavior
-- smarter field matching for common labels, autocomplete values, and naming patterns
+- smarter field matching for common labels, autocomplete values, grouped DOB context, and signup-oriented naming patterns
+- broader signup matching for first/last/full name, DOB, and hybrid email-or-phone style fields
 - safer autofill behavior that avoids hidden or readonly fields and tries to focus on one relevant form
 
 ## Current Limitations
@@ -74,29 +75,40 @@ bun install
 
 ### 2. Start the extension in development mode
 
-For Chrome:
+Firefox is the default dev target:
 
 ```bash
 bun run dev
 ```
 
-For Firefox:
+For Chrome:
 
 ```bash
-bun run dev:firefox
+bun run dev:chrome
 ```
 
 ### 3. Build a production version
+
+Firefox is the default build target:
 
 ```bash
 bun run build
 ```
 
+For Chrome:
+
+```bash
+bun run build:chrome
+```
+
 ### Useful scripts
 
-- `bun run dev` — start Chrome extension dev mode
+- `bun run dev` — start Firefox extension dev mode
 - `bun run dev:firefox` — start Firefox extension dev mode
-- `bun run build` — create a production build
+- `bun run dev:chrome` — start Chrome extension dev mode
+- `bun run build` — create a Firefox production build
+- `bun run build:firefox` — create a Firefox production build
+- `bun run build:chrome` — create a Chrome production build
 - `bun run zip` — package extension zip files
 - `bun run lint` — run ESLint
 - `bun run format` — format the codebase

@@ -19,37 +19,61 @@
     const COMMON_WORDS_URL = "https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english.txt";
     const ADJECTIVES_URL   = "https://gist.githubusercontent.com/hugsy/8910dc78d208e40de42deb29e62df913/raw/0f3e5c6e5f8e5b5f0d5e5f5e5f5e5f5e5f5e5f5e/english-adjectives.txt";
 
-    async function loadWordLists() {
-      try {
-        console.log("Loading expansive word lists...");
+    # === Improved loadWordLists() with proper error handling ===
 
-        const [wordsRes, adjRes] = await Promise.all([
-          fetch(COMMON_WORDS_URL),
-          fetch(ADJECTIVES_URL)
-        ]);
+async def loadWordLists():
+    global words, adjectives  # if you're using globals; otherwise return them
 
-        const wordsText = await wordsRes.text();
-        const adjText   = await adjRes.text();
+    try:
+        print("Loading expansive word lists from GitHub...")
 
-        // Clean and filter
-        words = wordsText
-          .split('\n')
-          .map(w => w.trim().toLowerCase())
-          .filter(w => w.length >= 3 && /^[a-z]+$/.test(w));
+        COMMON_WORDS_URL = "https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english.txt"
+        ADJECTIVES_URL   = "https://gist.githubusercontent.com/hugsy/8910dc78d208e40de42deb29e62df913/raw/0f3e5c6e5f8e5b5f0d5e5f5e5f5e5f5e5f5e5f5e/english-adjectives.txt"
 
-        adjectives = adjText
-          .split('\n')
-          .map(w => w.trim().toLowerCase())
-          .filter(w => w.length >= 3 && /^[a-z]+$/.test(w));
+        wordsRes, adjRes = await Promise.all([
+            fetch(COMMON_WORDS_URL),
+            fetch(ADJECTIVES_URL)
+        ])
 
-        console.log(`Loaded ${words.length} common words and ${adjectives.length} adjectives`);
-      } catch (e) {
-        console.error("Failed to load word lists", e);
-        // Fallback small list if fetch fails
-        words = ["river","mountain","shadow","star","breeze","wolf","fox","hawk","night","sun","coffee","blue","happy","quick","silent","bright","cool","wild","free"];
-        adjectives = ["happy","quick","silent","bright","cool","wild","free","dark","light","deep","soft","strong"];
-      }
-    }
+        # === NEW: Check response status before reading body ===
+        if not wordsRes.ok:
+            raise Exception(f"Failed to fetch common words: {wordsRes.status} {wordsRes.statusText}")
+        if not adjRes.ok:
+            raise Exception(f"Failed to fetch adjectives: {adjRes.status} {adjRes.statusText}")
+
+        wordsText = await wordsRes.text()
+        adjText   = await adjRes.text()
+
+        # Parse and clean
+        words = [w.strip().lower() 
+                 for w in wordsText.split('\n') 
+                 if len(w := w.strip()) >= 3 and w.isalpha()]
+
+        adjectives = [w.strip().lower() 
+                      for w in adjText.split('\n') 
+                      if len(w := w.strip()) >= 3 and w.isalpha()]
+
+        # === NEW: Guard against empty lists ===
+        if len(words) == 0 or len(adjectives) == 0:
+            raise Exception(
+                f"Word lists loaded but are empty or invalid. "
+                f"Words: {len(words)}, Adjectives: {len(adjectives)}"
+            )
+
+        print(f"✅ Successfully loaded {len(words):,} common words and {len(adjectives):,} adjectives")
+
+    except Exception as e:
+        print(f"❌ Error loading word lists: {e}")
+        
+        # Safe fallback (small built-in list so generation never completely breaks)
+        words = ["river", "mountain", "shadow", "star", "breeze", "wolf", "fox", 
+                 "hawk", "night", "sun", "coffee", "blue", "happy", "quick", 
+                 "silent", "bright", "cool", "wild", "free", "dark", "light"]
+        
+        adjectives = ["happy", "quick", "silent", "bright", "cool", "wild", "free", 
+                      "dark", "light", "deep", "soft", "strong", "calm", "bold"]
+        
+        print("⚠️ Using small built-in fallback word lists")
 
     function generateRealisticLocal() {
       if (words.length === 0) return "user" + Math.floor(Math.random()*999);

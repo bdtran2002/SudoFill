@@ -16,6 +16,7 @@ function isGeneratedProfile(value: unknown): value is GeneratedProfile {
     'firstName',
     'lastName',
     'fullName',
+    'businessName',
     'email',
     'phone',
     'sex',
@@ -28,6 +29,8 @@ function isGeneratedProfile(value: unknown): value is GeneratedProfile {
     'city',
     'state',
     'stateName',
+    'country',
+    'countryName',
     'postalCode',
   ].every((key) => typeof profile[key] === 'string');
 }

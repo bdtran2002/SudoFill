@@ -68,7 +68,6 @@ html.popup {
   width: 100%;
   max-width: 400px;
   height: 100dvh;
-  min-height: 100dvh;
   overflow: hidden;
 }
 
@@ -117,7 +116,6 @@ html.sidepanel .sidepanel-scroll-region::-webkit-scrollbar {
 
 html.popup body,
 html.popup #root {
-  height: 100dvh;
   overflow: hidden;
 }
 

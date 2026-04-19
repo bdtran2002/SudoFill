@@ -1,8 +1,8 @@
+# ⚡ SudoFill
+
 <p align="center">
   <img src="./assets/icon.png" alt="SudoFill icon" width="96" height="96" />
 </p>
-
-# ⚡ SudoFill
 
 SudoFill helps you get through sign-up forms faster.
 

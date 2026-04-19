@@ -352,8 +352,13 @@ function SelectField({
 function LabeledInput({
   label,
   invalid,
+  max,
+  min,
+  type,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; invalid?: boolean }) {
+  const numericBounds = type === 'number' ? { max: max ?? 99, min: min ?? 18 } : {};
+
   return (
     <label className='block'>
       <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
@@ -365,8 +370,8 @@ function LabeledInput({
             ? 'border-danger-border focus:border-danger focus:ring-danger/20'
             : 'border-border focus:border-accent/50 focus:ring-accent/20'
         }`}
-        max={99}
-        min={18}
+        type={type}
+        {...numericBounds}
         {...props}
       />
     </label>

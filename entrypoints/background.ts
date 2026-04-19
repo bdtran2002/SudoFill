@@ -79,6 +79,23 @@ function configureSidePanelActionBehavior() {
   });
 }
 
+function registerChromeSidePanelActionHandler() {
+  if (!chrome.sidePanel?.open || !chrome.action?.onClicked) {
+    return;
+  }
+
+  chrome.action.onClicked.addListener((tab) => {
+    if (tab.id !== undefined) {
+      void chrome.sidePanel.open({ tabId: tab.id });
+      return;
+    }
+
+    if (tab.windowId !== undefined) {
+      void chrome.sidePanel.open({ windowId: tab.windowId });
+    }
+  });
+}
+
 function fromBrowserPromise<T>(promise: Promise<T>, fallbackMessage: string) {
   return ResultAsync.fromPromise(promise, (error) =>
     toUnexpectedMailboxError(error, fallbackMessage),
@@ -370,6 +387,7 @@ function handleCommandError(error: unknown, command: MailboxCommand): Promise<Ma
 
 export default defineBackground(() => {
   configureSidePanelActionBehavior();
+  registerChromeSidePanelActionHandler();
 
   void restoreMailboxFromSessionStorage().orElse((error) =>
     updateSnapshot({

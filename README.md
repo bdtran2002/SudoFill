@@ -1,12 +1,10 @@
-To make this README more user-friendly, we should pivot from "how it's built" to "how it solves the user's problem." I've streamlined the technical jargon, added clear value propositions, and used a more inviting tone while keeping the essential instructions intact.
-
------
+---
 
 # ⚡ SudoFill
 
 **Stop wasting time on repetitive signups.** SudoFill is a browser extension that automates account creation by providing temporary emails and smart autofill in one click.
 
------
+---
 
 ## 🚀 Why SudoFill?
 
@@ -14,12 +12,12 @@ Signing up for new services often feels like a chore. You have to invent a usern
 
 ### ✨ Key Features
 
-  * **Instant Temporary Email:** Create a disposable mailbox powered by Mail.tm without leaving the page.
-  * **Smart Autofill:** Automatically populates names, birthdays, and addresses using realistic (but fake) data.
-  * **In-App Verification:** See incoming emails and click verification links directly from the extension popup—no more switching tabs.
-  * **Privacy First:** Protect your real inbox from spam by using "sudo" identities for quick tests or one-time signups.
+- **Instant Temporary Email:** Create a disposable mailbox powered by Mail.tm without leaving the page.
+- **Smart Autofill:** Automatically populates names, birthdays, and addresses using realistic (but fake) data.
+- **In-App Verification:** See incoming emails and click verification links directly from the extension popup—no more switching tabs.
+- **Privacy First:** Protect your real inbox from spam by using "sudo" identities for quick tests or one-time signups.
 
------
+---
 
 ## 🛠️ How It Works
 
@@ -28,7 +26,7 @@ Signing up for new services often feels like a chore. You have to invent a usern
 3.  **Verify:** Watch the SudoFill popup for your verification email.
 4.  **Finish:** Click the link inside the popup to confirm your account. Done\!
 
------
+---
 
 - a working temporary mailbox flow powered by Mail.tm
 - automatic mailbox refresh, polling, cleanup, badge updates, and fallback refresh handling
@@ -43,11 +41,11 @@ Signing up for new services often feels like a chore. You have to invent a usern
 
 You’re in control of how SudoFill fills out forms. In the **Settings** menu, you can toggle:
 
-  * **Age Ranges:** Set a preferred age range for generated birthdays.
-  * **Location Prefs:** Choose specific states or address formats.
-  * **Security:** SudoFill is designed to ignore hidden or "read-only" fields to keep your data safe and the form submission valid.
+- **Age Ranges:** Set a preferred age range for generated birthdays.
+- **Location Prefs:** Choose specific states or address formats.
+- **Security:** SudoFill is designed to ignore hidden or "read-only" fields to keep your data safe and the form submission valid.
 
------
+---
 
 ## 🚧 Current Status & Limitations
 
@@ -55,7 +53,7 @@ SudoFill is fully functional and ready for daily use\! We are currently working 
 
 **Note:** For your security, SudoFill **does not** autofill phone numbers. You will still need to handle SMS verification manually if a site requires it.
 
------
+---
 
 ## 👩‍💻 For Contributors & Developers
 
@@ -72,7 +70,7 @@ bun install
 
 Firefox is the default dev target:
 
-# Run in development mode (Chrome)
+```bash
 bun run dev
 ```
 
@@ -111,7 +109,7 @@ bun run build:chrome
 - `bun run typecheck` — run TypeScript checks
 - `bun run test` — run Vitest
 
------
+---
 
 ## 📄 License
 

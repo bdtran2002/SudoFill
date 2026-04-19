@@ -1,338 +1,628 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Realistic Burner Email Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-        }
-        .email-box {
-            background: linear-gradient(90deg, #1e2937, #334155);
-            border: 2px solid #64748b;
-        }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      .email-box {
+        background: linear-gradient(90deg, #1e2937, #334155);
+        border: 2px solid #64748b;
+      }
     </style>
-</head>
-<body class="bg-zinc-950 text-white min-h-screen py-12">
+  </head>
+  <body class="bg-zinc-950 text-white min-h-screen py-12">
     <div class="max-w-2xl mx-auto px-6">
-        <!-- Header -->
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h1 class="text-4xl font-semibold tracking-tight">Burner Email Builder</h1>
-                <p class="text-zinc-400 mt-2">Realistic phrases &amp; words • No random gibberish</p>
-            </div>
-            <div class="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-sm font-medium rounded-2xl flex items-center gap-2">
-                <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                READY FOR API
-            </div>
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-4xl font-semibold tracking-tight">Burner Email Builder</h1>
+          <p class="text-zinc-400 mt-2">Realistic phrases &amp; words • No random gibberish</p>
+        </div>
+        <div
+          class="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-sm font-medium rounded-2xl flex items-center gap-2"
+        >
+          <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+          READY FOR API
+        </div>
+      </div>
+
+      <div class="bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800">
+        <!-- Controls -->
+        <div class="flex gap-4 mb-8">
+          <button
+            type="button"
+            onclick="generateEmail()"
+            class="flex-1 bg-white text-zinc-900 hover:bg-amber-300 transition-all font-semibold py-4 px-8 rounded-2xl flex items-center justify-center gap-3 text-lg"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M14 10h4.764a2 2 0 011.789 2.894L18 21H6l-2.236-8.106A2 2 0 015.236 10H10"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 14v4m4-4v4"
+              />
+            </svg>
+            GENERATE REALISTIC EMAIL
+          </button>
+
+          <button
+            type="button"
+            onclick="copyEmail()"
+            class="bg-zinc-800 hover:bg-zinc-700 transition-all font-medium px-8 rounded-2xl flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 16v-4m4 4v4m-8-8h8a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            COPY
+          </button>
         </div>
 
-        <div class="bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800">
-            
-            <!-- Controls -->
-            <div class="flex gap-4 mb-8">
-                <button onclick="generateEmail()" 
-                        class="flex-1 bg-white text-zinc-900 hover:bg-amber-300 transition-all font-semibold py-4 px-8 rounded-2xl flex items-center justify-center gap-3 text-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894L18 21H6l-2.236-8.106A2 2 0 015.236 10H10" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14v4m4-4v4" />
-                    </svg>
-                    GENERATE REALISTIC EMAIL
-                </button>
+        <!-- Generated Email -->
+        <div
+          id="emailContainer"
+          class="email-box rounded-2xl p-6 mb-8 min-h-[88px] flex items-center justify-center text-center break-all"
+        >
+          <div
+            id="emailDisplay"
+            class="text-3xl font-medium text-amber-300 tracking-wider font-mono"
+          >
+            Click "Generate" to start
+          </div>
+        </div>
 
-                <button onclick="copyEmail()" 
-                        class="bg-zinc-800 hover:bg-zinc-700 transition-all font-medium px-8 rounded-2xl flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16v-4m4 4v4m-8-8h8a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    COPY
-                </button>
+        <!-- Breakdown -->
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div class="bg-zinc-800 rounded-2xl p-4">
+            <div class="text-zinc-400 text-xs uppercase tracking-widest mb-1">
+              Before @ (local part)
             </div>
-
-            <!-- Generated Email -->
-            <div id="emailContainer" class="email-box rounded-2xl p-6 mb-8 min-h-[88px] flex items-center justify-center text-center break-all">
-                <div id="emailDisplay" class="text-3xl font-medium text-amber-300 tracking-wider font-mono">
-                    Click "Generate" to start
-                </div>
+            <div id="localPart" class="font-medium text-lg text-white">—</div>
+            <div id="localExplanation" class="text-zinc-400 text-xs mt-2">
+              Built from real names, adjectives + nouns
             </div>
-
-            <!-- Breakdown -->
-            <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="bg-zinc-800 rounded-2xl p-4">
-                    <div class="text-zinc-400 text-xs uppercase tracking-widest mb-1">Before @ (local part)</div>
-                    <div id="localPart" class="font-medium text-lg text-white">—</div>
-                    <div id="localExplanation" class="text-zinc-400 text-xs mt-2">Built from real names, adjectives + nouns</div>
-                </div>
-                <div class="bg-zinc-800 rounded-2xl p-4">
-                    <div class="text-zinc-400 text-xs uppercase tracking-widest mb-1">After @ (domain)</div>
-                    <div id="domainPart" class="font-medium text-lg text-white">—</div>
-                    <div id="domainExplanation" class="text-zinc-400 text-xs mt-2">Realistic email providers + temp domains</div>
-                </div>
+          </div>
+          <div class="bg-zinc-800 rounded-2xl p-4">
+            <div class="text-zinc-400 text-xs uppercase tracking-widest mb-1">After @ (domain)</div>
+            <div id="domainPart" class="font-medium text-lg text-white">—</div>
+            <div id="domainExplanation" class="text-zinc-400 text-xs mt-2">
+              Realistic email providers + temp domains
             </div>
+          </div>
+        </div>
 
-            <!-- API Integration Example -->
-            <div class="mt-10 border border-dashed border-zinc-700 rounded-3xl p-6 bg-zinc-950">
-                <h3 class="text-xs uppercase text-zinc-400 mb-3 flex items-center gap-2">
-                    <span class="bg-orange-400 w-2 h-2 rounded-full"></span>
-                    HOW TO SEND THIS TO YOUR API
-                </h3>
-                <pre class="text-emerald-300 text-sm font-mono bg-black/50 p-4 rounded-2xl overflow-auto"><code id="apiCode">const realisticEmail = generateRealisticEmail();
+        <!-- API Integration Example -->
+        <div class="mt-10 border border-dashed border-zinc-700 rounded-3xl p-6 bg-zinc-950">
+          <h3 class="text-xs uppercase text-zinc-400 mb-3 flex items-center gap-2">
+            <span class="bg-orange-400 w-2 h-2 rounded-full"></span>
+            HOW TO SEND THIS TO YOUR API
+          </h3>
+          <pre
+            class="text-emerald-300 text-sm font-mono bg-black/50 p-4 rounded-2xl overflow-auto"
+          ><code id="apiCode">const realisticEmail = generateRealisticEmail();
 // Then call your burner email API:
 fetch('https://your-burner-api.com/create', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email: realisticEmail })
 })</code></pre>
-                <p class="text-zinc-400 text-xs mt-4">The local part is always built from the big wordlists below. Never random strings.</p>
+          <p class="text-zinc-400 text-xs mt-4">
+            The local part is always built from the big wordlists below. Never random strings.
+          </p>
+        </div>
+      </div>
+
+      <!-- Wordlists (expandable) -->
+      <div class="mt-12">
+        <h2 class="text-zinc-400 text-sm uppercase tracking-widest mb-4">
+          Wordlists used (not hard-limited — add as many as you want)
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+          <!-- First Names -->
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <div class="font-medium">First Names (40+)</div>
+              <button
+                type="button"
+                onclick="showFullList('firstNames')"
+                class="text-amber-400 text-xs cursor-pointer hover:underline"
+              >
+                see all →
+              </button>
             </div>
+            <div id="firstNamesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
+          </div>
+
+          <!-- Last Names -->
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <div class="font-medium">Last Names (40+)</div>
+              <button
+                type="button"
+                onclick="showFullList('lastNames')"
+                class="text-amber-400 text-xs cursor-pointer hover:underline"
+              >
+                see all →
+              </button>
+            </div>
+            <div id="lastNamesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
+          </div>
+
+          <!-- Adjectives -->
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <div class="font-medium">Adjectives for phrases</div>
+              <button
+                type="button"
+                onclick="showFullList('adjectives')"
+                class="text-amber-400 text-xs cursor-pointer hover:underline"
+              >
+                see all →
+              </button>
+            </div>
+            <div id="adjectivesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
+          </div>
+
+          <!-- Nouns -->
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <div class="font-medium">Nouns for phrases</div>
+              <button
+                type="button"
+                onclick="showFullList('nouns')"
+                class="text-amber-400 text-xs cursor-pointer hover:underline"
+              >
+                see all →
+              </button>
+            </div>
+            <div id="nounsPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
+          </div>
         </div>
 
-        <!-- Wordlists (expandable) -->
-        <div class="mt-12">
-            <h2 class="text-zinc-400 text-sm uppercase tracking-widest mb-4">Wordlists used (not hard-limited — add as many as you want)</h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
-                <!-- First Names -->
-                <div>
-                    <div class="flex justify-between items-baseline mb-2">
-                        <div class="font-medium">First Names (40+)</div>
-                        <div onclick="showFullList('firstNames')" class="text-amber-400 text-xs cursor-pointer hover:underline">see all →</div>
-                    </div>
-                    <div id="firstNamesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
-                </div>
-
-                <!-- Last Names -->
-                <div>
-                    <div class="flex justify-between items-baseline mb-2">
-                        <div class="font-medium">Last Names (40+)</div>
-                        <div onclick="showFullList('lastNames')" class="text-amber-400 text-xs cursor-pointer hover:underline">see all →</div>
-                    </div>
-                    <div id="lastNamesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
-                </div>
-
-                <!-- Adjectives -->
-                <div>
-                    <div class="flex justify-between items-baseline mb-2">
-                        <div class="font-medium">Adjectives for phrases</div>
-                        <div onclick="showFullList('adjectives')" class="text-amber-400 text-xs cursor-pointer hover:underline">see all →</div>
-                    </div>
-                    <div id="adjectivesPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
-                </div>
-
-                <!-- Nouns -->
-                <div>
-                    <div class="flex justify-between items-baseline mb-2">
-                        <div class="font-medium">Nouns for phrases</div>
-                        <div onclick="showFullList('nouns')" class="text-amber-400 text-xs cursor-pointer hover:underline">see all →</div>
-                    </div>
-                    <div id="nounsPreview" class="text-zinc-400 text-xs leading-relaxed"></div>
-                </div>
-            </div>
-            
-            <p class="text-center text-zinc-500 text-xs mt-8">You can easily add hundreds more words to any array in the JavaScript below. The generator randomly picks from them so every email feels real.</p>
-        </div>
+        <p class="text-center text-zinc-500 text-xs mt-8">
+          You can easily add hundreds more words to any array in the JavaScript below. The generator
+          randomly picks from them so every email feels real.
+        </p>
+      </div>
     </div>
 
     <!-- Modal for full lists -->
-    <div id="modal" onclick="if(event.target.id === 'modal') hideModal()" 
-         class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div onclick="event.stopImmediatePropagation()" 
-             class="bg-zinc-900 rounded-3xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div class="p-6 border-b border-zinc-700 flex items-center justify-between">
-                <h3 id="modalTitle" class="font-semibold"></h3>
-                <button onclick="hideModal()" class="text-zinc-400">✕</button>
-            </div>
-            <div id="modalContent" class="p-6 text-sm max-h-[60vh] overflow-auto leading-relaxed text-zinc-300"></div>
+    <div
+      id="modal"
+      onclick="if (event.target.id === 'modal') hideModal();"
+      class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+    >
+      <div
+        onclick="event.stopImmediatePropagation()"
+        class="bg-zinc-900 rounded-3xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden"
+      >
+        <div class="p-6 border-b border-zinc-700 flex items-center justify-between">
+          <h3 id="modalTitle" class="font-semibold"></h3>
+          <button type="button" onclick="hideModal()" class="text-zinc-400">✕</button>
         </div>
+        <div
+          id="modalContent"
+          class="p-6 text-sm max-h-[60vh] overflow-auto leading-relaxed text-zinc-300"
+        ></div>
+      </div>
     </div>
 
     <script>
-        // ====================== WORDLISTS ======================
-        // These are intentionally large so the generator is never "hard limited"
-        // Feel free to copy-paste hundreds more words from any wordlist source
+      // ====================== WORDLISTS ======================
+      // These are intentionally large so the generator is never "hard limited"
+      // Feel free to copy-paste hundreds more words from any wordlist source
 
-        const wordLists = {
-            firstNames: [
-                "Emma", "Liam", "Olivia", "Noah", "Ava", "Oliver", "Isabella", "Elijah", "Charlotte", "Lucas",
-                "Mia", "Mason", "Amelia", "Ethan", "Harper", "James", "Evelyn", "Alexander", "Abigail", "Henry",
-                "Emily", "Sebastian", "Elizabeth", "Jack", "Sofia", "Daniel", "Avery", "Matthew", "Ella", "Jackson",
-                "Scarlett", "Benjamin", "Grace", "Logan", "Chloe", "Aiden", "Lily", "Samuel", "Layla", "David",
-                "Riley", "Joseph", "Zoey", "Carter", "Nora", "Owen", "Hazel", "Wyatt", "Luna", "John"
-            ],
-            
-            lastNames: [
-                "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
-                "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin",
-                "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson",
-                "Walker", "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
-                "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell", "Carter", "Roberts"
-            ],
-            
-            adjectives: [
-                "quick", "happy", "clever", "bright", "bold", "wild", "calm", "fierce", "gentle", "silent",
-                "brave", "smart", "cool", "fresh", "strong", "swift", "quiet", "loud", "sharp", "smooth",
-                "golden", "silver", "crystal", "midnight", "sunny", "shadow", "storm", "blaze", "frost", "echo",
-                "neon", "cosmic", "mystic", "lunar", "solar", "vibrant", "zen", "pixel", "cyber", "ghost"
-            ],
-            
-            nouns: [
-                "fox", "eagle", "wolf", "bear", "hawk", "owl", "rabbit", "deer", "shark", "dolphin",
-                "lion", "tiger", "penguin", "kangaroo", "panda", "koala", "giraffe", "zebra", "monkey", "squirrel",
-                "raven", "phoenix", "dragon", "falcon", "lynx", "bison", "otter", "badger", "raccoon", "hedgehog",
-                "voyager", "nomad", "explorer", "wanderer", "runner", "dreamer", "guardian", "legend", "hero", "sage"
-            ],
-            
-            domains: [
-                // Real popular providers
-                "gmail.com", "outlook.com", "yahoo.com", "proton.me", "icloud.com",
-                "zoho.com", "fastmail.com", "mail.com", "aol.com", "yandex.com",
-                // Burner / temp-friendly domains (common in APIs)
-                "tempmail.com", "10minutemail.com", "guerrillamail.com", "throwawaymail.com",
-                "mailinator.com", "getairmail.com", "dispostable.com", "temp-mail.org", "sharklasers.com",
-                "hideaddress.net", "mytrashmail.com", "trashmail.com", "temporary-mail.net"
-            ]
-        };
+      const wordLists = {
+        firstNames: [
+          'Emma',
+          'Liam',
+          'Olivia',
+          'Noah',
+          'Ava',
+          'Oliver',
+          'Isabella',
+          'Elijah',
+          'Charlotte',
+          'Lucas',
+          'Mia',
+          'Mason',
+          'Amelia',
+          'Ethan',
+          'Harper',
+          'James',
+          'Evelyn',
+          'Alexander',
+          'Abigail',
+          'Henry',
+          'Emily',
+          'Sebastian',
+          'Elizabeth',
+          'Jack',
+          'Sofia',
+          'Daniel',
+          'Avery',
+          'Matthew',
+          'Ella',
+          'Jackson',
+          'Scarlett',
+          'Benjamin',
+          'Grace',
+          'Logan',
+          'Chloe',
+          'Aiden',
+          'Lily',
+          'Samuel',
+          'Layla',
+          'David',
+          'Riley',
+          'Joseph',
+          'Zoey',
+          'Carter',
+          'Nora',
+          'Owen',
+          'Hazel',
+          'Wyatt',
+          'Luna',
+          'John',
+        ],
 
-        // ====================== CORE GENERATOR ======================
-        function generateRealisticEmail() {
-            const { firstNames, lastNames, adjectives, nouns, domains } = wordLists;
+        lastNames: [
+          'Smith',
+          'Johnson',
+          'Williams',
+          'Brown',
+          'Jones',
+          'Garcia',
+          'Miller',
+          'Davis',
+          'Rodriguez',
+          'Martinez',
+          'Hernandez',
+          'Lopez',
+          'Gonzalez',
+          'Wilson',
+          'Anderson',
+          'Thomas',
+          'Taylor',
+          'Moore',
+          'Jackson',
+          'Martin',
+          'Lee',
+          'Perez',
+          'Thompson',
+          'White',
+          'Harris',
+          'Sanchez',
+          'Clark',
+          'Ramirez',
+          'Lewis',
+          'Robinson',
+          'Walker',
+          'Young',
+          'Allen',
+          'King',
+          'Wright',
+          'Scott',
+          'Torres',
+          'Nguyen',
+          'Hill',
+          'Flores',
+          'Green',
+          'Adams',
+          'Nelson',
+          'Baker',
+          'Hall',
+          'Rivera',
+          'Campbell',
+          'Mitchell',
+          'Carter',
+          'Roberts',
+        ],
 
-            // Multiple realistic patterns for the part before @
-            const patterns = [
-                // Classic name.name
-                () => {
-                    const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
-                    const last = lastNames[Math.floor(Math.random() * lastNames.length)].toLowerCase();
-                    return `${first}.${last}`;
-                },
-                // adjectiveNoun (no dot)
-                () => {
-                    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-                    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-                    return `${adj}${noun}`;
-                },
-                // adjective.noun
-                () => {
-                    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-                    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-                    return `${adj}.${noun}`;
-                },
-                // name + short number (very common in real emails)
-                () => {
-                    const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
-                    const num = Math.floor(Math.random() * 89) + 10; // 10-98
-                    return `${first}${num}`;
-                },
-                // name + adjective
-                () => {
-                    const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
-                    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-                    return `${first}.${adj}`;
-                }
-            ];
+        adjectives: [
+          'quick',
+          'happy',
+          'clever',
+          'bright',
+          'bold',
+          'wild',
+          'calm',
+          'fierce',
+          'gentle',
+          'silent',
+          'brave',
+          'smart',
+          'cool',
+          'fresh',
+          'strong',
+          'swift',
+          'quiet',
+          'loud',
+          'sharp',
+          'smooth',
+          'golden',
+          'silver',
+          'crystal',
+          'midnight',
+          'sunny',
+          'shadow',
+          'storm',
+          'blaze',
+          'frost',
+          'echo',
+          'neon',
+          'cosmic',
+          'mystic',
+          'lunar',
+          'solar',
+          'vibrant',
+          'zen',
+          'pixel',
+          'cyber',
+          'ghost',
+        ],
 
-            // Pick a random pattern
-            const localPart = patterns[Math.floor(Math.random() * patterns.length)]();
+        nouns: [
+          'fox',
+          'eagle',
+          'wolf',
+          'bear',
+          'hawk',
+          'owl',
+          'rabbit',
+          'deer',
+          'shark',
+          'dolphin',
+          'lion',
+          'tiger',
+          'penguin',
+          'kangaroo',
+          'panda',
+          'koala',
+          'giraffe',
+          'zebra',
+          'monkey',
+          'squirrel',
+          'raven',
+          'phoenix',
+          'dragon',
+          'falcon',
+          'lynx',
+          'bison',
+          'otter',
+          'badger',
+          'raccoon',
+          'hedgehog',
+          'voyager',
+          'nomad',
+          'explorer',
+          'wanderer',
+          'runner',
+          'dreamer',
+          'guardian',
+          'legend',
+          'hero',
+          'sage',
+        ],
 
-            // Pick a realistic domain
-            const domain = domains[Math.floor(Math.random() * domains.length)];
+        domains: [
+          // Real popular providers
+          'gmail.com',
+          'outlook.com',
+          'yahoo.com',
+          'proton.me',
+          'icloud.com',
+          'zoho.com',
+          'fastmail.com',
+          'mail.com',
+          'aol.com',
+          'yandex.com',
+          // Burner / temp-friendly domains (common in APIs)
+          'tempmail.com',
+          '10minutemail.com',
+          'guerrillamail.com',
+          'throwawaymail.com',
+          'mailinator.com',
+          'getairmail.com',
+          'dispostable.com',
+          'temp-mail.org',
+          'sharklasers.com',
+          'hideaddress.net',
+          'mytrashmail.com',
+          'trashmail.com',
+          'temporary-mail.net',
+        ],
+      };
 
-            const fullEmail = `${localPart}@${domain}`;
+      // ====================== CORE GENERATOR ======================
+      function generateRealisticEmail() {
+        const { firstNames, lastNames, adjectives, nouns, domains } = wordLists;
 
-            // Update UI
-            document.getElementById('emailDisplay').innerHTML = `
+        // Multiple realistic patterns for the part before @
+        const patterns = [
+          // Classic name.name
+          () => {
+            const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
+            const last = lastNames[Math.floor(Math.random() * lastNames.length)].toLowerCase();
+            return `${first}.${last}`;
+          },
+          // adjectiveNoun (no dot)
+          () => {
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            return `${adj}${noun}`;
+          },
+          // adjective.noun
+          () => {
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            return `${adj}.${noun}`;
+          },
+          // name + short number (very common in real emails)
+          () => {
+            const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
+            const num = Math.floor(Math.random() * 89) + 10; // 10-98
+            return `${first}${num}`;
+          },
+          // name + adjective
+          () => {
+            const first = firstNames[Math.floor(Math.random() * firstNames.length)].toLowerCase();
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            return `${first}.${adj}`;
+          },
+        ];
+
+        // Pick a random pattern
+        const localPart = patterns[Math.floor(Math.random() * patterns.length)]();
+
+        // Pick a realistic domain
+        const domain = domains[Math.floor(Math.random() * domains.length)];
+
+        const fullEmail = `${localPart}@${domain}`;
+
+        // Update UI
+        document.getElementById('emailDisplay').innerHTML = `
                 <span class="text-amber-300">${localPart}</span><span class="text-zinc-400">@</span><span class="text-white">${domain}</span>
             `;
-            
-            document.getElementById('localPart').textContent = localPart;
-            document.getElementById('domainPart').textContent = domain;
 
-            // Store globally so copy and API example can access it
-            window.currentBurnerEmail = fullEmail;
+        document.getElementById('localPart').textContent = localPart;
+        document.getElementById('domainPart').textContent = domain;
 
-            return fullEmail;
+        // Store globally so copy and API example can access it
+        window.currentBurnerEmail = fullEmail;
+
+        return fullEmail;
+      }
+
+      // ====================== UI HELPERS ======================
+      function generateEmail() {
+        generateRealisticEmail();
+      }
+
+      function copyEmail() {
+        const email = window.currentBurnerEmail;
+        if (!email) {
+          alert('Generate an email first!');
+          return;
         }
 
-        // ====================== UI HELPERS ======================
-        function generateEmail() {
-            generateRealisticEmail();
+        navigator.clipboard
+          .writeText(email)
+          .then(() => {
+            const original = document.querySelector('button[onclick="copyEmail()"]').innerHTML;
+            const btn = document.querySelector('button[onclick="copyEmail()"]');
+            btn.innerHTML = `✅ COPIED!`;
+            setTimeout(() => {
+              btn.innerHTML = original;
+            }, 1800);
+          })
+          .catch(() => {
+            const original = document.querySelector('button[onclick="copyEmail()"]').innerHTML;
+            const btn = document.querySelector('button[onclick="copyEmail()"]');
+            btn.innerHTML = `❌ FAILED`;
+            setTimeout(() => {
+              btn.innerHTML = original;
+            }, 1800);
+          });
+      }
+
+      function showFullList(type) {
+        if (!Object.prototype.hasOwnProperty.call(wordLists, type)) {
+          console.error('Invalid wordlist type:', type);
+          return;
         }
 
-        function copyEmail() {
-            const email = window.currentBurnerEmail;
-            if (!email) {
-                alert("Generate an email first!");
-                return;
-            }
-            
-            navigator.clipboard.writeText(email).then(() => {
-                const original = document.querySelector('button[onclick="copyEmail()"]').innerHTML;
-                const btn = document.querySelector('button[onclick="copyEmail()"]');
-                btn.innerHTML = `✅ COPIED!`;
-                setTimeout(() => {
-                    btn.innerHTML = original;
-                }, 1800);
-            });
-        }
+        const list = wordLists[type];
+        const title =
+          type === 'firstNames'
+            ? 'First Names'
+            : type === 'lastNames'
+              ? 'Last Names'
+              : type === 'adjectives'
+                ? 'Adjectives'
+                : 'Nouns';
 
-        function showFullList(type) {
-            const list = wordLists[type];
-            const title = type === 'firstNames' ? 'First Names' : 
-                         type === 'lastNames' ? 'Last Names' : 
-                         type === 'adjectives' ? 'Adjectives' : 'Nouns';
-            
-            document.getElementById('modalTitle').textContent = `${title} (${list.length} total)`;
-            document.getElementById('modalContent').innerHTML = `
+        document.getElementById('modalTitle').textContent = `${title} (${list.length} total)`;
+        document.getElementById('modalContent').innerHTML = `
                 <div class="columns-3 gap-6">
-                    ${list.map(word => `<div class="mb-1">${word}</div>`).join('')}
+                    ${list.map((word) => `<div class="mb-1">${word}</div>`).join('')}
                 </div>
                 <p class="text-xs text-zinc-500 mt-6">Add more words here in the JavaScript array to make it even more varied.</p>
             `;
-            document.getElementById('modal').classList.remove('hidden');
-            document.getElementById('modal').classList.add('flex');
-        }
+        document.getElementById('modal').classList.remove('hidden');
+        document.getElementById('modal').classList.add('flex');
+      }
 
-        function hideModal() {
-            const modal = document.getElementById('modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
+      function hideModal() {
+        const modal = document.getElementById('modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
 
-        // Populate preview lists on load
-        function populatePreviews() {
-            const maxPreview = 12;
-            
-            document.getElementById('firstNamesPreview').textContent = 
-                wordLists.firstNames.slice(0, maxPreview).join(', ') + ' …';
-            
-            document.getElementById('lastNamesPreview').textContent = 
-                wordLists.lastNames.slice(0, maxPreview).join(', ') + ' …';
-            
-            document.getElementById('adjectivesPreview').textContent = 
-                wordLists.adjectives.slice(0, maxPreview).join(', ') + ' …';
-            
-            document.getElementById('nounsPreview').textContent = 
-                wordLists.nouns.slice(0, maxPreview).join(', ') + ' …';
-        }
+      // Populate preview lists on load
+      function populatePreviews() {
+        const maxPreview = 12;
 
-        // TailwindCSS initialization
-        function initTailwind() {
-            // The CDN script already loaded; this just ensures dark theme works
-            console.log('%c✅ Realistic Burner Email Generator ready', 'color:#fbbf24; font-weight:600');
-        }
+        document.getElementById('firstNamesPreview').textContent =
+          wordLists.firstNames.slice(0, maxPreview).join(', ') + ' …';
 
-        // Start everything
-        window.onload = function() {
-            initTailwind();
-            populatePreviews();
-            // Generate one automatically so the page isn't empty
-            setTimeout(() => {
-                generateRealisticEmail();
-            }, 400);
-        };
+        document.getElementById('lastNamesPreview').textContent =
+          wordLists.lastNames.slice(0, maxPreview).join(', ') + ' …';
+
+        document.getElementById('adjectivesPreview').textContent =
+          wordLists.adjectives.slice(0, maxPreview).join(', ') + ' …';
+
+        document.getElementById('nounsPreview').textContent =
+          wordLists.nouns.slice(0, maxPreview).join(', ') + ' …';
+      }
+
+      // TailwindCSS initialization
+      function initTailwind() {
+        // The CDN script already loaded; this just ensures dark theme works
+        console.log(
+          '%c✅ Realistic Burner Email Generator ready',
+          'color:#fbbf24; font-weight:600',
+        );
+      }
+
+      // Start everything
+      window.onload = function () {
+        initTailwind();
+        populatePreviews();
+        // Generate one automatically so the page isn't empty
+        setTimeout(() => {
+          generateRealisticEmail();
+        }, 400);
+      };
     </script>
-</body>
+  </body>
 </html>

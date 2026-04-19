@@ -5,6 +5,13 @@ export type AutofillFieldMatch = {
   values: string[];
 };
 
+export type DobFieldContext = {
+  inputType?: string;
+  placeholder?: string;
+  labelText?: string;
+  keyText?: string;
+};
+
 function normalizeFieldKey(key: string) {
   return key
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -34,6 +41,16 @@ function isSplitDobField(key: string) {
   );
 }
 
+function hasDobPartToken(key: string, part: 'day' | 'month' | 'year') {
+  const tokensByPart = {
+    day: ['day', 'bday day', 'birth day', 'dob day', 'day of birth', 'birthday'],
+    month: ['month', 'bday month', 'birth month', 'dob month', 'birthmonth'],
+    year: ['year', 'bday year', 'birth year', 'dob year', 'birthyear'],
+  } as const;
+
+  return hasAnyToken(key, [...tokensByPart[part]]);
+}
+
 function dobValues(profile: GeneratedProfile) {
   const [year, month, day] = [profile.birthYear, profile.birthMonth, profile.birthDay];
   const monthNumber = String(Number(month));
@@ -44,6 +61,28 @@ function dobValues(profile: GeneratedProfile) {
     `${month}/${day}/${year}`,
     `${monthNumber}/${dayNumber}/${year}`,
   ].filter((value): value is string => Boolean(value));
+}
+
+export function prioritizeDobValues(values: string[], context: DobFieldContext = {}) {
+  const haystack = [context.inputType, context.placeholder, context.labelText, context.keyText]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const iso = values.find((value) => /^\d{4}-\d{2}-\d{2}$/.test(value));
+  const slash = values.find((value) => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value));
+
+  if (haystack.includes('date') || haystack.includes('dob') || haystack.includes('birth')) {
+    if (context.inputType === 'date' && iso) {
+      return [iso, ...values.filter((value) => value !== iso)];
+    }
+
+    if (slash) {
+      return [slash, ...values.filter((value) => value !== slash)];
+    }
+  }
+
+  return values;
 }
 
 export function resolveAutofillMatch(
@@ -111,7 +150,7 @@ export function resolveAutofillMatch(
   if (hasAnyToken(normalizedKey, ['zip', 'postal']) || hasToken(normalizedKey, 'postalcode'))
     return { field: 'postalCode', values: [profile.postalCode] };
 
-  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'month')) {
+  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'month')) {
     return {
       field: 'birthMonth',
       values: [
@@ -122,10 +161,10 @@ export function resolveAutofillMatch(
       ].filter((value): value is string => Boolean(value)),
     };
   }
-  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'day')) {
+  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'day')) {
     return { field: 'birthDay', values: [profile.birthDay] };
   }
-  if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'year')) {
+  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'year')) {
     return { field: 'birthYear', values: [profile.birthYear] };
   }
 

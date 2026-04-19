@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveAutofillMatch } from './matching';
+import { prioritizeDobValues, resolveAutofillMatch } from './matching';
 
 const profile = {
   firstName: 'Ada',
@@ -61,14 +61,23 @@ describe('resolveAutofillMatch', () => {
 
   it('matches common camelCase and concatenated identifiers', () => {
     expect(resolveAutofillMatch('firstName', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('firstname', profile)?.field).toBe('firstName');
     expect(resolveAutofillMatch('lastName', profile)?.field).toBe('lastName');
+    expect(resolveAutofillMatch('lastname', profile)?.field).toBe('lastName');
     expect(resolveAutofillMatch('emailAddress', profile)?.field).toBe('email');
+    expect(resolveAutofillMatch('emailaddress', profile)?.field).toBe('email');
     expect(resolveAutofillMatch('phoneNumber', profile)?.field).toBe('phone');
+    expect(resolveAutofillMatch('phonenumber', profile)?.field).toBe('phone');
     expect(resolveAutofillMatch('postalCode', profile)?.field).toBe('postalCode');
+    expect(resolveAutofillMatch('postalcode', profile)?.field).toBe('postalCode');
     expect(resolveAutofillMatch('birthDate', profile)?.field).toBe('birthDateIso');
+    expect(resolveAutofillMatch('birthdate', profile)?.field).toBe('birthDateIso');
     expect(resolveAutofillMatch('birthMonth', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('birthmonth', profile)?.field).toBe('birthMonth');
     expect(resolveAutofillMatch('birthDay', profile)?.field).toBe('birthDay');
+    expect(resolveAutofillMatch('birthday', profile)?.field).toBe('birthDay');
     expect(resolveAutofillMatch('birthYear', profile)?.field).toBe('birthYear');
+    expect(resolveAutofillMatch('birthyear', profile)?.field).toBe('birthYear');
   });
 
   it('offers multiple DOB formats for generic date fields', () => {
@@ -82,5 +91,22 @@ describe('resolveAutofillMatch', () => {
       '01/15/1990',
       '1/15/1990',
     ]);
+  });
+
+  it('prioritizes DOB formats using field context', () => {
+    expect(
+      prioritizeDobValues(['1990-01-15', '01/15/1990', '1/15/1990'], {
+        inputType: 'text',
+        placeholder: 'MM/DD/YYYY',
+        labelText: 'Date of birth',
+      }),
+    ).toEqual(['01/15/1990', '1990-01-15', '1/15/1990']);
+
+    expect(
+      prioritizeDobValues(['01/15/1990', '1/15/1990', '1990-01-15'], {
+        inputType: 'date',
+        keyText: 'birth date',
+      }),
+    ).toEqual(['1990-01-15', '01/15/1990', '1/15/1990']);
   });
 });

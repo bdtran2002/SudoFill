@@ -2,6 +2,9 @@ import type { MailboxLink } from './types';
 
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
 
+/**
+ * Converts a URL into a compact label suitable for the mailbox UI.
+ */
 function normalizeLabel(url: string) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '');
@@ -11,6 +14,9 @@ function normalizeLabel(url: string) {
   }
 }
 
+/**
+ * Extracts unique links from one or more message content sources.
+ */
 export function extractMailboxLinks(...sources: Array<string | null | undefined>): MailboxLink[] {
   const uniqueLinks = new Map<string, MailboxLink>();
 

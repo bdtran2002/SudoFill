@@ -18,12 +18,23 @@ const LOW_INTENT_CUES = [
   'subscribe',
   'newsletter',
   'contact us',
+  'contact sales',
   'support',
   'checkout',
   'shipping',
   'billing',
   'payment',
   'delivery',
+  'request demo',
+  'request a demo',
+  'book demo',
+  'book a demo',
+  'schedule demo',
+  'schedule a demo',
+  'talk to sales',
+  'speak to sales',
+  'sales demo',
+  'request pricing',
 ];
 
 const FIELD_WEIGHTS: Partial<Record<keyof GeneratedProfile, number>> = {
@@ -321,10 +332,11 @@ function isEligibleScope(
   const text = getScopeText(root);
   const matchingFieldCount = getMatchingFieldCount(elements, profile);
   const hasNonSignupAccountCue = hasCue(text, NON_SIGNUP_ACCOUNT_CUES);
+  const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
   const hasStrongSignupCue =
     hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]) ||
     hasPasswordField(elements) ||
-    (matchingFieldCount >= 3 && !hasNonSignupAccountCue);
+    (matchingFieldCount >= 3 && !hasNonSignupAccountCue && !hasLowIntentCue);
 
   return hasStrongSignupCue || (root === null && elements.length >= 3);
 }

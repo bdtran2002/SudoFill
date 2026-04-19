@@ -51,6 +51,7 @@ export default defineContentScript({
             filledCount: 0,
             fields: [],
             error: 'Malformed autofill profile payload.',
+            reason: 'payload',
           });
           return true;
         }
@@ -63,6 +64,7 @@ export default defineContentScript({
             filledCount: 0,
             fields: [],
             error: error instanceof Error ? error.message : 'Autofill failed on this page.',
+            reason: 'runtime',
           });
         }
         return true;

@@ -462,6 +462,7 @@ export function fillProfile(
     filledCount,
     fields: [...filledFields],
     error: filledCount > 0 ? undefined : 'No supported fields found on this page.',
+    reason: filledCount > 0 ? undefined : 'no-fields',
   };
 }
 

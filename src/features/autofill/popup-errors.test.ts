@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getAutofillErrorMessage,
+  getInvalidAutofillResponseMessage,
   getAutofillResponseMessage,
   getUnsupportedAutofillPageMessage,
+  isAutofillContentResponse,
   normalizeAutofillTabError,
 } from './popup-errors';
 
@@ -13,6 +15,9 @@ describe('popup autofill error helpers', () => {
       'Open a page first, then try autofill again.',
     );
     expect(normalizeAutofillTabError({ id: 1, url: 'chrome://settings' })).toBe(
+      getUnsupportedAutofillPageMessage(),
+    );
+    expect(normalizeAutofillTabError({ id: 1, pendingUrl: 'edge://extensions' })).toBe(
       getUnsupportedAutofillPageMessage(),
     );
     expect(normalizeAutofillTabError({ id: 1, url: 'https://example.com' })).toBeNull();
@@ -33,6 +38,15 @@ describe('popup autofill error helpers', () => {
         url: 'chrome://extensions',
       }),
     ).toBe(getUnsupportedAutofillPageMessage());
+
+    expect(
+      getAutofillErrorMessage(
+        new Error('The message port closed before a response was received.'),
+        {
+          url: 'https://example.com',
+        },
+      ),
+    ).toBe(getUnsupportedAutofillPageMessage());
   });
 
   it('preserves non-transport errors', () => {
@@ -45,7 +59,13 @@ describe('popup autofill error helpers', () => {
 
   it('normalizes content responses for unsupported pages and empty matches', () => {
     expect(
-      getAutofillResponseMessage({ ok: false, filledCount: 0, fields: [], error: undefined }),
+      getAutofillResponseMessage({
+        ok: false,
+        filledCount: 0,
+        fields: [],
+        error: undefined,
+        reason: 'no-fields',
+      }),
     ).toBe('No supported fields found on this page.');
 
     expect(
@@ -54,8 +74,26 @@ describe('popup autofill error helpers', () => {
         filledCount: 0,
         fields: [],
         error: 'Autofill failed on this page.',
+        reason: 'runtime',
       }),
-    ).toBe('No supported fields found on this page.');
+    ).toBe('Autofill failed on this page.');
+  });
+
+  it('validates autofill response shape', () => {
+    expect(isAutofillContentResponse({ ok: true, filledCount: 2, fields: ['email'] })).toBe(true);
+    expect(
+      isAutofillContentResponse({ ok: false, filledCount: 0, fields: [], reason: 'no-fields' }),
+    ).toBe(true);
+    expect(isAutofillContentResponse({ ok: true, filledCount: '2', fields: [] })).toBe(false);
+    expect(
+      isAutofillContentResponse({ ok: false, filledCount: 0, fields: [], reason: 'transport' }),
+    ).toBe(false);
+  });
+
+  it('provides a message for malformed responses', () => {
+    expect(getInvalidAutofillResponseMessage()).toBe(
+      'Autofill could not confirm whether the page was filled.',
+    );
   });
 
   it('formats success responses', () => {

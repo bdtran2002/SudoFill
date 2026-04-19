@@ -15,7 +15,9 @@ import {
 import '../../src/styles.css';
 import {
   getAutofillErrorMessage,
+  getInvalidAutofillResponseMessage,
   getAutofillResponseMessage,
+  isAutofillContentResponse,
   normalizeAutofillTabError,
 } from '../../src/features/autofill/popup-errors';
 import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
@@ -234,10 +236,20 @@ function PopupApp() {
       const settings = await getStoredAutofillSettings();
       const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const response = (await chrome.tabs.sendMessage(tabId, {
+      const rawResponse = await chrome.tabs.sendMessage(tabId, {
         type: 'autofill:fill-profile',
         profile,
-      })) as AutofillContentResponse;
+      });
+
+      if (!isAutofillContentResponse(rawResponse)) {
+        setAutofillStatus({
+          tone: 'error',
+          message: getInvalidAutofillResponseMessage(),
+        });
+        return;
+      }
+
+      const response: AutofillContentResponse = rawResponse;
 
       if (!response.ok) {
         setAutofillStatus({

@@ -32,9 +32,12 @@ export interface AutofillContentRequest {
   profile: GeneratedProfile;
 }
 
+export type AutofillFailureReason = 'no-fields' | 'payload' | 'runtime';
+
 export interface AutofillContentResponse {
   ok: boolean;
   filledCount: number;
   fields: string[];
   error?: string;
+  reason?: AutofillFailureReason;
 }

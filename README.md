@@ -6,6 +6,8 @@ SudoFill helps you get through sign-up forms faster.
 
 It gives you a temporary email address, fills common fields for you, and lets you check verification emails without bouncing between tabs.
 
+SudoFill connects to Mail.tm over HTTPS to create disposable inboxes and read incoming verification emails. Chrome uses a side panel; Firefox uses a toolbar popup for the same flow.
+
 ## What it does
 
 - **Creates a temporary email** so you do not have to use your real inbox
@@ -135,11 +137,26 @@ bun run build:chrome
 - `bun run build:firefox`
 - `bun run build:chrome`
 - `bun run zip`
+- `bun run zip:firefox`
+- `bun run zip:chrome`
 - `bun run lint`
 - `bun run format`
 - `bun run format:check`
 - `bun run typecheck`
 - `bun run test`
+
+### Firefox self-distribution
+
+Firefox release builds still need Mozilla signing, even when you host the add-on yourself.
+
+1. Copy `.env.example` to `.env` and set a stable `FIREFOX_EXTENSION_ID`.
+2. Run `bun run build:firefox`.
+3. Run `bun run zip:firefox` to create the Firefox package and source zip.
+4. Submit the Firefox package to AMO as an **unlisted** add-on for signing.
+5. Host the signed `.xpi` yourself after AMO returns it.
+6. If you want self-hosted automatic updates, set `FIREFOX_UPDATE_URL` to an HTTPS update manifest before packaging.
+
+`SOURCE_CODE_REVIEW.md` includes the exact build and review notes for Firefox submission.
 
 </details>
 

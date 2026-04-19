@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronDown, RotateCcw, Save, Settings } from 'lucide-react';
+import { ChevronDown, Mail, RotateCcw, Save, Settings } from 'lucide-react';
 
 import '../../src/styles.css';
 import {
@@ -22,6 +22,8 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
+  const [forwardingPreviewEnabled, setForwardingPreviewEnabled] = useState(false);
+  const [forwardingPreviewAddress, setForwardingPreviewAddress] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -236,6 +238,66 @@ function OptionsApp() {
             </div>
           </div>
         </section>
+
+        <section
+          className='animate-fade-in mt-5 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]'
+          style={{ animationDelay: '120ms' }}
+        >
+          <div className='border-b border-border-dim bg-[linear-gradient(135deg,rgba(110,168,254,0.08),transparent_55%)] px-4 py-3 sm:px-5'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
+                  Optional settings
+                </p>
+                <p className='mt-1 text-sm leading-relaxed text-ink-secondary'>
+                  Preview an eventual inbox-forwarding option without changing current mailbox
+                  behavior.
+                </p>
+              </div>
+              <span className='inline-flex items-center gap-1 rounded-full border border-unread/20 bg-unread-bg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-unread'>
+                <Mail className='h-3 w-3' />
+                Preview only
+              </span>
+            </div>
+          </div>
+
+          <div className='divide-y divide-border-dim'>
+            <SettingSection
+              description='Optional showcase for forwarding every temp-mail message to a destination inbox later. This toggle does not enable anything yet.'
+              title='Email forwarding'
+            >
+              <ToggleField
+                ariaLabel='Enable forwarding preview'
+                checked={forwardingPreviewEnabled}
+                disabledLabel='Preview off'
+                enabledLabel='Preview on'
+                onChange={setForwardingPreviewEnabled}
+              />
+            </SettingSection>
+
+            <SettingSection
+              description='Destination inbox for a future forwarding feature. This field is UI-only right now and is not saved or used by the extension.'
+              title='Forward to'
+            >
+              <LabeledInput
+                autoComplete='email'
+                disabled={!forwardingPreviewEnabled}
+                label='Destination email'
+                onChange={(event) => setForwardingPreviewAddress(event.target.value)}
+                placeholder='name@example.com'
+                type='email'
+                value={forwardingPreviewAddress}
+              />
+            </SettingSection>
+          </div>
+
+          <div className='border-t border-border-dim bg-surface-raised px-4 py-3 sm:px-5'>
+            <p className='text-sm text-ink-secondary'>
+              Showcase only. These optional controls do not forward mail, are not persisted, and are
+              here purely to preview the settings UX.
+            </p>
+          </div>
+        </section>
       </div>
     </main>
   );
@@ -312,16 +374,22 @@ function LabeledInput({
 }
 
 function ToggleField({
+  ariaLabel = 'Toggle setting',
   checked,
+  disabledLabel = 'Disabled',
+  enabledLabel = 'Enabled',
   onChange,
 }: {
+  ariaLabel?: string;
   checked: boolean;
+  disabledLabel?: string;
+  enabledLabel?: string;
   onChange: (next: boolean) => void;
 }) {
   return (
     <button
       aria-checked={checked}
-      aria-label='Use generated address fields'
+      aria-label={ariaLabel}
       className={`group inline-flex items-center gap-3 rounded-full border px-3 py-2 transition-colors ${
         checked
           ? 'border-accent/30 bg-accent-bg text-ink'
@@ -342,7 +410,7 @@ function ToggleField({
           }`}
         />
       </span>
-      <span className='text-sm font-medium'>{checked ? 'Enabled' : 'Disabled'}</span>
+      <span className='text-sm font-medium'>{checked ? enabledLabel : disabledLabel}</span>
     </button>
   );
 }

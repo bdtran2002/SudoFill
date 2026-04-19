@@ -277,4 +277,51 @@ describe('content autofill targeting', () => {
       'ada@example.com',
     );
   });
+
+  it('does not prefer a request-demo form over signup', () => {
+    document.body.innerHTML = `
+      <form id="demo" aria-label="Request a demo">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Work email <input name="email" /></label>
+        <button type="submit">Request a demo</button>
+      </form>
+
+      <form id="signup" aria-label="Create account">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)?.id).toBe('signup');
+
+    fillProfile(profile, document);
+
+    expect((document.querySelector('#demo [name="email"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#signup [name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
+  it('does not autofill a lead-gen form when it is the only candidate', () => {
+    document.body.innerHTML = `
+      <form id="sales" aria-label="Contact sales">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Email <input name="email" /></label>
+        <button type="submit">Talk to sales</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)).toBeNull();
+
+    const result = fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect(result.filledCount).toBe(0);
+    expect((document.querySelector('#sales [name="email"]') as HTMLInputElement).value).toBe('');
+  });
 });

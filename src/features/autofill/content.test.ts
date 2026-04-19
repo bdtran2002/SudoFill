@@ -107,6 +107,72 @@ describe('content autofill targeting', () => {
     );
   });
 
+  it('fills first and last name fields in a signup form when the fields contain name tokens', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="first-name">First name</label>
+        <input id="first-name" name="first_name" autocomplete="given-name" />
+
+        <label for="last-name">Last name</label>
+        <input id="last-name" name="last_name" autocomplete="family-name" />
+
+        <label>Email</label>
+        <input name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#first-name') as HTMLInputElement).value).toBe('Ada');
+    expect((document.querySelector('#last-name') as HTMLInputElement).value).toBe('Lovelace');
+    expect((document.querySelector('#signup [name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
+  it('does not fill a business name field', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="business-name">Business name</label>
+        <input id="business-name" name="business_name" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#business-name') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('does not fill a username field', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#username') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
   it("fills a Wendy's-style email-first sign-in step when the page title indicates auth intent", async () => {
     document.title = "Log In | Wendy's";
     document.body.innerHTML = `

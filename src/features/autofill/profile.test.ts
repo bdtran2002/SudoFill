@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { getAddressSampleForState } from './address-data';
 import { DEFAULT_AUTOFILL_SETTINGS } from './constants';
 import { generateAutofillProfile } from './profile';
 
@@ -42,7 +43,22 @@ describe('generateAutofillProfile', () => {
     expect(profile.addressLine1).toBe('');
     expect(profile.addressLine2).toBe('');
     expect(profile.city).toBe('');
+    expect(profile.state).toBe('');
+    expect(profile.stateName).toBe('');
     expect(profile.postalCode).toBe('');
+  });
+
+  it('uses the selected state when constraining postal codes', () => {
+    const profile = generateAutofillProfile({
+      ...DEFAULT_AUTOFILL_SETTINGS,
+      generateAddress: true,
+      state: 'CA',
+    });
+
+    expect(profile.state).toBe('CA');
+    expect(profile.stateName).toBe('California');
+    expect(profile.city).toBe(getAddressSampleForState('CA')?.city);
+    expect(profile.postalCode).toBe(getAddressSampleForState('CA')?.postalCode);
   });
 
   it('keeps ISO and split DOB fields on the same date basis', () => {

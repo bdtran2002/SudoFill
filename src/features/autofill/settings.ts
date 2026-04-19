@@ -42,6 +42,7 @@ export function normalizeAutofillSettings(
   const state = normalizeString(value?.state);
   const ageMin = normalizeAgeValue(value?.ageMin);
   const ageMax = normalizeAgeValue(value?.ageMax);
+  const sexCandidate = value?.sex ?? '';
 
   return {
     generateAddress: normalizeBoolean(
@@ -49,8 +50,8 @@ export function normalizeAutofillSettings(
       DEFAULT_AUTOFILL_SETTINGS.generateAddress,
     ),
     state: VALID_STATE_CODES.has(state) ? state : DEFAULT_AUTOFILL_SETTINGS.state,
-    sex: VALID_SEX_VALUES.has(value?.sex ?? '')
-      ? (value?.sex as AutofillSettings['sex'])
+    sex: VALID_SEX_VALUES.has(sexCandidate)
+      ? (sexCandidate as AutofillSettings['sex'])
       : DEFAULT_AUTOFILL_SETTINGS.sex,
     ageMin,
     ageMax:

@@ -175,6 +175,7 @@ function OptionsApp() {
                 title='State'
               >
                 <SelectField
+                  ariaLabel='State'
                   onChange={(event) =>
                     setSettings((current) => ({ ...current, state: event.target.value }))
                   }
@@ -221,6 +222,7 @@ function OptionsApp() {
                 title='Sex'
               >
                 <SelectField
+                  ariaLabel='Sex'
                   onChange={(event) =>
                     setSettings((current) => ({
                       ...current,
@@ -392,10 +394,12 @@ function SettingSection({
 }
 
 function SelectField({
+  ariaLabel,
   value,
   onChange,
   children,
 }: {
+  ariaLabel: string;
   value: string;
   onChange: ChangeEventHandler<HTMLSelectElement>;
   children: ReactNode;
@@ -403,6 +407,7 @@ function SelectField({
   return (
     <div className='relative'>
       <select
+        aria-label={ariaLabel}
         className='w-full appearance-none rounded-lg border border-border bg-surface px-3 py-2.5 pr-10 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-accent/50 focus:ring-2 focus:ring-accent/20'
         onChange={onChange}
         value={value}

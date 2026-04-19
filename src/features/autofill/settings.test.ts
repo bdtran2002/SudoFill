@@ -29,4 +29,8 @@ describe('normalizeAutofillSettings', () => {
       ageMax: '',
     });
   });
+
+  it('never returns undefined for sex', () => {
+    expect(normalizeAutofillSettings({ sex: undefined })).toEqual(DEFAULT_AUTOFILL_SETTINGS);
+  });
 });

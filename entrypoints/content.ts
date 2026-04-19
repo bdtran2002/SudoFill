@@ -3,6 +3,7 @@ import type {
   AutofillContentResponse,
   GeneratedProfile,
 } from '../src/features/autofill/types';
+import { resolveAutofillMatch } from '../src/features/autofill/matching';
 
 function isGeneratedProfile(value: unknown): value is GeneratedProfile {
   if (!value || typeof value !== 'object') {
@@ -112,39 +113,6 @@ function assignValue(
   return true;
 }
 
-function resolveValueForField(key: string, profile: GeneratedProfile) {
-  if (/(^|\b)(first|given).*name/.test(key))
-    return { field: 'firstName', values: [profile.firstName] };
-  if (/(^|\b)(last|family|surname).*name/.test(key))
-    return { field: 'lastName', values: [profile.lastName] };
-  if (/(full name|your name|name)/.test(key) && !/(user(name)?|company|last|first)/.test(key)) {
-    return { field: 'fullName', values: [profile.fullName] };
-  }
-  if (/(email|e-mail)/.test(key)) return { field: 'email', values: [profile.email] };
-  if (/(phone|mobile|tel)/.test(key)) return { field: 'phone', values: [profile.phone] };
-  if (/(address line 1|street|address1|address$|mailing address)/.test(key)) {
-    return { field: 'addressLine1', values: [profile.addressLine1] };
-  }
-  if (/(address line 2|address2|apartment|suite|unit)/.test(key)) {
-    return { field: 'addressLine2', values: [profile.addressLine2] };
-  }
-  if (/(city|town)/.test(key)) return { field: 'city', values: [profile.city] };
-  if (/(state|province|region)/.test(key)) {
-    return { field: 'state', values: [profile.state, profile.stateName] };
-  }
-  if (/(zip|postal)/.test(key)) return { field: 'postalCode', values: [profile.postalCode] };
-  if (/(dob|birth date|date of birth)/.test(key)) {
-    return { field: 'birthDateIso', values: [profile.birthDateIso] };
-  }
-  if (/(birth month|dob month)/.test(key))
-    return { field: 'birthMonth', values: [profile.birthMonth] };
-  if (/(birth day|dob day)/.test(key)) return { field: 'birthDay', values: [profile.birthDay] };
-  if (/(birth year|dob year)/.test(key)) return { field: 'birthYear', values: [profile.birthYear] };
-  if (/(sex|gender)/.test(key)) return { field: 'sex', values: [profile.sex] };
-
-  return null;
-}
-
 function fillProfile(profile: GeneratedProfile): AutofillContentResponse {
   const elements = [...document.querySelectorAll('input, select, textarea')].filter(
     isFillableElement,
@@ -162,7 +130,7 @@ function fillProfile(profile: GeneratedProfile): AutofillContentResponse {
     }
     if (hasExistingUserValue(element)) continue;
 
-    const match = resolveValueForField(buildFieldKey(element), profile);
+    const match = resolveAutofillMatch(buildFieldKey(element), profile);
     if (!match) continue;
     if (!match.values.some(Boolean)) continue;
 

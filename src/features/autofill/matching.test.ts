@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+
+import { resolveAutofillMatch } from './matching';
+
+const profile = {
+  firstName: 'Ada',
+  lastName: 'Lovelace',
+  fullName: 'Ada Lovelace',
+  email: 'ada@example.com',
+  phone: '555-0100',
+  sex: 'female',
+  birthDateIso: '1990-01-15',
+  birthDay: '15',
+  birthMonth: '01',
+  birthYear: '1990',
+  addressLine1: '123 Main St',
+  addressLine2: 'Apt 4',
+  city: 'Austin',
+  state: 'TX',
+  stateName: 'Texas',
+  postalCode: '78701',
+} as const;
+
+describe('resolveAutofillMatch', () => {
+  it('prefers split DOB fields over generic DOB', () => {
+    expect(resolveAutofillMatch('date of birth month', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('birth month', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('dob', profile)?.field).toBe('birthDateIso');
+  });
+
+  it('matches month values by number and name', () => {
+    expect(resolveAutofillMatch('birth month', profile)?.values).toEqual([
+      '01',
+      '1',
+      'january',
+      'jan',
+    ]);
+  });
+
+  it('avoids obvious false positives for full name fallback', () => {
+    expect(resolveAutofillMatch('username', profile)).toBeNull();
+    expect(resolveAutofillMatch('company name', profile)).toBeNull();
+    expect(resolveAutofillMatch('middle name', profile)).toBeNull();
+    expect(resolveAutofillMatch('display name', profile)).toBeNull();
+    expect(resolveAutofillMatch('full name', profile)?.field).toBe('fullName');
+  });
+
+  it('supports common autocomplete tokens', () => {
+    expect(resolveAutofillMatch('given-name', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('family-name', profile)?.field).toBe('lastName');
+    expect(resolveAutofillMatch('address-line1', profile)?.field).toBe('addressLine1');
+    expect(resolveAutofillMatch('address-line2', profile)?.field).toBe('addressLine2');
+    expect(resolveAutofillMatch('address-level1', profile)?.field).toBe('state');
+    expect(resolveAutofillMatch('address-level2', profile)?.field).toBe('city');
+    expect(resolveAutofillMatch('postal-code', profile)?.field).toBe('postalCode');
+    expect(resolveAutofillMatch('bday-day', profile)?.field).toBe('birthDay');
+    expect(resolveAutofillMatch('bday-month', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('bday-year', profile)?.field).toBe('birthYear');
+    expect(resolveAutofillMatch('sex', profile)?.field).toBe('sex');
+  });
+});

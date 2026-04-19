@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 
+import { getAddressSampleForState } from './address-data';
 import { US_STATE_OPTIONS } from './constants';
 import { getStateName } from './settings';
 import type { AutofillSettings, GeneratedProfile } from './types';
@@ -61,9 +62,25 @@ export function generateAutofillProfile(
   const lastName = faker.person.lastName(binarySex);
   const birthDate = resolveBirthdate(settings);
   const birthDateParts = getDateParts(birthDate);
-  const state = pickStateCode(settings.state);
-  const stateName = getStateName(state);
+  const state = settings.generateAddress ? pickStateCode(settings.state) : '';
+  const stateName = settings.generateAddress && state ? getStateName(state) : '';
   const addressLine1 = settings.generateAddress ? faker.location.streetAddress() : '';
+  const addressSample = state ? getAddressSampleForState(state) : null;
+  const city = settings.generateAddress ? (addressSample?.city ?? faker.location.city()) : '';
+  const postalCode = settings.generateAddress
+    ? (addressSample?.postalCode ??
+      (() => {
+        if (state) {
+          try {
+            return faker.location.zipCode({ state: state as never });
+          } catch {
+            // fall through to generic zip generation
+          }
+        }
+
+        return faker.location.zipCode();
+      })())
+    : '';
 
   return {
     firstName,
@@ -78,9 +95,9 @@ export function generateAutofillProfile(
     birthYear: birthDateParts.year,
     addressLine1,
     addressLine2: settings.generateAddress ? faker.location.secondaryAddress() : '',
-    city: settings.generateAddress ? faker.location.city() : '',
+    city,
     state,
     stateName,
-    postalCode: settings.generateAddress ? faker.location.zipCode() : '',
+    postalCode,
   };
 }

@@ -32,11 +32,12 @@ function hasAnyToken(key: string, tokens: string[]) {
 function isSplitDobField(key: string) {
   return (
     hasAnyToken(key, ['bday day', 'birth day', 'dob day', 'day of birth']) ||
-    (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob'])) ||
-    hasToken(key, 'birthday') ||
-    hasAnyToken(key, ['bday month', 'birth month', 'dob month']) ||
+    (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
+    hasAnyToken(key, ['bday month', 'birth month', 'dob month', 'date of birth month']) ||
+    (hasToken(key, 'month') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
     hasToken(key, 'birthmonth') ||
-    hasAnyToken(key, ['bday year', 'birth year', 'dob year']) ||
+    hasAnyToken(key, ['bday year', 'birth year', 'dob year', 'date of birth year']) ||
+    (hasToken(key, 'year') && hasAnyToken(key, ['birth', 'dob', 'date of birth'])) ||
     hasToken(key, 'birthyear')
   );
 }
@@ -109,11 +110,6 @@ export function resolveAutofillMatch(
 
   if (hasAnyToken(normalizedKey, ['email', 'e mail']) || hasToken(normalizedKey, 'emailaddress'))
     return { field: 'email', values: [profile.email] };
-  if (
-    hasAnyToken(normalizedKey, ['phone', 'mobile', 'tel']) ||
-    hasToken(normalizedKey, 'phonenumber')
-  )
-    return { field: 'phone', values: [profile.phone] };
 
   if (
     hasAnyToken(normalizedKey, [
@@ -169,7 +165,7 @@ export function resolveAutofillMatch(
   }
 
   if (
-    hasAnyToken(normalizedKey, ['dob', 'birth date', 'date of birth']) ||
+    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
     hasToken(normalizedKey, 'birthdate')
   ) {
     return { field: 'birthDateIso', values: dobValues(profile) };

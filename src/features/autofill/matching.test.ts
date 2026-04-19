@@ -35,6 +35,8 @@ describe('resolveAutofillMatch', () => {
       'january',
       'jan',
     ]);
+    expect(resolveAutofillMatch('date of birth month', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('date of birth year', profile)?.field).toBe('birthYear');
   });
 
   it('avoids obvious false positives for full name fallback', () => {
@@ -59,6 +61,13 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('sex', profile)?.field).toBe('sex');
   });
 
+  it('does not match phone-like fields', () => {
+    expect(resolveAutofillMatch('phone', profile)).toBeNull();
+    expect(resolveAutofillMatch('mobile number', profile)).toBeNull();
+    expect(resolveAutofillMatch('tel', profile)).toBeNull();
+    expect(resolveAutofillMatch('phonenumber', profile)).toBeNull();
+  });
+
   it('matches common camelCase and concatenated identifiers', () => {
     expect(resolveAutofillMatch('firstName', profile)?.field).toBe('firstName');
     expect(resolveAutofillMatch('firstname', profile)?.field).toBe('firstName');
@@ -66,8 +75,8 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('lastname', profile)?.field).toBe('lastName');
     expect(resolveAutofillMatch('emailAddress', profile)?.field).toBe('email');
     expect(resolveAutofillMatch('emailaddress', profile)?.field).toBe('email');
-    expect(resolveAutofillMatch('phoneNumber', profile)?.field).toBe('phone');
-    expect(resolveAutofillMatch('phonenumber', profile)?.field).toBe('phone');
+    expect(resolveAutofillMatch('phoneNumber', profile)).toBeNull();
+    expect(resolveAutofillMatch('phonenumber', profile)).toBeNull();
     expect(resolveAutofillMatch('postalCode', profile)?.field).toBe('postalCode');
     expect(resolveAutofillMatch('postalcode', profile)?.field).toBe('postalCode');
     expect(resolveAutofillMatch('birthDate', profile)?.field).toBe('birthDateIso');
@@ -75,7 +84,7 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('birthMonth', profile)?.field).toBe('birthMonth');
     expect(resolveAutofillMatch('birthmonth', profile)?.field).toBe('birthMonth');
     expect(resolveAutofillMatch('birthDay', profile)?.field).toBe('birthDay');
-    expect(resolveAutofillMatch('birthday', profile)?.field).toBe('birthDay');
+    expect(resolveAutofillMatch('birthday', profile)?.field).toBe('birthDateIso');
     expect(resolveAutofillMatch('birthYear', profile)?.field).toBe('birthYear');
     expect(resolveAutofillMatch('birthyear', profile)?.field).toBe('birthYear');
   });

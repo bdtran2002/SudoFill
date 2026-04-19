@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 
 import '../../src/styles.css';
+import {
+  getAutofillErrorMessage,
+  getInvalidAutofillResponseMessage,
+  getAutofillResponseMessage,
+  isAutofillContentResponse,
+  normalizeAutofillTabError,
+} from '../../src/features/autofill/popup-errors';
 import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
 import type { AutofillContentResponse } from '../../src/features/autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
@@ -46,26 +53,6 @@ function toTransportFailureResponse(
       diagnostics,
     },
   };
-}
-
-function isUnsupportedPageError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-
-  const message = error.message.toLowerCase();
-  return (
-    message.includes('could not establish connection') ||
-    message.includes('receiving end does not exist') ||
-    message.includes('no matching message listener') ||
-    message.includes('extension context invalidated')
-  );
-}
-
-function getAutofillErrorMessage(error: unknown) {
-  if (isUnsupportedPageError(error)) {
-    return 'Autofill is not available on this page yet.';
-  }
-
-  return error instanceof Error ? error.message : 'Autofill failed.';
 }
 
 function formatTimestamp(value: string) {
@@ -213,11 +200,32 @@ function PopupApp() {
 
   async function autofillCurrentPage() {
     setIsBusy(true);
+    let activeTab: chrome.tabs.Tab | undefined;
 
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!snapshot.address) {
+        setAutofillStatus({
+          tone: 'error',
+          message: 'Create a temp mailbox first, then run autofill.',
+        });
+        return;
+      }
 
-      if (!tab?.id) {
+      [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      const tabError = normalizeAutofillTabError(activeTab);
+
+      if (tabError) {
+        setAutofillStatus({
+          tone: 'error',
+          message: tabError,
+        });
+        return;
+      }
+
+      const tabId = activeTab.id;
+
+      if (tabId === undefined) {
         setAutofillStatus({
           tone: 'error',
           message: 'Open a page first, then try autofill again.',
@@ -228,27 +236,37 @@ function PopupApp() {
       const settings = await getStoredAutofillSettings();
       const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const response = (await chrome.tabs.sendMessage(tab.id, {
+      const rawResponse = await chrome.tabs.sendMessage(tabId, {
         type: 'autofill:fill-profile',
         profile,
-      })) as AutofillContentResponse;
+      });
+
+      if (!isAutofillContentResponse(rawResponse)) {
+        setAutofillStatus({
+          tone: 'error',
+          message: getInvalidAutofillResponseMessage(),
+        });
+        return;
+      }
+
+      const response: AutofillContentResponse = rawResponse;
 
       if (!response.ok) {
         setAutofillStatus({
           tone: 'error',
-          message: response.error ?? 'No supported fields found on this page.',
+          message: getAutofillResponseMessage(response),
         });
         return;
       }
 
       setAutofillStatus({
         tone: 'success',
-        message: `Filled ${response.filledCount} field${response.filledCount === 1 ? '' : 's'}.`,
+        message: getAutofillResponseMessage(response),
       });
     } catch (error) {
       setAutofillStatus({
         tone: 'error',
-        message: getAutofillErrorMessage(error),
+        message: getAutofillErrorMessage(error, activeTab),
       });
     } finally {
       setIsBusy(false);

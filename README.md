@@ -1,104 +1,114 @@
-# SudoFill
+<p align="center">
+  <img src="./assets/icon.png" alt="SudoFill icon" width="96" height="96" />
+</p>
 
-SudoFill is a browser extension for temporary email signup flows. It can create a disposable mailbox, poll for verification messages, surface detected verification links, and autofill common signup-form identity fields on the currently open page.
+<h1 align="center">SudoFill</h1>
 
-## Implemented
+<p align="center">
+  A browser extension for faster signup flows with temporary email and smart autofill.
+</p>
 
-- background mailbox runtime with Mail.tm account creation, refresh, cleanup, polling, alarm fallback, diagnostics, and badge updates
-- popup UI for mailbox creation, refresh, copy, delete, message viewing, verification-link launching, and autofill triggering
-- options UI for autofill defaults including address generation, state preference, age range, and sex bias
-- content-script autofill for common identity and address fields on supported pages
-- autofill profile generation for names, email, DOB, sex, and address fields with state-aware ZIP/city sampling
-- settings normalization and validation for autofill preferences
-- field matching for common labels, autocomplete tokens, camelCase/concatenated identifiers, and DOB variants
-- safer autofill targeting that skips readonly/hidden fields and reduces cross-form spills
-- mailbox helper, Mail.tm client, state, error, link-extraction, and autofill test coverage
+---
 
-Important current behavior:
+SudoFill helps you move through repetitive signup flows without doing the same manual steps every time.
 
-- phone fields are intentionally **not autofilled**
-- temp mailbox email is required before running popup autofill
-- generic DOB fields support multiple date formats, while split DOB fields are handled separately
+It can generate a temporary email address, watch for verification emails, surface verification links, and autofill common signup fields like name, birthday, and address.
 
-## Remaining Work
+## How It Works
 
-Highest-value remaining items:
+1. Open SudoFill and create a temporary mailbox.
+2. Use that email in the signup flow.
+3. Let SudoFill autofill common form fields on the page.
+4. Wait for the verification email to arrive in the extension.
+5. Open the detected verification link and continue.
 
-- tighten form targeting further so autofill always stays within the single intended form on complex pages
-- add DOM-level content-script tests for real fill behavior, not just string matching
-- improve matching for fields identified only through `aria-labelledby` / fieldset legend context
-- normalize more unsupported-page/content-script transport errors in the popup
-- harden success/failure reporting around content-script delivery on edge-case pages
+## What’s Left To Do
 
-Nice-to-have later:
+Here’s the main work still planned:
 
-- iframe/all-frame autofill support
-- broader select alias support like `CA - California` or abbreviated sex/gender values
-- richer popup success feedback using the returned filled field names
+- improve autofill reliability on more complex pages and multi-form layouts
+- add more realistic page-level testing for actual fill behavior
+- better support fields identified through accessibility labels and grouped field context
+- make popup success and error messaging clearer on difficult or unsupported pages
+- expand support for edge cases like iframes and more dropdown/select formats
 
-## Stack
+## What’s Done So Far
 
-- `Bun` for package management and scripts
-- `WXT` for the browser extension framework and Manifest V3 build pipeline
-- `React` for popup and options UIs
-- `TypeScript` for typed application code
-- `Tailwind CSS` for styling
-- `Vitest` for tests
-- `ESLint` and `Prettier` for code quality and formatting
+SudoFill already includes:
 
-## Project Structure
+- a working temporary mailbox flow powered by Mail.tm
+- automatic mailbox refresh, polling, cleanup, badge updates, and fallback refresh handling
+- a popup interface for creating, refreshing, copying, and deleting mailboxes
+- message viewing and verification-link launching from the popup
+- autofill for common signup fields
+- autofill profile generation for names, email, date of birth, sex, and address details
+- settings for autofill defaults like age range, state preference, and address generation behavior
+- smarter field matching for common labels, autocomplete values, and naming patterns
+- safer autofill behavior that avoids hidden or readonly fields and tries to focus on one relevant form
 
-- `entrypoints/background.ts` — mailbox runtime, polling, alarms, badge updates, popup command handling
-- `entrypoints/content.ts` — signup-form autofill content script
-- `entrypoints/popup/main.tsx` — popup UI for mailbox actions and autofill trigger
-- `entrypoints/options/main.tsx` — autofill defaults/settings UI
-- `src/features/autofill/` — profile generation, matching, settings, constants, and tests
-- `src/features/email/` — Mail.tm client, command routing, state shaping, errors, link extraction, and tests
+## Current Limitations
 
-## Getting Started
+- phone fields are intentionally not autofilled
+- a temporary mailbox email must exist before popup autofill runs
+- some unusual page structures still need better support
 
-1. Install dependencies:
+## Why This Exists
+
+Testing or repeating account creation flows gets tedious fast. SudoFill is built to remove the repetitive parts so you can focus on the actual flow instead of typing the same details over and over.
+
+## Status
+
+SudoFill is already functional. Most of the remaining work is about polish, edge cases, and making the experience more reliable across more websites.
+
+---
+
+## Running Locally for Development
+
+If you want to work on SudoFill locally:
+
+### 1. Install dependencies
 
 ```bash
 bun install
 ```
 
-2. Start local development:
+### 2. Start the extension in development mode
+
+For Chrome:
 
 ```bash
 bun run dev
 ```
 
-3. Build the extension:
+For Firefox:
+
+```bash
+bun run dev:firefox
+```
+
+### 3. Build a production version
 
 ```bash
 bun run build
 ```
 
-## Useful Scripts
+### Useful scripts
 
 - `bun run dev` — start Chrome extension dev mode
-- `bun run dev:firefox` — start Firefox dev mode
-- `bun run build` — production build
-- `bun run zip` — package extension zips
+- `bun run dev:firefox` — start Firefox extension dev mode
+- `bun run build` — create a production build
+- `bun run zip` — package extension zip files
 - `bun run lint` — run ESLint
-- `bun run format` — write Prettier formatting
-- `bun run format:check` — verify formatting
+- `bun run format` — format the codebase
+- `bun run format:check` — check formatting
 - `bun run typecheck` — run TypeScript checks
 - `bun run test` — run Vitest
 
-## Verification
+### Verification order
 
-CI order:
+CI runs checks in this order:
 
 1. `bun run lint`
 2. `bun run format:check`
 3. `bun run typecheck`
 4. `bun run build`
-
-## Notes
-
-- Manifest V3 is built through WXT.
-- Generated directories like `.wxt/` and `.output/` are build artifacts.
-- Mailbox session state uses `chrome.storage.session`.
-- The popup is intentionally thin; mailbox behavior generally belongs in the background worker.

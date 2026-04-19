@@ -4,6 +4,7 @@ import {
   US_STATE_OPTIONS,
 } from './constants';
 import type { AutofillSettings } from './types';
+import { callWebExtensionApi } from '../../lib/webext-async';
 
 const VALID_STATE_CODES = new Set<string>(US_STATE_OPTIONS.map((state) => state.code));
 const VALID_SEX_VALUES = new Set(['', 'female', 'male', 'nonbinary']);
@@ -84,17 +85,19 @@ export function isAutofillAgeRangeValid(settings: AutofillSettings) {
 }
 
 export function getStoredAutofillSettings() {
-  return chrome.storage.sync
-    .get(AUTOFILL_SETTINGS_STORAGE_KEY)
-    .then((result) =>
-      normalizeAutofillSettings(
-        result[AUTOFILL_SETTINGS_STORAGE_KEY] as Partial<AutofillSettings> | undefined,
-      ),
-    );
+  return callWebExtensionApi<Record<string, Partial<AutofillSettings> | undefined>>(
+    'storage',
+    'sync.get',
+    AUTOFILL_SETTINGS_STORAGE_KEY,
+  ).then((result) =>
+    normalizeAutofillSettings(
+      result[AUTOFILL_SETTINGS_STORAGE_KEY] as Partial<AutofillSettings> | undefined,
+    ),
+  );
 }
 
 export function setStoredAutofillSettings(settings: AutofillSettings) {
-  return chrome.storage.sync.set({
+  return callWebExtensionApi('storage', 'sync.set', {
     [AUTOFILL_SETTINGS_STORAGE_KEY]: normalizeAutofillSettings(settings),
   });
 }

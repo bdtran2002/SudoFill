@@ -21,6 +21,7 @@ import type {
   MailboxResponse,
   MailboxSnapshot,
 } from '../src/features/email/types';
+import { callWebExtensionApi } from '../src/lib/webext-async';
 
 const MAILBOX_STORAGE_KEY = 'email.activeMailbox';
 const MAILBOX_ALARM_NAME = 'email.pollMailbox';
@@ -31,6 +32,42 @@ let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
+
+type ActionLikeApi = {
+  onClicked?: {
+    addListener: (callback: (tab: chrome.tabs.Tab) => void) => void;
+  };
+  setBadgeBackgroundColor?: (details: chrome.action.BadgeColorDetails) => Promise<void>;
+  setBadgeText?: (details: chrome.action.BadgeTextDetails) => Promise<void>;
+};
+
+type FirefoxBrowserApi = {
+  action?: ActionLikeApi;
+  browserAction?: ActionLikeApi;
+};
+
+function getFirefoxBrowserApi(): FirefoxBrowserApi | undefined {
+  return (
+    globalThis as typeof globalThis & {
+      browser?: FirefoxBrowserApi;
+    }
+  ).browser;
+}
+
+function getActionApi(): ActionLikeApi | undefined {
+  const browserApi = getFirefoxBrowserApi();
+
+  return (
+    browserApi?.action ??
+    browserApi?.browserAction ??
+    chrome.action ??
+    (
+      chrome as typeof chrome & {
+        browserAction?: ActionLikeApi;
+      }
+    ).browserAction
+  );
+}
 
 function configureSidePanelActionBehavior() {
   if (!chrome.sidePanel?.setPanelBehavior) {
@@ -51,13 +88,13 @@ function fromBrowserPromise<T>(promise: Promise<T>, fallbackMessage: string) {
 function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   if (!activeSession) {
     return fromBrowserPromise(
-      chrome.storage.session.remove(MAILBOX_STORAGE_KEY),
+      callWebExtensionApi('storage', 'session.remove', MAILBOX_STORAGE_KEY),
       'Failed to update session storage',
     );
   }
 
   return fromBrowserPromise(
-    chrome.storage.session.set({
+    callWebExtensionApi('storage', 'session.set', {
       [MAILBOX_STORAGE_KEY]: activeSession,
     }),
     'Failed to update session storage',
@@ -65,14 +102,23 @@ function writeSessionToStorage(): ResultAsync<void, MailboxError> {
 }
 
 function setBadge(unreadCount: number, error: string | null): ResultAsync<void, MailboxError> {
+  const actionApi = getActionApi();
+
+  if (!actionApi?.setBadgeBackgroundColor || !actionApi.setBadgeText) {
+    return okAsync(undefined);
+  }
+
+  const setBadgeBackgroundColor = actionApi.setBadgeBackgroundColor;
+  const setBadgeText = actionApi.setBadgeText;
+
   return fromBrowserPromise(
-    chrome.action.setBadgeBackgroundColor({
+    setBadgeBackgroundColor({
       color: error ? '#b91c1c' : '#2563eb',
     }),
     'Failed to update extension badge',
   ).andThen(() =>
     fromBrowserPromise(
-      chrome.action.setBadgeText({
+      setBadgeText({
         text: error ? '!' : unreadCount > 0 ? String(Math.min(unreadCount, 99)) : '',
       }),
       'Failed to update extension badge',
@@ -107,16 +153,16 @@ function scheduleFastPoll() {
 function ensureFallbackAlarm(enabled: boolean): ResultAsync<void, MailboxError> {
   if (!enabled) {
     return fromBrowserPromise(
-      chrome.alarms.clear(MAILBOX_ALARM_NAME),
+      callWebExtensionApi('alarms', 'clear', MAILBOX_ALARM_NAME),
       'Failed to update mailbox polling alarm',
     ).map(() => undefined);
   }
 
-  return fromBrowserPromise(
-    chrome.alarms.create(MAILBOX_ALARM_NAME, {
+  return ResultAsync.fromPromise(
+    callWebExtensionApi('alarms', 'create', MAILBOX_ALARM_NAME, {
       periodInMinutes: FALLBACK_ALARM_PERIOD_MINUTES,
-    }),
-    'Failed to update mailbox polling alarm',
+    }).then(() => undefined),
+    (error) => toUnexpectedMailboxError(error, 'Failed to update mailbox polling alarm'),
   );
 }
 
@@ -253,10 +299,12 @@ function openMessage(messageId: string): ResultAsync<void, MailboxError> {
 
 function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
   return fromBrowserPromise(
-    chrome.storage.session.get(MAILBOX_STORAGE_KEY),
+    callWebExtensionApi('storage', 'session.get', MAILBOX_STORAGE_KEY),
     'Failed to restore mailbox session',
   ).andThen((stored) => {
-    const session = stored[MAILBOX_STORAGE_KEY] as ActiveMailboxSession | undefined;
+    const session = (stored as Record<string, ActiveMailboxSession | undefined>)[
+      MAILBOX_STORAGE_KEY
+    ];
 
     if (!session) {
       return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
@@ -303,9 +351,10 @@ const handleCommand = createCommandHandler({
   discardMailbox,
   openMessage,
   openLink: (url) =>
-    fromBrowserPromise(chrome.tabs.create({ url }), 'Failed to open mailbox link').map(
-      () => undefined,
-    ),
+    fromBrowserPromise(
+      callWebExtensionApi('tabs', 'create', { url }),
+      'Failed to open mailbox link',
+    ).map(() => undefined),
   onError: createMailboxResponseError,
 });
 

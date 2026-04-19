@@ -414,48 +414,83 @@ function selectTargetScope(
   return scoredScopes[0]?.root ?? null;
 }
 
-export function fillProfile(
+async function yieldToNextTick() {
+  await new Promise<void>((resolve) => setTimeout(resolve, 100));
+}
+
+export async function fillProfile(
   profile: GeneratedProfile,
   doc: Document = document,
-): AutofillContentResponse {
-  const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
-  const visibleElements = elements.filter(
-    (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
+): Promise<AutofillContentResponse> {
+  const targetRoot = selectTargetScope(
+    [...doc.querySelectorAll('input, select, textarea')]
+      .filter(isFillableElement)
+      .filter((element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element)),
+    profile,
+    doc,
   );
-  const targetRoot = selectTargetScope(visibleElements, profile, doc);
-  const prioritizedElements = visibleElements.filter((element) => {
-    if (targetRoot) {
-      return element.form === targetRoot || targetRoot.contains(element);
-    }
-
-    return element.form === null && getScopeRoot(element) === null;
-  });
 
   const filledFields = new Set<string>();
   let filledCount = 0;
+  // Bounded rescans catch dependent selects like country -> state without turning
+  // autofill into an open-ended DOM watcher.
+  const maxPasses = 6;
+  let shouldKeepRescanning = false;
 
-  for (const element of prioritizedElements) {
-    if (element.disabled) continue;
-    if (
-      element instanceof HTMLInputElement &&
-      ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
-    ) {
-      continue;
-    }
-    if (hasExistingUserValue(element)) continue;
-
-    const match = resolveAutofillMatch(buildFieldKey(element), profile);
-    if (!match) continue;
-    if (!match.values.some(Boolean)) continue;
-
-    const didFill = assignValue(
-      element,
-      prioritizeValuesForElement(element, match.field, match.values.filter(Boolean)),
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
+    const visibleElements = elements.filter(
+      (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
     );
-    if (!didFill) continue;
 
-    filledCount += 1;
-    filledFields.add(match.field);
+    const prioritizedElements = visibleElements.filter((element) => {
+      if (targetRoot) {
+        return element.form === targetRoot || targetRoot.contains(element);
+      }
+
+      return element.form === null && getScopeRoot(element) === null;
+    });
+
+    let didFillAny = false;
+    let didFillSelect = false;
+
+    for (const element of prioritizedElements) {
+      if (element.disabled) continue;
+      if (
+        element instanceof HTMLInputElement &&
+        ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
+      ) {
+        continue;
+      }
+      if (hasExistingUserValue(element)) continue;
+
+      const match = resolveAutofillMatch(buildFieldKey(element), profile);
+      if (!match) continue;
+      if (!match.values.some(Boolean)) continue;
+
+      const didFill = assignValue(
+        element,
+        prioritizeValuesForElement(element, match.field, match.values.filter(Boolean)),
+      );
+      if (!didFill) continue;
+
+      filledCount += 1;
+      filledFields.add(match.field);
+      didFillAny = true;
+      if (element instanceof HTMLSelectElement) {
+        didFillSelect = true;
+      }
+    }
+
+    shouldKeepRescanning ||= didFillSelect;
+
+    if (!didFillAny && !shouldKeepRescanning) break;
+
+    if (pass < maxPasses - 1) {
+      if (didFillSelect || shouldKeepRescanning) {
+        await yieldToNextTick();
+      }
+    }
   }
 
   return {

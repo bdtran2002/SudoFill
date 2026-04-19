@@ -23,6 +23,7 @@ import { getStoredAutofillSettings } from '../autofill/settings';
 import type { AutofillContentResponse } from '../autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import { callWebExtensionApi } from '../../lib/webext-async';
 
 function toTransportFailureResponse(
   error: unknown,
@@ -59,7 +60,11 @@ function formatTimestamp(value: string) {
 }
 
 async function sendMailboxCommand(command: MailboxCommand) {
-  return (await chrome.runtime.sendMessage(command)) as MailboxResponse;
+  return (await callWebExtensionApi<MailboxResponse>(
+    'runtime',
+    'sendMessage',
+    command,
+  )) as MailboxResponse;
 }
 
 function useCopiedFlash() {
@@ -201,7 +206,10 @@ export function MailboxApp() {
         return;
       }
 
-      [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+        active: true,
+        currentWindow: true,
+      });
 
       const tabError = normalizeAutofillTabError(activeTab);
 
@@ -225,7 +233,7 @@ export function MailboxApp() {
 
       const settings = await getStoredAutofillSettings();
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const rawResponse = await chrome.tabs.sendMessage(tabId, {
+      const rawResponse = await callWebExtensionApi<unknown>('tabs', 'sendMessage', tabId, {
         type: 'autofill:fill-profile',
         profile,
       });
@@ -263,7 +271,7 @@ export function MailboxApp() {
   }
 
   async function openAutofillSettings() {
-    await chrome.runtime.openOptionsPage();
+    await callWebExtensionApi('runtime', 'openOptionsPage');
   }
 
   return (

@@ -4,7 +4,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons'],
   autoIcons: {
-    baseIconPath: 'assets/icon.png',
+    baseIconPath: 'red_ver_upscaled.png',
   },
   manifest: {
     name: 'SudoFill',

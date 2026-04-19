@@ -3,7 +3,7 @@ import type {
   AutofillContentResponse,
   GeneratedProfile,
 } from '../src/features/autofill/types';
-import { resolveAutofillMatch } from '../src/features/autofill/matching';
+import { prioritizeDobValues, resolveAutofillMatch } from '../src/features/autofill/matching';
 
 function isGeneratedProfile(value: unknown): value is GeneratedProfile {
   if (!value || typeof value !== 'object') {
@@ -42,6 +42,15 @@ function isFillableElement(
   );
 }
 
+function getAssociatedForm(element: Element) {
+  return isFillableElement(element) ? element.form : null;
+}
+
+function getActiveForm() {
+  const activeElement = document.activeElement;
+  return activeElement ? getAssociatedForm(activeElement) : null;
+}
+
 function buildFieldKey(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
   const placeholder =
     element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
@@ -63,6 +72,41 @@ function buildFieldKey(element: HTMLInputElement | HTMLSelectElement | HTMLTextA
 
 function hasExistingUserValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
   return element.value.trim().length > 0;
+}
+
+function isReadonlyElement(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+    ? element.readOnly
+    : false;
+}
+
+function isVisibleFillableElement(
+  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+) {
+  if (element instanceof HTMLInputElement && element.type === 'hidden') return false;
+  if (element.hidden) return false;
+  if (element.getAttribute('aria-hidden') === 'true') return false;
+
+  const style = window.getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+  return element.getClientRects().length > 0 || style.position === 'fixed';
+}
+
+function getElementContext(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+  const placeholder =
+    element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+      ? element.placeholder
+      : '';
+
+  return {
+    inputType: element instanceof HTMLInputElement ? element.type : undefined,
+    placeholder,
+    labelText: element.labels
+      ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
+      : '',
+    keyText: buildFieldKey(element),
+  };
 }
 
 function assignValue(
@@ -113,14 +157,31 @@ function assignValue(
   return true;
 }
 
+function prioritizeValuesForElement(
+  element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  field: keyof GeneratedProfile,
+  values: string[],
+) {
+  if (field !== 'birthDateIso') return values;
+  return prioritizeDobValues(values, getElementContext(element));
+}
+
 function fillProfile(profile: GeneratedProfile): AutofillContentResponse {
   const elements = [...document.querySelectorAll('input, select, textarea')].filter(
     isFillableElement,
   );
+  const activeForm = getActiveForm();
+  const prioritizedElements = elements
+    .filter((element) => isVisibleFillableElement(element) && !isReadonlyElement(element))
+    .sort((left, right) => {
+      const leftPriority = activeForm && left.form === activeForm ? 0 : 1;
+      const rightPriority = activeForm && right.form === activeForm ? 0 : 1;
+      return leftPriority - rightPriority;
+    });
   const filledFields = new Set<string>();
   let filledCount = 0;
 
-  for (const element of elements) {
+  for (const element of prioritizedElements) {
     if (element.disabled) continue;
     if (
       element instanceof HTMLInputElement &&
@@ -134,7 +195,10 @@ function fillProfile(profile: GeneratedProfile): AutofillContentResponse {
     if (!match) continue;
     if (!match.values.some(Boolean)) continue;
 
-    const didFill = assignValue(element, match.values.filter(Boolean));
+    const didFill = assignValue(
+      element,
+      prioritizeValuesForElement(element, match.field, match.values.filter(Boolean)),
+    );
     if (!didFill) continue;
 
     filledCount += 1;

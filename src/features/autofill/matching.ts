@@ -6,7 +6,12 @@ export type AutofillFieldMatch = {
 };
 
 function normalizeFieldKey(key: string) {
-  return key.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function hasToken(key: string, token: string) {
@@ -21,9 +26,24 @@ function isSplitDobField(key: string) {
   return (
     hasAnyToken(key, ['bday day', 'birth day', 'dob day', 'day of birth']) ||
     (hasToken(key, 'day') && hasAnyToken(key, ['birth', 'dob'])) ||
+    hasToken(key, 'birthday') ||
     hasAnyToken(key, ['bday month', 'birth month', 'dob month']) ||
-    hasAnyToken(key, ['bday year', 'birth year', 'dob year'])
+    hasToken(key, 'birthmonth') ||
+    hasAnyToken(key, ['bday year', 'birth year', 'dob year']) ||
+    hasToken(key, 'birthyear')
   );
+}
+
+function dobValues(profile: GeneratedProfile) {
+  const [year, month, day] = [profile.birthYear, profile.birthMonth, profile.birthDay];
+  const monthNumber = String(Number(month));
+  const dayNumber = String(Number(day));
+
+  return [
+    profile.birthDateIso,
+    `${month}/${day}/${year}`,
+    `${monthNumber}/${dayNumber}/${year}`,
+  ].filter((value): value is string => Boolean(value));
 }
 
 export function resolveAutofillMatch(
@@ -34,21 +54,26 @@ export function resolveAutofillMatch(
 
   if (
     hasAnyToken(normalizedKey, ['given name', 'first name']) ||
-    hasToken(normalizedKey, 'givenname')
+    hasToken(normalizedKey, 'givenname') ||
+    hasToken(normalizedKey, 'firstname')
   ) {
     return { field: 'firstName', values: [profile.firstName] };
   }
 
   if (
     hasAnyToken(normalizedKey, ['family name', 'last name', 'surname']) ||
-    hasToken(normalizedKey, 'familyname')
+    hasToken(normalizedKey, 'familyname') ||
+    hasToken(normalizedKey, 'lastname')
   ) {
     return { field: 'lastName', values: [profile.lastName] };
   }
 
-  if (hasAnyToken(normalizedKey, ['email', 'e mail']))
+  if (hasAnyToken(normalizedKey, ['email', 'e mail']) || hasToken(normalizedKey, 'emailaddress'))
     return { field: 'email', values: [profile.email] };
-  if (hasAnyToken(normalizedKey, ['phone', 'mobile', 'tel']))
+  if (
+    hasAnyToken(normalizedKey, ['phone', 'mobile', 'tel']) ||
+    hasToken(normalizedKey, 'phonenumber')
+  )
     return { field: 'phone', values: [profile.phone] };
 
   if (
@@ -83,7 +108,7 @@ export function resolveAutofillMatch(
   if (hasAnyToken(normalizedKey, ['state', 'province', 'region'])) {
     return { field: 'state', values: [profile.state, profile.stateName] };
   }
-  if (hasAnyToken(normalizedKey, ['zip', 'postal']))
+  if (hasAnyToken(normalizedKey, ['zip', 'postal']) || hasToken(normalizedKey, 'postalcode'))
     return { field: 'postalCode', values: [profile.postalCode] };
 
   if (isSplitDobField(normalizedKey) && hasToken(normalizedKey, 'month')) {
@@ -104,8 +129,11 @@ export function resolveAutofillMatch(
     return { field: 'birthYear', values: [profile.birthYear] };
   }
 
-  if (hasAnyToken(normalizedKey, ['dob', 'birth date', 'date of birth'])) {
-    return { field: 'birthDateIso', values: [profile.birthDateIso] };
+  if (
+    hasAnyToken(normalizedKey, ['dob', 'birth date', 'date of birth']) ||
+    hasToken(normalizedKey, 'birthdate')
+  ) {
+    return { field: 'birthDateIso', values: dobValues(profile) };
   }
 
   if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };

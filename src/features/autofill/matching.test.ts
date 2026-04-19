@@ -58,4 +58,29 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('bday-year', profile)?.field).toBe('birthYear');
     expect(resolveAutofillMatch('sex', profile)?.field).toBe('sex');
   });
+
+  it('matches common camelCase and concatenated identifiers', () => {
+    expect(resolveAutofillMatch('firstName', profile)?.field).toBe('firstName');
+    expect(resolveAutofillMatch('lastName', profile)?.field).toBe('lastName');
+    expect(resolveAutofillMatch('emailAddress', profile)?.field).toBe('email');
+    expect(resolveAutofillMatch('phoneNumber', profile)?.field).toBe('phone');
+    expect(resolveAutofillMatch('postalCode', profile)?.field).toBe('postalCode');
+    expect(resolveAutofillMatch('birthDate', profile)?.field).toBe('birthDateIso');
+    expect(resolveAutofillMatch('birthMonth', profile)?.field).toBe('birthMonth');
+    expect(resolveAutofillMatch('birthDay', profile)?.field).toBe('birthDay');
+    expect(resolveAutofillMatch('birthYear', profile)?.field).toBe('birthYear');
+  });
+
+  it('offers multiple DOB formats for generic date fields', () => {
+    expect(resolveAutofillMatch('dob', profile)?.values).toEqual([
+      '1990-01-15',
+      '01/15/1990',
+      '1/15/1990',
+    ]);
+    expect(resolveAutofillMatch('date of birth', profile)?.values).toEqual([
+      '1990-01-15',
+      '01/15/1990',
+      '1/15/1990',
+    ]);
+  });
 });

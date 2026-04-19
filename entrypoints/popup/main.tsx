@@ -28,6 +28,7 @@ function toTransportFailureResponse(
   command: MailboxCommand,
   snapshot: MailboxSnapshot,
 ): MailboxResponse {
+  const message = error instanceof Error ? error.message : 'Mailbox request failed';
   const diagnostics: MailboxDiagnostics = {
     command: command.type,
     phase: 'sendMessage',
@@ -36,15 +37,35 @@ function toTransportFailureResponse(
 
   return {
     ok: false,
-    error: error instanceof Error ? error.message : 'Mailbox request failed',
+    error: message,
     diagnostics,
     snapshot: {
       ...snapshot,
       status: snapshot.address ? 'active' : 'error',
-      error: error instanceof Error ? error.message : 'Mailbox request failed',
+      error: message,
       diagnostics,
     },
   };
+}
+
+function isUnsupportedPageError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('could not establish connection') ||
+    message.includes('receiving end does not exist') ||
+    message.includes('no matching message listener') ||
+    message.includes('extension context invalidated')
+  );
+}
+
+function getAutofillErrorMessage(error: unknown) {
+  if (isUnsupportedPageError(error)) {
+    return 'Autofill is not available on this page yet.';
+  }
+
+  return error instanceof Error ? error.message : 'Autofill failed.';
 }
 
 function formatTimestamp(value: string) {
@@ -227,8 +248,7 @@ function PopupApp() {
     } catch (error) {
       setAutofillStatus({
         tone: 'error',
-        message:
-          error instanceof Error ? error.message : 'Autofill is not available on this page yet.',
+        message: getAutofillErrorMessage(error),
       });
     } finally {
       setIsBusy(false);

@@ -223,6 +223,14 @@ function PopupApp() {
 
       const tabId = activeTab.id;
 
+      if (tabId === undefined) {
+        setAutofillStatus({
+          tone: 'error',
+          message: 'Open a page first, then try autofill again.',
+        });
+        return;
+      }
+
       const settings = await getStoredAutofillSettings();
       const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });

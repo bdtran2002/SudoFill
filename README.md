@@ -2,93 +2,125 @@
 
 # ⚡ SudoFill
 
-**Stop wasting time on repetitive signups.** SudoFill is a browser extension that automates account creation by providing temporary emails and smart autofill in one click.
+SudoFill helps you get through sign-up forms faster.
 
----
+It gives you a temporary email address, fills common fields for you, and lets you check verification emails without bouncing between tabs.
 
-## 🚀 Why SudoFill?
+## What it does
 
-Signing up for new services often feels like a chore. You have to invent a username, provide an email, wait for a verification code, and fill out a dozen fields. SudoFill handles the "boring stuff" so you can get to work (or play) faster.
+- **Creates a temporary email** so you do not have to use your real inbox
+- **Autofills common sign-up fields** like name, birthday, address, and email
+- **Shows incoming verification emails** right inside the extension
+- **Opens verification links quickly** so you can finish sign-up faster
 
-### ✨ Key Features
+## Who it is for
 
-- **Instant Temporary Email:** Create a disposable mailbox powered by Mail.tm without leaving the page.
-- **Smart Autofill:** Automatically populates names, birthdays, and addresses using realistic (but fake) data.
-- **In-App Verification:** See incoming emails and click verification links directly from the extension popup—no more switching tabs.
-- **Privacy First:** Protect your real inbox from spam by using "sudo" identities for quick tests or one-time signups.
+SudoFill is useful when you want to:
 
----
+- sign up for something quickly
+- avoid spam in your personal inbox
+- test forms with realistic sample information
+- make one-off accounts without typing everything by hand
 
-## 🛠️ How It Works
+## How to use SudoFill
 
-1.  **Create:** Open the SudoFill icon and click "Create Mailbox."
-2.  **Fill:** Click "Autofill" to instantly populate the signup form with your new email and personal details.
-3.  **Verify:** Watch the SudoFill popup for your verification email.
-4.  **Finish:** Click the link inside the popup to confirm your account. Done\!
+### 1. Open the extension
 
----
+Click the SudoFill icon in your browser toolbar.
 
-- a working temporary mailbox flow powered by Mail.tm
-- automatic mailbox refresh, polling, cleanup, badge updates, and fallback refresh handling
-- a Firefox popup UI and a Chrome side panel UI for creating, refreshing, copying, and deleting mailboxes
-- message viewing and verification-link launching from the extension UI
-- autofill for common signup fields
-- autofill profile generation for names, email, date of birth, sex, and address details
-- settings for autofill defaults like age range, state preference, and address generation behavior
-- smarter field matching for common labels, autocomplete values, grouped DOB context, and signup-oriented naming patterns
-- broader signup matching for first/last/full name, DOB, and hybrid email-or-phone style fields
-- safer autofill behavior that avoids hidden or readonly fields and tries to focus on one relevant form
+### 2. Create a mailbox
 
-You’re in control of how SudoFill fills out forms. In the **Settings** menu, you can toggle:
+In the popup, click **Create Mailbox**.
 
-- **Age Ranges:** Set a preferred age range for generated birthdays.
-- **Location Prefs:** Choose specific states or address formats.
-- **Security:** SudoFill is designed to ignore hidden or "read-only" fields to keep your data safe and the form submission valid.
+SudoFill will generate a temporary email address for you.
 
----
+### 3. Go to the website you want to join
 
-## 🚧 Current Status & Limitations
+Open the sign-up page like you normally would.
 
-SudoFill is fully functional and ready for daily use\! We are currently working on making it even smarter on complex websites.
+### 4. Autofill the form
 
-**Note:** For your security, SudoFill **does not** autofill phone numbers. You will still need to handle SMS verification manually if a site requires it.
+Click **Autofill** in SudoFill.
 
----
+The extension will try to fill in the main sign-up fields for you.
 
-## 👩‍💻 For Contributors & Developers
+### 5. Check for the verification email
 
-If you're looking to help build SudoFill or run it from the source code:
+If the website sends a confirmation email, open SudoFill again and wait for the message to appear.
+
+### 6. Open the verification link
+
+Click the link from the email inside the extension to finish setting up the account.
+
+## What SudoFill usually fills in
+
+Depending on the form, SudoFill can fill in:
+
+- first name and last name
+- email address
+- date of birth
+- sex or gender field when a form asks for it
+- address details
+
+You can also adjust some autofill preferences in **Settings**.
+
+## Good to know
+
+- **Temporary email only:** These inboxes are meant for short-term use.
+- **Phone numbers are not autofilled:** If a site needs SMS verification, you will still need to do that yourself.
+- **Some sites may need a quick manual fix:** Very unusual or complex forms may still need a few edits.
+- **Hidden and read-only fields are avoided:** SudoFill tries not to fill fields that should be left alone.
+
+## When to use it
+
+SudoFill is best for:
+
+- quick sign-ups
+- testing forms
+- avoiding marketing emails in your real inbox
+
+It is **not** a good fit for accounts you need to keep long term if the service depends on permanent email access.
+
+## Current status
+
+SudoFill is already usable today and supports the main temporary-email + autofill flow.
+
+We are still improving support for more complicated websites and edge-case forms.
+
+<details>
+<summary><strong>Developer setup</strong></summary>
+
+### Install dependencies
 
 SudoFill is built with **Bun**.
 
 ```bash
-# Install dependencies
 bun install
 ```
 
-### 2. Start the extension in development mode
+### Run in development
 
-Firefox is the default dev target:
+Firefox:
 
 ```bash
 bun run dev
 ```
 
-For Chrome:
+Chrome:
 
 ```bash
 bun run dev:chrome
 ```
 
-### 3. Build a production version
+### Build production bundles
 
-Firefox is the default build target:
+Firefox:
 
 ```bash
 bun run build
 ```
 
-For Chrome:
+Chrome:
 
 ```bash
 bun run build:chrome
@@ -96,21 +128,21 @@ bun run build:chrome
 
 ### Useful scripts
 
-- `bun run dev` — start Firefox extension dev mode
-- `bun run dev:firefox` — start Firefox extension dev mode
-- `bun run dev:chrome` — start Chrome extension dev mode
-- `bun run build` — create a Firefox production build
-- `bun run build:firefox` — create a Firefox production build
-- `bun run build:chrome` — create a Chrome production build
-- `bun run zip` — package extension zip files
-- `bun run lint` — run ESLint
-- `bun run format` — format the codebase
-- `bun run format:check` — check formatting
-- `bun run typecheck` — run TypeScript checks
-- `bun run test` — run Vitest
+- `bun run dev`
+- `bun run dev:firefox`
+- `bun run dev:chrome`
+- `bun run build`
+- `bun run build:firefox`
+- `bun run build:chrome`
+- `bun run zip`
+- `bun run lint`
+- `bun run format`
+- `bun run format:check`
+- `bun run typecheck`
+- `bun run test`
 
----
+</details>
 
-## 📄 License
+## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+MIT. See `LICENSE` for details.

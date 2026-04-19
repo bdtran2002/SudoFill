@@ -259,35 +259,30 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
   });
 }
 
+function successResponse(): MailboxResponse {
+  return { ok: true, snapshot: currentSnapshot };
+}
+
+function matchCommandResult<T>(result: ResultAsync<T, MailboxError>) {
+  return result.match(successResponse, handleCommandError);
+}
+
 async function handleCommand(command: MailboxCommand): Promise<MailboxResponse> {
   switch (command.type) {
     case 'mailbox:get-state':
-      return { ok: true, snapshot: currentSnapshot };
+      return successResponse();
     case 'mailbox:create':
-      return createMailbox().match(
-        () => ({ ok: true, snapshot: currentSnapshot }),
-        handleCommandError,
-      );
+      return matchCommandResult(createMailbox());
     case 'mailbox:refresh':
-      return fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox').match(
-        () => ({ ok: true, snapshot: currentSnapshot }),
-        handleCommandError,
-      );
+      return matchCommandResult(fromBrowserPromise(pollMailbox(true), 'Failed to refresh mailbox'));
     case 'mailbox:discard':
-      return discardMailbox().match(
-        () => ({ ok: true, snapshot: currentSnapshot }),
-        handleCommandError,
-      );
+      return matchCommandResult(discardMailbox());
     case 'mailbox:open-message':
-      return openMessage(command.messageId).match(
-        () => ({ ok: true, snapshot: currentSnapshot }),
-        handleCommandError,
-      );
+      return matchCommandResult(openMessage(command.messageId));
     case 'mailbox:open-link':
-      return fromBrowserPromise(
-        chrome.tabs.create({ url: command.url }),
-        'Failed to open mailbox link',
-      ).match(() => ({ ok: true, snapshot: currentSnapshot }), handleCommandError);
+      return matchCommandResult(
+        fromBrowserPromise(chrome.tabs.create({ url: command.url }), 'Failed to open mailbox link'),
+      );
     default:
       return { ok: false, error: 'Unknown command', snapshot: currentSnapshot };
   }

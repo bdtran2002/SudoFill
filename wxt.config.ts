@@ -2,7 +2,10 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
-  modules: ['@wxt-dev/module-react'],
+  modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons'],
+  autoIcons: {
+    baseIconPath: 'assets/icon.png',
+  },
   manifest: {
     name: 'SudoFill',
     description: 'Temporary identity and email extension',

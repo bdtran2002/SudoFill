@@ -8,6 +8,19 @@ interface GenerateAutofillProfileOptions {
   email?: string | null;
 }
 
+function getDateParts(date: Date) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return {
+    year,
+    month,
+    day,
+    iso: `${year}-${month}-${day}`,
+  };
+}
+
 function pickStateCode(preferredState: string) {
   if (preferredState) {
     return preferredState;
@@ -26,12 +39,14 @@ function normalizeSex(settings: AutofillSettings): GeneratedProfile['sex'] {
 }
 
 function resolveBirthdate(settings: AutofillSettings) {
-  const min = settings.ageMin ? Number(settings.ageMin) : 18;
-  const max = settings.ageMax ? Number(settings.ageMax) : Math.max(min, 72);
+  const minInput = settings.ageMin ? Number(settings.ageMin) : 18;
+  const min = Number.isFinite(minInput) ? minInput : 18;
+  const maxInput = settings.ageMax ? Number(settings.ageMax) : Math.max(min, 72);
+  const max = Number.isFinite(maxInput) ? maxInput : Math.max(min, 72);
 
   return faker.date.birthdate({
     mode: 'age',
-    min,
+    min: Math.max(18, min),
     max: Math.max(min, max),
   });
 }
@@ -45,6 +60,7 @@ export function generateAutofillProfile(
   const firstName = faker.person.firstName(binarySex);
   const lastName = faker.person.lastName(binarySex);
   const birthDate = resolveBirthdate(settings);
+  const birthDateParts = getDateParts(birthDate);
   const state = pickStateCode(settings.state);
   const stateName = getStateName(state);
   const addressLine1 = settings.generateAddress ? faker.location.streetAddress() : '';
@@ -56,10 +72,10 @@ export function generateAutofillProfile(
     email: options.email?.trim() || faker.internet.email({ firstName, lastName }).toLowerCase(),
     phone: faker.phone.number({ style: 'national' }),
     sex,
-    birthDateIso: birthDate.toISOString().slice(0, 10),
-    birthDay: String(birthDate.getDate()).padStart(2, '0'),
-    birthMonth: String(birthDate.getMonth() + 1).padStart(2, '0'),
-    birthYear: String(birthDate.getFullYear()),
+    birthDateIso: birthDateParts.iso,
+    birthDay: birthDateParts.day,
+    birthMonth: birthDateParts.month,
+    birthYear: birthDateParts.year,
     addressLine1,
     addressLine2: settings.generateAddress ? faker.location.secondaryAddress() : '',
     city: settings.generateAddress ? faker.location.city() : '',

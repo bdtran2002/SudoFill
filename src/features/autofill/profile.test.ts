@@ -4,7 +4,8 @@ import { DEFAULT_AUTOFILL_SETTINGS } from './constants';
 import { generateAutofillProfile } from './profile';
 
 function getAge(isoDate: string) {
-  const birthDate = new Date(isoDate);
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const birthDate = new Date(year, (month ?? 1) - 1, day ?? 1);
   const now = new Date();
   let age = now.getFullYear() - birthDate.getFullYear();
   const monthDelta = now.getMonth() - birthDate.getMonth();
@@ -42,5 +43,13 @@ describe('generateAutofillProfile', () => {
     expect(profile.addressLine2).toBe('');
     expect(profile.city).toBe('');
     expect(profile.postalCode).toBe('');
+  });
+
+  it('keeps ISO and split DOB fields on the same date basis', () => {
+    const profile = generateAutofillProfile(DEFAULT_AUTOFILL_SETTINGS);
+
+    expect(profile.birthDateIso).toBe(
+      `${profile.birthYear}-${profile.birthMonth}-${profile.birthDay}`,
+    );
   });
 });

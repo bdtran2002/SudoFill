@@ -4,6 +4,33 @@ import type {
   GeneratedProfile,
 } from '../src/features/autofill/types';
 
+function isGeneratedProfile(value: unknown): value is GeneratedProfile {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const profile = value as Record<string, unknown>;
+
+  return [
+    'firstName',
+    'lastName',
+    'fullName',
+    'email',
+    'phone',
+    'sex',
+    'birthDateIso',
+    'birthDay',
+    'birthMonth',
+    'birthYear',
+    'addressLine1',
+    'addressLine2',
+    'city',
+    'state',
+    'stateName',
+    'postalCode',
+  ].every((key) => typeof profile[key] === 'string');
+}
+
 function isFillableElement(
   element: Element,
 ): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
@@ -74,6 +101,10 @@ function assignValue(
 
   const prototype = Object.getPrototypeOf(element) as HTMLInputElement;
   const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+
+  if (!descriptor?.set) {
+    return false;
+  }
 
   descriptor?.set?.call(element, values[0] ?? '');
   element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -163,7 +194,26 @@ export default defineContentScript({
           return false;
         }
 
-        sendResponse(fillProfile(message.profile));
+        if (!isGeneratedProfile(message.profile)) {
+          sendResponse({
+            ok: false,
+            filledCount: 0,
+            fields: [],
+            error: 'Malformed autofill profile payload.',
+          });
+          return true;
+        }
+
+        try {
+          sendResponse(fillProfile(message.profile));
+        } catch (error) {
+          sendResponse({
+            ok: false,
+            filledCount: 0,
+            fields: [],
+            error: error instanceof Error ? error.message : 'Autofill failed on this page.',
+          });
+        }
         return true;
       },
     );

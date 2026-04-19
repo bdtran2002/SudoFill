@@ -9,7 +9,7 @@ export default defineConfig({
   manifest: {
     name: 'SudoFill',
     description: 'Temporary identity and email extension',
-    permissions: ['storage', 'alarms', 'tabs'],
+    permissions: ['storage', 'alarms'],
     host_permissions: ['https://api.mail.tm/*'],
   },
   vite: () => ({

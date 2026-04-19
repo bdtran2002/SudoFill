@@ -5,17 +5,58 @@ import {
 } from './constants';
 import type { AutofillSettings } from './types';
 
+const VALID_STATE_CODES = new Set<string>(US_STATE_OPTIONS.map((state) => state.code));
+const VALID_SEX_VALUES = new Set(['', 'female', 'male', 'nonbinary']);
+
+function normalizeBoolean(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeString(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function normalizeAgeValue(value: unknown) {
+  const normalized = normalizeString(value).trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    return '';
+  }
+
+  const numeric = Number(normalized);
+
+  if (!Number.isInteger(numeric) || numeric < 18 || numeric > 99) {
+    return '';
+  }
+
+  return String(numeric);
+}
+
 export function normalizeAutofillSettings(
   value: Partial<AutofillSettings> | null | undefined,
 ): AutofillSettings {
+  const state = normalizeString(value?.state);
+  const ageMin = normalizeAgeValue(value?.ageMin);
+  const ageMax = normalizeAgeValue(value?.ageMax);
+
   return {
-    ...DEFAULT_AUTOFILL_SETTINGS,
-    ...value,
-    generateAddress: value?.generateAddress ?? DEFAULT_AUTOFILL_SETTINGS.generateAddress,
-    state: value?.state ?? DEFAULT_AUTOFILL_SETTINGS.state,
-    sex: value?.sex ?? DEFAULT_AUTOFILL_SETTINGS.sex,
-    ageMin: value?.ageMin ?? DEFAULT_AUTOFILL_SETTINGS.ageMin,
-    ageMax: value?.ageMax ?? DEFAULT_AUTOFILL_SETTINGS.ageMax,
+    generateAddress: normalizeBoolean(
+      value?.generateAddress,
+      DEFAULT_AUTOFILL_SETTINGS.generateAddress,
+    ),
+    state: VALID_STATE_CODES.has(state) ? state : DEFAULT_AUTOFILL_SETTINGS.state,
+    sex: VALID_SEX_VALUES.has(value?.sex ?? '')
+      ? (value?.sex as AutofillSettings['sex'])
+      : DEFAULT_AUTOFILL_SETTINGS.sex,
+    ageMin,
+    ageMax:
+      ageMin && ageMax && Number(ageMin) > Number(ageMax)
+        ? DEFAULT_AUTOFILL_SETTINGS.ageMax
+        : ageMax,
   };
 }
 
@@ -50,7 +91,9 @@ export function getStoredAutofillSettings() {
 }
 
 export function setStoredAutofillSettings(settings: AutofillSettings) {
-  return chrome.storage.sync.set({ [AUTOFILL_SETTINGS_STORAGE_KEY]: settings });
+  return chrome.storage.sync.set({
+    [AUTOFILL_SETTINGS_STORAGE_KEY]: normalizeAutofillSettings(settings),
+  });
 }
 
 export function getStateName(stateCode: string) {

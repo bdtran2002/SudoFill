@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 
 import '../../src/styles.css';
-import { generateAutofillProfile } from '../../src/features/autofill/profile';
 import { getStoredAutofillSettings } from '../../src/features/autofill/settings';
 import type { AutofillContentResponse } from '../../src/features/autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from '../../src/features/email/state';
@@ -206,6 +205,7 @@ function PopupApp() {
       }
 
       const settings = await getStoredAutofillSettings();
+      const { generateAutofillProfile } = await import('../../src/features/autofill/profile');
       const profile = generateAutofillProfile(settings, { email: snapshot.address });
       const response = (await chrome.tabs.sendMessage(tab.id, {
         type: 'autofill:fill-profile',

@@ -90,6 +90,7 @@ export function generateAutofillProfile(
     firstName,
     lastName,
     fullName: `${firstName} ${lastName}`,
+    businessName: faker.company.name(),
     email: options.email?.trim() || faker.internet.email({ firstName, lastName }).toLowerCase(),
     phone: faker.phone.number({ style: 'national' }),
     sex,

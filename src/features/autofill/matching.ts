@@ -131,27 +131,11 @@ function isLikelyShortFirstNameField(key: string) {
 }
 
 function isGuardrailedFirstNameLabel(key: string) {
-  return hasAnyToken(key, [
-    'preferred',
-    'display',
-    'middle',
-    'company',
-    'card',
-    'account',
-    'screen',
-  ]);
+  return hasAnyToken(key, ['preferred', 'display', 'middle', 'card', 'account', 'screen']);
 }
 
 function isGuardrailedLastNameLabel(key: string) {
-  return hasAnyToken(key, [
-    'preferred',
-    'display',
-    'middle',
-    'company',
-    'card',
-    'account',
-    'screen',
-  ]);
+  return hasAnyToken(key, ['preferred', 'display', 'middle', 'card', 'account', 'screen']);
 }
 
 function isLikelyShortLastNameField(key: string) {
@@ -245,6 +229,18 @@ export function resolveAutofillMatch(
 
   if (hasAnyToken(normalizedKey, ['email', 'e mail']) || hasToken(normalizedKey, 'emailaddress'))
     return { field: 'email', values: [profile.email] };
+
+  if (
+    hasAnyToken(normalizedKey, [
+      'business name',
+      'legal business name',
+      'company name',
+      'organization name',
+      'organisation name',
+    ])
+  ) {
+    return { field: 'businessName', values: [profile.businessName] };
+  }
 
   if (
     hasAnyToken(normalizedKey, ['country', 'country name', 'country region']) ||
@@ -398,6 +394,11 @@ const FUZZY_ALIASES: FuzzyAlias[] = [
   { field: 'fullName', alias: 'full name' },
   { field: 'fullName', alias: 'your name' },
   { field: 'fullName', alias: 'complete name' },
+  { field: 'businessName', alias: 'business name' },
+  { field: 'businessName', alias: 'legal business name' },
+  { field: 'businessName', alias: 'company name' },
+  { field: 'businessName', alias: 'organization name' },
+  { field: 'businessName', alias: 'organisation name' },
   { field: 'birthDateIso', alias: 'date of birth' },
   { field: 'birthDateIso', alias: 'dob' },
   { field: 'birthDateIso', alias: 'birth date' },
@@ -433,10 +434,6 @@ function isGuardrailedLabel(key: string) {
   return hasAnyToken(key, [
     'username',
     'display name',
-    'company name',
-    'organization name',
-    'organisation name',
-    'business name',
     'brand name',
     'team name',
     'group name',

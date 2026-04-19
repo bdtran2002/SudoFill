@@ -12,6 +12,7 @@ export interface GeneratedProfile {
   firstName: string;
   lastName: string;
   fullName: string;
+  businessName: string;
   email: string;
   phone: string;
   sex: Exclude<AutofillSex, ''> | 'unspecified';

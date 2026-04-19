@@ -57,6 +57,7 @@ describe('generateAutofillProfile', () => {
     expect(profile.stateName).toBe('California');
     expect(profile.country).toBe('US');
     expect(profile.countryName).toBe('United States');
+    expect(profile.businessName).toBeTruthy();
   });
 
   it('uses the selected state when constraining postal codes', () => {

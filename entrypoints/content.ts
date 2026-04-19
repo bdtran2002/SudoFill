@@ -33,7 +33,7 @@ function isGeneratedProfile(value: unknown): value is GeneratedProfile {
 }
 
 export default defineContentScript({
-  matches: ['http://*/*', 'https://*/*'],
+  matches: ['https://*/*'],
   main() {
     chrome.runtime.onMessage.addListener(
       (

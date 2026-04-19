@@ -20,7 +20,23 @@ function formatTimestamp(value: string) {
 }
 
 async function sendMailboxCommand(command: MailboxCommand) {
-  return (await chrome.runtime.sendMessage(command)) as MailboxResponse;
+  return await new Promise<MailboxResponse>((resolve, reject) => {
+    chrome.runtime.sendMessage(command, (response?: MailboxResponse) => {
+      const lastError = chrome.runtime.lastError;
+
+      if (lastError) {
+        reject(new Error(lastError.message));
+        return;
+      }
+
+      if (!response) {
+        reject(new Error('Mailbox command returned no response'));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
 }
 
 function useCopiedFlash() {
@@ -106,14 +122,26 @@ function MessagePanel({
 function PopupApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [transportError, setTransportError] = useState<string | null>(null);
   const { copied, flash } = useCopiedFlash();
 
   useEffect(() => {
     let disposed = false;
 
     async function loadState() {
-      const response = await sendMailboxCommand({ type: 'mailbox:get-state' });
-      if (!disposed) setSnapshot(response.snapshot);
+      try {
+        const response = await sendMailboxCommand({ type: 'mailbox:get-state' });
+        if (!disposed) {
+          setSnapshot(response.snapshot);
+          setTransportError(null);
+        }
+      } catch (error) {
+        if (!disposed) {
+          setTransportError(
+            error instanceof Error ? error.message : 'Failed to load mailbox state',
+          );
+        }
+      }
     }
 
     void loadState();
@@ -126,9 +154,18 @@ function PopupApp() {
 
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
-    const response = await sendMailboxCommand(command);
-    setSnapshot(response.snapshot);
-    setIsBusy(false);
+
+    try {
+      const response = await sendMailboxCommand(command);
+      setSnapshot(response.snapshot);
+      setTransportError(null);
+    } catch (error) {
+      setTransportError(
+        error instanceof Error ? error.message : 'Mailbox command failed unexpectedly',
+      );
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function copyAddress() {
@@ -235,10 +272,10 @@ function PopupApp() {
         </div>
 
         {/* ── Error ──────────────────────────────────────────────── */}
-        {snapshot.error && (
+        {(transportError ?? snapshot.error) && (
           <div className='animate-fade-in px-5 pb-4'>
             <div className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
-              {snapshot.error}
+              {transportError ?? snapshot.error}
             </div>
           </div>
         )}

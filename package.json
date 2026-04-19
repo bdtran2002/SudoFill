@@ -9,6 +9,7 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "zip": "wxt zip",
+    "test": "vitest run",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
@@ -38,6 +39,7 @@
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.30.1",
+    "vitest": "^4.1.4",
     "wxt": "^0.20.24"
   }
 }

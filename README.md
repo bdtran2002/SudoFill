@@ -1,4 +1,6 @@
----
+<p align="center">
+  <img src="./assets/icon.png" alt="SudoFill icon" width="96" height="96" />
+</p>
 
 # ⚡ SudoFill
 
@@ -6,7 +8,7 @@ SudoFill helps you get through sign-up forms faster.
 
 It gives you a temporary email address, fills common fields for you, and lets you check verification emails without bouncing between tabs.
 
-SudoFill connects to Mail.tm over HTTPS to create disposable inboxes and read incoming verification emails. Chrome uses a side panel; Firefox uses a toolbar popup for the same flow.
+SudoFill connects to Mail.tm over HTTPS to create disposable inboxes and read incoming verification emails. Chrome uses a side panel; Firefox uses a toolbar popup for the same flow. Autofill runs on standard HTTPS pages, and page-fill data stays in the browser unless you choose to submit the form yourself.
 
 ## What it does
 
@@ -72,6 +74,7 @@ You can also adjust some autofill preferences in **Settings**.
 - **Phone numbers are not autofilled:** If a site needs SMS verification, you will still need to do that yourself.
 - **Some sites may need a quick manual fix:** Very unusual or complex forms may still need a few edits.
 - **Hidden and read-only fields are avoided:** SudoFill tries not to fill fields that should be left alone.
+- **Autofill targets normal HTTPS pages:** Browser internal pages and unsupported contexts are skipped.
 
 ## When to use it
 
@@ -157,6 +160,40 @@ Firefox release builds still need Mozilla signing, even when you host the add-on
 6. If you want self-hosted automatic updates, set `FIREFOX_UPDATE_URL` to an HTTPS update manifest before packaging.
 
 `SOURCE_CODE_REVIEW.md` includes the exact build and review notes for Firefox submission.
+
+### Fastest path to Firefox Add-ons / signing
+
+If you want this live as fast as possible, there are two paths:
+
+- **Unlisted** — fastest for signed self-distribution
+- **Listed** — public Firefox Add-ons page on AMO
+
+#### Fastest self-distribution path
+
+1. Create or sign into your AMO developer account at <https://addons.mozilla.org/developers/>.
+2. Set a real `FIREFOX_EXTENSION_ID` in `.env`.
+3. Bump the extension version before packaging.
+4. Run:
+
+   ```bash
+   bun run lint
+   bun run format:check
+   bun run typecheck
+   bun run test
+   bun run build:firefox
+   bun run zip:firefox
+   ```
+
+5. In AMO, submit the Firefox build as an **unlisted** add-on.
+6. Upload the generated Firefox package and source zip from `.output/`.
+7. Use `SOURCE_CODE_REVIEW.md` when AMO asks how to build and review the add-on.
+8. Make sure the submission description matches the real behavior: SudoFill creates a disposable mailbox through Mail.tm, reads incoming verification emails, and autofills fields locally on supported HTTPS pages.
+9. Wait for signing/review, then download the signed `.xpi`.
+10. Host that signed `.xpi` yourself. If you want self-hosted updates, also host an HTTPS update manifest and set `FIREFOX_UPDATE_URL` before the next release.
+
+#### If you want a public Firefox Add-ons page
+
+Follow the same build steps, but choose **Listed** instead of **Unlisted** during AMO submission and complete the listing details Mozilla asks for.
 
 </details>
 

@@ -52,9 +52,19 @@
   }
 }
 
+html,
+body,
+#root {
+  width: 100%;
+}
+
+body {
+  margin: 0;
+}
+
 /* popup sizing */
 html.popup {
-  width: 360px;
+  width: min(100vw, 400px);
   height: 100%;
   overflow: hidden;
 }
@@ -68,12 +78,12 @@ html.popup #root,
 html.sidepanel body,
 html.sidepanel #root {
   min-height: 100%;
+  width: 100%;
 }
 
 html.sidepanel body,
 html.sidepanel #root {
-  width: min(100%, 360px);
-  margin: 0 auto;
+  overflow-x: hidden;
 }
 
 html.popup body,

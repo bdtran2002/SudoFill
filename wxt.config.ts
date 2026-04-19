@@ -49,7 +49,11 @@ export default defineConfig({
                 id: getFirefoxExtensionId(),
                 strict_min_version: '140.0',
                 data_collection_permissions: {
-                  required: ['personallyIdentifyingInfo', 'personalCommunications'],
+                  required: [
+                    'personallyIdentifyingInfo',
+                    'personalCommunications',
+                    'authenticationInfo',
+                  ],
                 },
                 ...(firefoxUpdateUrl ? { update_url: firefoxUpdateUrl } : {}),
               },

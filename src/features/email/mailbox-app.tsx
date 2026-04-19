@@ -275,9 +275,9 @@ export function MailboxApp() {
   }
 
   return (
-    <main className='min-h-screen bg-void font-body text-ink antialiased'>
-      <div className='flex min-h-screen w-full flex-col'>
-        <header className='animate-fade-in px-5 pt-5 pb-4'>
+    <main className='flex h-screen w-full bg-void font-body text-ink antialiased'>
+      <div className='flex min-h-0 w-full flex-1 flex-col overflow-y-auto'>
+        <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>
             {snapshot.unreadCount > 0 && (
@@ -289,7 +289,7 @@ export function MailboxApp() {
           </div>
         </header>
 
-        <div className='animate-fade-in px-5 pb-4' style={{ animationDelay: '60ms' }}>
+        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '60ms' }}>
           <div className='overflow-hidden rounded-xl border border-border bg-surface'>
             {snapshot.address ? (
               <div className='p-4'>
@@ -368,7 +368,7 @@ export function MailboxApp() {
           </div>
         </div>
 
-        <div className='animate-fade-in px-5 pb-4' style={{ animationDelay: '90ms' }}>
+        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '90ms' }}>
           <div className='overflow-hidden rounded-xl border border-border bg-surface'>
             <div className='p-4'>
               <div className='flex items-start justify-between gap-3'>
@@ -422,7 +422,7 @@ export function MailboxApp() {
         </div>
 
         {snapshot.error && (
-          <div className='animate-fade-in px-5 pb-4'>
+          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
               <p>{snapshot.error}</p>
               {snapshot.diagnostics && (
@@ -437,7 +437,7 @@ export function MailboxApp() {
         )}
 
         {snapshot.address && (
-          <div className='animate-fade-in px-5 pb-5' style={{ animationDelay: '120ms' }}>
+          <div className='animate-fade-in px-4 pb-5 sm:px-5' style={{ animationDelay: '120ms' }}>
             <div className='w-full overflow-hidden rounded-xl border border-border bg-surface'>
               <div className='border-b border-border-dim px-4 py-3'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
@@ -511,7 +511,7 @@ export function MailboxApp() {
         )}
 
         {snapshot.address && !snapshot.selectedMessage && snapshot.messages.length > 0 && (
-          <div className='animate-fade-in px-5 pb-5' style={{ animationDelay: '180ms' }}>
+          <div className='animate-fade-in px-4 pb-5 sm:px-5' style={{ animationDelay: '180ms' }}>
             <div className='flex items-center justify-center rounded-xl border border-dashed border-border p-6 text-ink-muted'>
               <div className='flex flex-col items-center gap-2 text-center'>
                 <Mail className='h-5 w-5 opacity-30' />

@@ -47,6 +47,7 @@ const LOW_INTENT_CUES = [
 const FIELD_WEIGHTS: Partial<Record<keyof GeneratedProfile, number>> = {
   email: 8,
   fullName: 7,
+  businessName: 6,
   firstName: 5,
   lastName: 5,
   birthDateIso: 3,

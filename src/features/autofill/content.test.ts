@@ -8,6 +8,7 @@ const profile = {
   firstName: 'Ada',
   lastName: 'Lovelace',
   fullName: 'Ada Lovelace',
+  businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
   sex: 'female',
@@ -133,7 +134,7 @@ describe('content autofill targeting', () => {
     );
   });
 
-  it('does not fill a business name field', async () => {
+  it('fills a business name field', async () => {
     document.body.innerHTML = `
       <form id="signup" aria-label="Create account">
         <label for="business-name">Business name</label>
@@ -149,8 +150,44 @@ describe('content autofill targeting', () => {
     const result = await fillProfile(profile, document);
 
     expect(result.ok).toBe(true);
-    expect((document.querySelector('#business-name') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#business-name') as HTMLInputElement).value).toBe(
+      'Ada Labs LLC',
+    );
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('fills an eBay-like business signup form while keeping username blocked', async () => {
+    document.body.innerHTML = `
+      <form id="ebay-business" aria-label="Business account signup">
+        <input id="business-name" name="businessName" placeholder="Business name" />
+
+        <input id="business-email" name="businessEmail" placeholder="Business email" />
+
+        <input id="username" name="username" placeholder="Username" />
+
+        <input id="password" type="password" name="password" placeholder="Password" />
+
+        <label for="country">Country</label>
+        <select id="country" name="country">
+          <option value="">Select</option>
+          <option value="US">United States</option>
+        </select>
+
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#business-name') as HTMLInputElement).value).toBe(
+      'Ada Labs LLC',
+    );
+    expect((document.querySelector('#business-email') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+    expect((document.querySelector('#username') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#country') as HTMLSelectElement).value).toBe('US');
   });
 
   it('does not fill a username field', async () => {

@@ -6,6 +6,7 @@ const profile = {
   firstName: 'Ada',
   lastName: 'Lovelace',
   fullName: 'Ada Lovelace',
+  businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
   sex: 'female',
@@ -41,14 +42,17 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('date of birth year', profile)?.field).toBe('birthYear');
   });
 
-  it('avoids obvious false positives for full name fallback', () => {
+  it('keeps obvious false positives blocked while matching business names', () => {
     expect(resolveAutofillMatch('username', profile)).toBeNull();
-    expect(resolveAutofillMatch('company name', profile)).toBeNull();
+    expect(resolveAutofillMatch('company name', profile)?.field).toBe('businessName');
+    expect(resolveAutofillMatch('business name', profile)?.field).toBe('businessName');
+    expect(resolveAutofillMatch('legal business name', profile)?.field).toBe('businessName');
+    expect(resolveAutofillMatch('organization name', profile)?.field).toBe('businessName');
+    expect(resolveAutofillMatch('organisation name', profile)?.field).toBe('businessName');
     expect(resolveAutofillMatch('middle name', profile)).toBeNull();
     expect(resolveAutofillMatch('display name', profile)).toBeNull();
     expect(resolveAutofillMatch('maiden name', profile)).toBeNull();
     expect(resolveAutofillMatch('nickname', profile)).toBeNull();
-    expect(resolveAutofillMatch('organization name', profile)).toBeNull();
     expect(resolveAutofillMatch('project name', profile)).toBeNull();
     expect(resolveAutofillMatch('team name', profile)).toBeNull();
     expect(resolveAutofillMatch('domain name', profile)).toBeNull();

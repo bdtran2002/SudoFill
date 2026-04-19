@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Realistic Burner Email Generator</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow: auto; }
+    button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Burner Email Generator (Frontend Only)</h1>
+  <button onclick="generateEmails()">Generate 10 Realistic Emails</button>
+  <pre id="output"></pre>
+
+  <script>
+    let words = [];
+    let adjectives = [];
+
+    // Public raw URLs
+    const COMMON_WORDS_URL = "https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english.txt";
+    const ADJECTIVES_URL   = "https://gist.githubusercontent.com/hugsy/8910dc78d208e40de42deb29e62df913/raw/0f3e5c6e5f8e5b5f0d5e5f5e5f5e5f5e5f5e5f5e/english-adjectives.txt";
+
+    async function loadWordLists() {
+      try {
+        console.log("Loading expansive word lists from GitHub...");
+
+        const [wordsRes, adjRes] = await Promise.all([
+          fetch(COMMON_WORDS_URL),
+          fetch(ADJECTIVES_URL)
+        ]);
+
+        // Check response status before reading body
+        if (!wordsRes.ok) {
+          throw new Error(`Failed to fetch common words: ${wordsRes.status} ${wordsRes.statusText}`);
+        }
+        if (!adjRes.ok) {
+          throw new Error(`Failed to fetch adjectives: ${adjRes.status} ${adjRes.statusText}`);
+        }
+
+        const wordsText = await wordsRes.text();
+        const adjText   = await adjRes.text();
+
+        // Parse and clean
+        words = wordsText
+          .split('\n')
+          .map(w => w.trim().toLowerCase())
+          .filter(w => w.length >= 3 && /^[a-z]+$/.test(w));
+
+        adjectives = adjText
+          .split('\n')
+          .map(w => w.trim().toLowerCase())
+          .filter(w => w.length >= 3 && /^[a-z]+$/.test(w));
+
+        // Guard against empty lists
+        if (words.length === 0 || adjectives.length === 0) {
+          throw new Error(`Word lists loaded but empty or invalid. Words: ${words.length}, Adjectives: ${adjectives.length}`);
+        }
+
+        console.log(`✅ Successfully loaded ${words.length.toLocaleString()} common words and ${adjectives.length} adjectives`);
+
+      } catch (e) {
+        console.error("❌ Error loading word lists:", e);
+
+        // Safe built-in fallback
+        words = ["river","mountain","shadow","star","breeze","wolf","fox","hawk","night","sun","coffee","blue","happy","quick","silent","bright","cool","wild","free","dark","light"];
+        
+        adjectives = ["happy","quick","silent","bright","cool","wild","free","dark","light","deep","soft","strong","calm","bold"];
+
+        console.warn("⚠️ Using small built-in fallback word lists");
+      }
+    }
+
+    function generateRealisticLocal() {
+      if (words.length === 0) return "user" + Math.floor(Math.random() * 999);
+
+      const separators = [".", "_", "-", ""];
+      const patterns = [1, 2, 3, 4];
+      const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+
+      let base = "";
+
+      switch (pattern) {
+        case 1: // adjective + noun
+          base = adjectives[Math.floor(Math.random() * adjectives.length)] +
+                 separators[Math.floor(Math.random() * separators.length)] +
+                 words[Math.floor(Math.random() * words.length)];
+          break;
+
+        case 2: // word + word
+          base = words[Math.floor(Math.random() * words.length)] +
+                 separators[Math.floor(Math.random() * separators.length)] +
+                 words[Math.floor(Math.random() * words.length)];
+          break;
+
+        case 3: // adjective + noun + number
+          base = adjectives[Math.floor(Math.random() * adjectives.length)] +
+                 separators[Math.floor(Math.random() * separators.length)] +
+                 words[Math.floor(Math.random() * words.length)];
+          if (Math.random() > 0.5) {
+            const num = Math.random() > 0.6
+              ? String(Math.floor(Math.random() * 90) + 10)
+              : String(Math.floor(Math.random() * 8) + 2020);
+            base += num;
+          }
+          break;
+
+        default: // two words
+          base = words[Math.floor(Math.random() * words.length)] +
+                 separators[Math.floor(Math.random() * separators.length)] +
+                 words[Math.floor(Math.random() * words.length)];
+      }
+
+      // Occasional extra flair
+      if (Math.random() < 0.12) {
+        base += separators[Math.floor(Math.random() * separators.length)] +
+                words[Math.floor(Math.random() * words.length)];
+      }
+
+      return base;
+    }
+
+    async function generateEmails() {
+      const output = document.getElementById("output");
+      output.textContent = "Loading word lists...\n";
+
+      if (words.length === 0) {
+        await loadWordLists();
+      }
+
+      output.textContent = "Generating realistic burner emails...\n\n";
+
+      const domain = "tempdomain.com";   // ← Change this to your actual burner domain
+
+      for (let i = 0; i < 10; i++) {
+        const local = generateRealisticLocal();
+        const email = local + "@" + domain;
+        output.textContent += email + "\n";
+      }
+    }
+
+    // Auto-load lists when page opens
+    window.onload = loadWordLists;
+  </script>
+</body>
+</html>

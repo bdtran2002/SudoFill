@@ -166,13 +166,58 @@ function prioritizeValuesForElement(
   return prioritizeDobValues(values, getElementContext(element));
 }
 
+function getMatchingFieldCount(
+  elements: Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  profile: GeneratedProfile,
+) {
+  return elements.reduce((count, element) => {
+    if (element.disabled) return count;
+    if (
+      element instanceof HTMLInputElement &&
+      ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
+    ) {
+      return count;
+    }
+    if (hasExistingUserValue(element)) return count;
+
+    const match = resolveAutofillMatch(buildFieldKey(element), profile);
+    return match?.values.some(Boolean) ? count + 1 : count;
+  }, 0);
+}
+
 function fillProfile(profile: GeneratedProfile): AutofillContentResponse {
   const elements = [...document.querySelectorAll('input, select, textarea')].filter(
     isFillableElement,
   );
   const activeForm = getActiveForm();
-  const prioritizedElements = elements
-    .filter((element) => isVisibleFillableElement(element) && !isReadonlyElement(element))
+  const visibleElements = elements.filter(
+    (element) => isVisibleFillableElement(element) && !isReadonlyElement(element),
+  );
+  const formGroups = new Map<HTMLFormElement | null, typeof visibleElements>();
+
+  for (const element of visibleElements) {
+    const form = element.form ?? null;
+    const group = formGroups.get(form);
+    if (group) group.push(element);
+    else formGroups.set(form, [element]);
+  }
+
+  const targetForm =
+    activeForm ??
+    [...formGroups.entries()]
+      .filter(([form]) => form !== null)
+      .map(([form, groupedElements]) => ({
+        form,
+        score: getMatchingFieldCount(groupedElements, profile),
+      }))
+      .sort((left, right) => right.score - left.score)[0]?.form ??
+    null;
+
+  const prioritizedElements = visibleElements
+    .filter((element) => {
+      if (targetForm) return element.form === targetForm;
+      return element.form === null;
+    })
     .sort((left, right) => {
       const leftPriority = activeForm && left.form === activeForm ? 0 : 1;
       const rightPriority = activeForm && right.form === activeForm ? 0 : 1;

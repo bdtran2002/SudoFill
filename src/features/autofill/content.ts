@@ -92,6 +92,62 @@ function getFieldsetLegendText(element: Element) {
   return fieldset?.querySelector('legend')?.textContent?.trim() ?? '';
 }
 
+function normalizeLooseText(text: string | null | undefined) {
+  return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function isLikelyFieldLabelText(text: string) {
+  const normalized = normalizeLooseText(text).toLowerCase();
+
+  if (!normalized || normalized.length > 80) return false;
+
+  return /(first|last|full|given|family|sur|mail|email|phone|mobile|birth|dob|date|day|month|year|gender|sex|address|city|state|province|country|zip|postal|name)/.test(
+    normalized,
+  );
+}
+
+function getStandaloneText(node: Node | null | undefined) {
+  if (!node) return '';
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    return normalizeLooseText(node.textContent);
+  }
+
+  if (!(node instanceof Element)) return '';
+  if (node.matches('input, select, textarea, button')) return '';
+  if (node.querySelector('input, select, textarea, button')) return '';
+
+  return normalizeLooseText(node.textContent);
+}
+
+function collectNearbyLabelText(container: Element | null, blockedNode: Node | null) {
+  if (!container) return '';
+
+  if (container.querySelectorAll('input, select, textarea').length > 1) {
+    return '';
+  }
+
+  const parts = [...container.childNodes]
+    .filter((node) => node !== blockedNode)
+    .map((node) => getStandaloneText(node))
+    .filter((text) => isLikelyFieldLabelText(text));
+
+  return [...new Set(parts)].join(' ');
+}
+
+function getNearbyLabelText(element: FillableElement) {
+  const parent = element.parentElement;
+  const parts = [
+    getStandaloneText(element.previousSibling as Node | null),
+    getStandaloneText(element.previousElementSibling),
+    collectNearbyLabelText(parent, element),
+    collectNearbyLabelText(parent?.parentElement ?? null, parent),
+    getStandaloneText(parent?.previousElementSibling ?? null),
+  ].filter((text) => isLikelyFieldLabelText(text));
+
+  return [...new Set(parts)].join(' ');
+}
+
 function getNearbyDobGroupingText(element: FillableElement) {
   const nameLike = [
     element instanceof HTMLInputElement ? element.name : '',
@@ -133,6 +189,7 @@ export function buildFieldKey(element: FillableElement) {
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const describedByText = getReferencedText(element, 'aria-describedby');
   const legendText = getFieldsetLegendText(element);
+  const nearbyLabelText = getNearbyLabelText(element);
   const dobGroupingText = getNearbyDobGroupingText(element);
 
   return [
@@ -144,6 +201,7 @@ export function buildFieldKey(element: FillableElement) {
     describedByText,
     placeholder,
     getAssociatedLabelText(element),
+    nearbyLabelText,
     legendText,
     dobGroupingText,
   ]
@@ -181,12 +239,19 @@ function getElementContext(element: FillableElement) {
       : '';
   const labelledByText = getReferencedText(element, 'aria-labelledby');
   const legendText = getFieldsetLegendText(element);
+  const nearbyLabelText = getNearbyLabelText(element);
   const dobGroupingText = getNearbyDobGroupingText(element);
 
   return {
     inputType: element instanceof HTMLInputElement ? element.type : undefined,
     placeholder,
-    labelText: [getAssociatedLabelText(element), labelledByText, legendText, dobGroupingText]
+    labelText: [
+      getAssociatedLabelText(element),
+      nearbyLabelText,
+      labelledByText,
+      legendText,
+      dobGroupingText,
+    ]
       .join(' ')
       .trim(),
     keyText: buildFieldKey(element),

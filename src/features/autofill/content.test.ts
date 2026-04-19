@@ -349,6 +349,32 @@ describe('content autofill targeting', () => {
     );
   });
 
+  it('matches fields identified by nearby wrapper text even without label tags', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <div class="field-row">
+          <div>First name</div>
+          <div><input name="given" /></div>
+        </div>
+
+        <div class="field-row">
+          <div>Email address</div>
+          <div><input name="contact" /></div>
+        </div>
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('[name="given"]') as HTMLInputElement).value).toBe('Ada');
+    expect((document.querySelector('[name="contact"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+  });
+
   it('uses fieldset legend context for split dob fields', async () => {
     document.body.innerHTML = `
       <form id="signup" aria-label="Register">

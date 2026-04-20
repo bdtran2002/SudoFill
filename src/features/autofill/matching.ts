@@ -381,6 +381,8 @@ type FuzzyAlias = {
   alias: string;
 };
 
+const FUZZY_THRESHOLD = 0.24;
+
 const FUZZY_ALIASES: FuzzyAlias[] = [
   { field: 'firstName', alias: 'first name' },
   { field: 'firstName', alias: 'given name' },
@@ -443,7 +445,7 @@ const FUZZY_ALIASES: FuzzyAlias[] = [
 
 const FUZZY_MATCHER = new Fuse(FUZZY_ALIASES, {
   keys: ['alias'],
-  threshold: 0.24,
+  threshold: FUZZY_THRESHOLD,
   ignoreLocation: true,
   minMatchCharLength: 2,
 });
@@ -481,31 +483,11 @@ function isGuardrailedLabel(key: string) {
   ]);
 }
 
-function resolveFuzzyFallback(key: string, profile: GeneratedProfile): AutofillFieldMatch | null {
-  const normalizedKey = normalizeFieldKey(key);
-  if (isGuardrailedLabel(normalizedKey)) return null;
-  const directMatch = FUZZY_ALIASES.find(
-    (entry) => normalizeFieldKey(entry.alias) === normalizedKey,
-  );
-  if (directMatch) {
-    switch (directMatch.field) {
-      case 'firstName':
-        return { field: 'firstName', values: [profile.firstName] };
-      case 'lastName':
-        return { field: 'lastName', values: [profile.lastName] };
-      case 'fullName':
-        return { field: 'fullName', values: [profile.fullName] };
-      case 'birthDateIso':
-        return { field: 'birthDateIso', values: dobValues(profile) };
-      case 'email':
-        return { field: 'email', values: [profile.email] };
-    }
-  }
-
-  const result = FUZZY_MATCHER.search(normalizedKey)[0];
-  if (!result || result.score === undefined || result.score > 0.24) return null;
-
-  switch (result.item.field) {
+function buildFuzzyMatch(
+  field: FuzzyAlias['field'],
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  switch (field) {
     case 'firstName':
       return { field: 'firstName', values: [profile.firstName] };
     case 'lastName':
@@ -516,7 +498,24 @@ function resolveFuzzyFallback(key: string, profile: GeneratedProfile): AutofillF
       return { field: 'birthDateIso', values: dobValues(profile) };
     case 'email':
       return { field: 'email', values: [profile.email] };
+    default:
+      return null;
   }
+}
 
-  return null;
+function resolveFuzzyFallback(
+  normalizedKey: string,
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  if (isGuardrailedLabel(normalizedKey)) return null;
+
+  const directMatch = FUZZY_ALIASES.find(
+    (entry) => normalizeFieldKey(entry.alias) === normalizedKey,
+  );
+  if (directMatch) return buildFuzzyMatch(directMatch.field, profile);
+
+  const result = FUZZY_MATCHER.search(normalizedKey)[0];
+  if (!result || result.score === undefined || result.score > FUZZY_THRESHOLD) return null;
+
+  return buildFuzzyMatch(result.item.field, profile);
 }

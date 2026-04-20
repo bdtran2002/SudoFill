@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: bun ci
 
+      - name: Verify release version metadata
+        run: bun run release:check
+
       - name: Run lint
         run: bun run lint
 
@@ -53,6 +56,9 @@ jobs:
 
       - name: Package Chrome bundle
         run: bun run zip:chrome
+
+      - name: Verify generated manifest versions
+        run: bun run release:check:artifacts
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

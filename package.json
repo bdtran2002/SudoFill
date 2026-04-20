@@ -2,7 +2,7 @@
   "name": "sudofill",
   "description": "Temporary identity and email extension",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "wxt -b firefox",
@@ -20,6 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "release:check": "node scripts/verify-release-version.mjs",
+    "release:check:artifacts": "node scripts/verify-release-version.mjs --check-generated",
     "postinstall": "wxt prepare"
   },
   "dependencies": {

@@ -3,3 +3,4 @@
 dist/**
 node_modules/**
 firefox-addon/**
+CHANGELOG.md

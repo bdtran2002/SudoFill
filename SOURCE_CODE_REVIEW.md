@@ -7,7 +7,7 @@ bun install
 bun run lint
 bun run format:check
 bun run typecheck
-bun run build:firefox
+bun run firefox-addon:check
 bun run zip:firefox
 ```
 
@@ -16,6 +16,8 @@ Verified locally with Bun 1.3.11.
 ## Packaging notes
 
 - Firefox builds are generated with WXT.
+- The committed `firefox-addon/` directory mirrors a fresh Firefox build and can be regenerated with `bun run firefox-addon:sync`.
+- `bun run firefox-addon:check` rebuilds Firefox before validating the committed review bundle.
 - The Firefox toolbar action opens `popup.html`.
 - Firefox also exposes the same mailbox UI through `sidebar_action` because the shared sidepanel entrypoint is still bundled.
 - Chrome keeps the side-panel workflow.

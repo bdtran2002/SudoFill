@@ -45,8 +45,8 @@ jobs:
       - name: Run tests
         run: bun run test
 
-      - name: Build Firefox bundle
-        run: bun run build:firefox
+      - name: Check Firefox bundle freshness
+        run: bun run firefox-addon:check
 
       - name: Build Chrome bundle
         run: bun run build:chrome

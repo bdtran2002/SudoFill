@@ -154,6 +154,8 @@ bun run build:chrome
 - `bun run zip`
 - `bun run zip:firefox`
 - `bun run zip:chrome`
+- `bun run firefox-addon:check` (rebuilds Firefox first)
+- `bun run firefox-addon:sync` (rebuilds Firefox first)
 - `bun run lint`
 - `bun run format`
 - `bun run format:check`
@@ -162,10 +164,10 @@ bun run build:chrome
 
 ### Firefox self-distribution
 
-Firefox release builds still need Mozilla signing, even when you host the add-on yourself.
+Firefox release builds still need Mozilla signing, even when you host the add-on yourself. The committed `firefox-addon/` directory is a review/distribution snapshot; refresh it with `bun run firefox-addon:sync` after Firefox-affecting changes. That command rebuilds Firefox first.
 
 1. Set the stable Firefox add-on ID in `firefox.config.ts`.
-2. Run `bun run build:firefox`.
+2. Run `bun run firefox-addon:check`.
 3. Run `bun run zip:firefox` to create the Firefox package and source zip.
 4. Submit the Firefox package to AMO as an **unlisted** add-on for signing.
 5. Host the signed `.xpi` yourself after AMO returns it.
@@ -192,7 +194,7 @@ If you want this live as fast as possible, there are two paths:
    bun run format:check
    bun run typecheck
    bun run test
-   bun run build:firefox
+   bun run firefox-addon:check
    bun run zip:firefox
    ```
 

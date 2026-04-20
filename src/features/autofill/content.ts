@@ -314,6 +314,23 @@ function getScopeMatchSummary(elements: FillableElement[], profile: GeneratedPro
   return { matchedFields, matchingFieldCount };
 }
 
+type ScopeAnalysis = {
+  root: HTMLElement | null;
+  elements: FillableElement[];
+  text: string;
+  matchedFields: Map<keyof GeneratedProfile, number>;
+  matchingFieldCount: number;
+  hasPassword: boolean;
+  hasSubmit: boolean;
+  hasLowIntentCue: boolean;
+  hasExplicitSignupCue: boolean;
+  hasNonSignupAccountCue: boolean;
+  identityFieldCount: number;
+  emailFirstAuthFlow: boolean;
+  strongSignupIntent: boolean;
+  richIdentityScope: boolean;
+};
+
 function assignValue(element: FillableElement, values: string[]) {
   if (element instanceof HTMLSelectElement) {
     const matchingOption = values
@@ -466,59 +483,74 @@ function getActiveScopeRoot(doc: Document) {
   return getScopeRoot(activeElement);
 }
 
-function getMatchingFieldCount(elements: FillableElement[], profile: GeneratedProfile) {
-  return getScopeMatchSummary(elements, profile).matchingFieldCount;
-}
-
-function isEmailFirstAuthFlow(
+function analyzeScope(
   root: HTMLElement | null,
   elements: FillableElement[],
   profile: GeneratedProfile,
   doc: Document,
 ) {
-  if (!root) return false;
-
   const text = getScopeText(root);
+  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
+  const hasPassword = hasPasswordField(elements);
+  const hasSubmit = hasSubmitControl(root);
+  const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
+  const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
+  const hasNonSignupAccountCue = hasCue(text, NON_SIGNUP_ACCOUNT_CUES);
+  const identityFieldCount = ['email', 'firstName', 'lastName', 'fullName'].filter((field) =>
+    matchedFields.has(field as keyof GeneratedProfile),
+  ).length;
   const authContextText = [text, getDocumentIntentText(doc)].filter(Boolean).join(' ');
   const submitText = getSubmitControlText(root);
-  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
   const hasAuthStepCue =
     hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) || hasCue(text, EMAIL_FIRST_AUTH_CONTEXT_CUES);
-
-  return (
-    !hasPasswordField(elements) &&
-    hasSubmitControl(root) &&
+  const emailFirstAuthFlow =
+    Boolean(root) &&
+    !hasPassword &&
+    hasSubmit &&
     matchingFieldCount === 1 &&
     matchedFields.size === 1 &&
     matchedFields.has('email') &&
     hasCue(authContextText, LOGIN_CUES) &&
     hasAuthStepCue &&
-    !hasCue(text, NON_SIGNUP_ACCOUNT_CUES) &&
-    !hasCue(text, LOW_INTENT_CUES)
-  );
+    !hasNonSignupAccountCue &&
+    !hasLowIntentCue;
+  const strongSignupIntent =
+    (hasExplicitSignupCue && !hasLowIntentCue) || (hasPassword && identityFieldCount >= 2);
+  const richIdentityScope = identityFieldCount >= 3;
+
+  return {
+    root,
+    elements,
+    text,
+    matchedFields,
+    matchingFieldCount,
+    hasPassword,
+    hasSubmit,
+    hasLowIntentCue,
+    hasExplicitSignupCue,
+    hasNonSignupAccountCue,
+    identityFieldCount,
+    emailFirstAuthFlow,
+    strongSignupIntent,
+    richIdentityScope,
+  } satisfies ScopeAnalysis;
 }
 
-function scoreScope(
-  root: HTMLElement | null,
-  elements: FillableElement[],
-  profile: GeneratedProfile,
-  doc: Document,
-) {
-  const text = getScopeText(root);
-  const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
-  const emailFirstAuthFlow = isEmailFirstAuthFlow(root, elements, profile, doc);
-  const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
-  const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
-
+function scoreScope(analysis: ScopeAnalysis) {
+  const {
+    text,
+    matchedFields,
+    matchingFieldCount,
+    identityFieldCount,
+    emailFirstAuthFlow,
+    hasLowIntentCue,
+    hasExplicitSignupCue,
+    strongSignupIntent,
+    richIdentityScope,
+    hasPassword,
+  } = analysis;
   const uniqueFieldScore = [...matchedFields.values()].reduce((sum, value) => sum + value, 0);
   const totalMatchScore = matchingFieldCount * 2;
-  const identityFieldCount = ['email', 'firstName', 'lastName', 'fullName'].filter((field) =>
-    matchedFields.has(field as keyof GeneratedProfile),
-  ).length;
-  const strongSignupIntent =
-    (hasExplicitSignupCue && !hasLowIntentCue) ||
-    (hasPasswordField(elements) && identityFieldCount >= 2);
-  const richIdentityScope = identityFieldCount >= 3;
 
   let score = uniqueFieldScore + totalMatchScore;
 
@@ -527,34 +559,30 @@ function scoreScope(
   if (emailFirstAuthFlow) score += 4;
   if (hasExplicitSignupCue && !hasLowIntentCue) score += 8;
   if (hasCue(text, LOGIN_CUES) && !emailFirstAuthFlow) score -= 8;
-  if (hasCue(text, NON_SIGNUP_ACCOUNT_CUES)) score -= 10;
+  if (analysis.hasNonSignupAccountCue) score -= 10;
   if (matchedFields.size < 2 && !emailFirstAuthFlow) score -= 8;
   if (hasLowIntentCue && !strongSignupIntent) score -= 14;
-  if (hasPasswordField(elements) && identityFieldCount >= 2) score += 3;
+  if (hasPassword && identityFieldCount >= 2) score += 3;
   if (!strongSignupIntent && identityFieldCount < 3 && !emailFirstAuthFlow) score -= 4;
-  if (!strongSignupIntent && !hasSubmitControl(root) && !emailFirstAuthFlow) score -= 4;
+  if (!strongSignupIntent && !analysis.hasSubmit && !emailFirstAuthFlow) score -= 4;
 
   return score;
 }
 
-function isEligibleScope(
-  root: HTMLElement | null,
-  elements: FillableElement[],
-  profile: GeneratedProfile,
-  doc: Document,
-) {
-  const text = getScopeText(root);
-  const matchingFieldCount = getMatchingFieldCount(elements, profile);
-  const hasNonSignupAccountCue = hasCue(text, NON_SIGNUP_ACCOUNT_CUES);
-  const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
-  const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
+function isEligibleScope(analysis: ScopeAnalysis) {
+  // Password-bearing account flows need to stay eligible even when the page copy is sparse.
   const hasStrongSignupCue =
-    (hasExplicitSignupCue && !hasLowIntentCue) ||
-    hasPasswordField(elements) ||
-    (matchingFieldCount >= 3 && !hasNonSignupAccountCue && !hasLowIntentCue);
-  const emailFirstAuthFlow = isEmailFirstAuthFlow(root, elements, profile, doc);
+    analysis.strongSignupIntent ||
+    analysis.hasPassword ||
+    (analysis.matchingFieldCount >= 3 &&
+      !analysis.hasNonSignupAccountCue &&
+      !analysis.hasLowIntentCue);
 
-  return hasStrongSignupCue || emailFirstAuthFlow || (root === null && elements.length >= 3);
+  return (
+    hasStrongSignupCue ||
+    analysis.emailFirstAuthFlow ||
+    (analysis.root === null && analysis.elements.length >= 3)
+  );
 }
 
 function buildTargetScopes(visibleElements: FillableElement[]) {
@@ -587,17 +615,19 @@ function selectTargetScope(
   const activeScopeRoot = getActiveScopeRoot(doc);
 
   const scoredScopes = buildTargetScopes(visibleElements)
-    .map((scope) => ({
-      ...scope,
-      score:
-        scoreScope(scope.root, scope.elements, profile, doc) +
-        (activeForm && scope.root === activeForm ? 5 : 0) +
-        (activeScopeRoot && scope.root === activeScopeRoot ? 3 : 0),
-    }))
-    .filter(
-      (candidate) =>
-        candidate.score > 0 && isEligibleScope(candidate.root, candidate.elements, profile, doc),
-    )
+    .map((scope) => {
+      const analysis = analyzeScope(scope.root, scope.elements, profile, doc);
+
+      return {
+        ...scope,
+        analysis,
+        score:
+          scoreScope(analysis) +
+          (activeForm && scope.root === activeForm ? 5 : 0) +
+          (activeScopeRoot && scope.root === activeScopeRoot ? 3 : 0),
+      };
+    })
+    .filter((candidate) => candidate.score > 0 && isEligibleScope(candidate.analysis))
     .sort((left, right) => right.score - left.score);
 
   return scoredScopes[0]?.root ?? null;

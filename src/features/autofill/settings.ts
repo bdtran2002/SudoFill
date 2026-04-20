@@ -37,30 +37,45 @@ function normalizeAgeValue(value: unknown) {
   return String(numeric);
 }
 
+function normalizeStateValue(value: unknown) {
+  const candidate = normalizeString(value, DEFAULT_AUTOFILL_SETTINGS.state);
+  return VALID_STATE_CODES.has(candidate) ? candidate : DEFAULT_AUTOFILL_SETTINGS.state;
+}
+
+function normalizeSexValue(value: unknown): AutofillSettings['sex'] {
+  const candidate = normalizeString(value);
+  return VALID_SEX_VALUES.has(candidate)
+    ? (candidate as AutofillSettings['sex'])
+    : DEFAULT_AUTOFILL_SETTINGS.sex;
+}
+
+function normalizeAgeRange(ageMinValue: unknown, ageMaxValue: unknown) {
+  const ageMin = normalizeAgeValue(ageMinValue);
+  const ageMax = normalizeAgeValue(ageMaxValue);
+
+  return {
+    ageMin,
+    ageMax:
+      ageMin && ageMax && Number(ageMin) > Number(ageMax)
+        ? DEFAULT_AUTOFILL_SETTINGS.ageMax
+        : ageMax,
+  };
+}
+
 export function normalizeAutofillSettings(
   value: Partial<AutofillSettings> | null | undefined,
 ): AutofillSettings {
-  const stateCandidate = value?.state;
-  const state =
-    typeof stateCandidate === 'string' ? stateCandidate : DEFAULT_AUTOFILL_SETTINGS.state;
-  const ageMin = normalizeAgeValue(value?.ageMin);
-  const ageMax = normalizeAgeValue(value?.ageMax);
-  const sexCandidate = value?.sex ?? '';
+  const { ageMin, ageMax } = normalizeAgeRange(value?.ageMin, value?.ageMax);
 
   return {
     generateAddress: normalizeBoolean(
       value?.generateAddress,
       DEFAULT_AUTOFILL_SETTINGS.generateAddress,
     ),
-    state: VALID_STATE_CODES.has(state) ? state : DEFAULT_AUTOFILL_SETTINGS.state,
-    sex: VALID_SEX_VALUES.has(sexCandidate)
-      ? (sexCandidate as AutofillSettings['sex'])
-      : DEFAULT_AUTOFILL_SETTINGS.sex,
+    state: normalizeStateValue(value?.state),
+    sex: normalizeSexValue(value?.sex),
     ageMin,
-    ageMax:
-      ageMin && ageMax && Number(ageMin) > Number(ageMax)
-        ? DEFAULT_AUTOFILL_SETTINGS.ageMax
-        : ageMax,
+    ageMax,
   };
 }
 

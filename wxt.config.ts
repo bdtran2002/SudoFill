@@ -42,6 +42,10 @@ export default defineConfig({
             browser_action: {
               default_area: 'navbar',
             },
+            sidebar_action: {
+              default_panel: 'sidepanel.html',
+              default_title: 'SudoFill',
+            },
           }
         : {}),
       ...(isFirefox

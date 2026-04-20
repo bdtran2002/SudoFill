@@ -102,7 +102,7 @@ We are still improving support for more complicated websites and edge-case forms
 
 - **CI** runs on pushes and pull requests to `main`, checking lint, formatting, type safety, tests, and both browser builds.
 - **Release** runs on version tags and manual dispatches, repeats the checks, uploads workflow artifacts for both triggers, and publishes release assets for tagged versions.
-- Tagged releases must keep `package.json` and the Git tag aligned (for example `0.1.0` with `v0.1.0`).
+- Release tags must be cut from the current `main` HEAD after checks pass, and tagged releases must keep `package.json` and the Git tag aligned (for example `0.1.0` with `v0.1.0`).
 
 <details>
 <summary><strong>Developer setup</strong></summary>

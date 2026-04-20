@@ -46,8 +46,9 @@ Here's the process:
 2. Ensure you follows our linting/style guidelines
 3. If you've added code, include tests when possible and run the full test suite to ensure everything passes
 4. If your change affects Firefox distribution output, refresh the committed `firefox-addon/` snapshot with `bun run firefox-addon:sync` before opening the PR; it rebuilds Firefox automatically
-5. If you've changed APIs, update relevant documentation
-6. Open a pull request with a clear title and description
+5. If you're preparing a release tag, only cut it from `main` after the checks pass and make sure it matches the current `main` HEAD
+6. If you've changed APIs, update relevant documentation
+7. Open a pull request with a clear title and description
 
 By submitting a PR, you agree that your work will be licensed under this project's [License](../LICENSE).
 

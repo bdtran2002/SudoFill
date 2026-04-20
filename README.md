@@ -101,8 +101,9 @@ We are still improving support for more complicated websites and edge-case forms
 ## CI/CD
 
 - **CI** runs on pushes and pull requests to `main`, checking lint, formatting, type safety, tests, and both browser builds.
-- **Release** runs on version tags and manual dispatches, repeats the checks, uploads workflow artifacts for both triggers, and publishes release assets for tagged versions.
-- Release tags must be cut from the current `main` HEAD after checks pass, and tagged releases must keep `package.json` and the Git tag aligned (for example `0.1.0` with `v0.1.0`).
+- **Release-please** opens release PRs from `main`, bootstrapped from the existing `0.1.0` baseline, so its first release PR targets the next version after `0.1.0` before merging into the existing tagged release path.
+- **Release** still runs on version tags and manual dispatches, repeats the checks, uploads workflow artifacts for both triggers, and publishes release assets for tagged versions.
+- Release tags must stay aligned with `package.json` and the Git tag (for example `0.1.0` with `v0.1.0`). Manual dispatch remains a backstop if you need to rerun release packaging directly.
 
 <details>
 <summary><strong>Developer setup</strong></summary>

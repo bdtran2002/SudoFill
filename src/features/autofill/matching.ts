@@ -82,6 +82,15 @@ function dobValues(profile: GeneratedProfile) {
   ].filter((value): value is string => Boolean(value));
 }
 
+function birthMonthValues(profile: GeneratedProfile) {
+  return [
+    profile.birthMonth,
+    String(Number(profile.birthMonth)),
+    monthName(profile.birthMonth),
+    shortMonthName(profile.birthMonth),
+  ].filter((value): value is string => Boolean(value));
+}
+
 function countryValues(profile: GeneratedProfile) {
   if (!profile.country && !profile.countryName) {
     return [];
@@ -192,6 +201,37 @@ export function prioritizeDobValues(values: string[], context: DobFieldContext =
   return values;
 }
 
+function resolveDobMatch(
+  normalizedKey: string,
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  const isSplitDob = isSplitDobField(normalizedKey);
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'month')) {
+    return {
+      field: 'birthMonth',
+      values: birthMonthValues(profile),
+    };
+  }
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'day')) {
+    return { field: 'birthDay', values: [profile.birthDay] };
+  }
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'year')) {
+    return { field: 'birthYear', values: [profile.birthYear] };
+  }
+
+  if (
+    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
+    hasAnyToken(normalizedKey, ['birthdate', 'dateofbirth'])
+  ) {
+    return { field: 'birthDateIso', values: dobValues(profile) };
+  }
+
+  return null;
+}
+
 export function resolveAutofillMatch(
   key: string,
   profile: GeneratedProfile,
@@ -287,30 +327,8 @@ export function resolveAutofillMatch(
   if (hasAnyToken(normalizedKey, ['zip', 'postal']) || hasToken(normalizedKey, 'postalcode'))
     return { field: 'postalCode', values: [profile.postalCode] };
 
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'month')) {
-    return {
-      field: 'birthMonth',
-      values: [
-        profile.birthMonth,
-        String(Number(profile.birthMonth)),
-        monthName(profile.birthMonth),
-        shortMonthName(profile.birthMonth),
-      ].filter((value): value is string => Boolean(value)),
-    };
-  }
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'day')) {
-    return { field: 'birthDay', values: [profile.birthDay] };
-  }
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'year')) {
-    return { field: 'birthYear', values: [profile.birthYear] };
-  }
-
-  if (
-    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
-    hasAnyToken(normalizedKey, ['birthdate', 'dateofbirth'])
-  ) {
-    return { field: 'birthDateIso', values: dobValues(profile) };
-  }
+  const dobMatch = resolveDobMatch(normalizedKey, profile);
+  if (dobMatch) return dobMatch;
 
   if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };
 

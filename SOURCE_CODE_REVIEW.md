@@ -19,7 +19,7 @@ Verified locally with Bun 1.3.11.
 - The committed `firefox-addon/` directory mirrors a fresh Firefox build and can be regenerated with `bun run firefox-addon:sync`.
 - `bun run firefox-addon:check` rebuilds Firefox before validating the committed review bundle.
 - The Firefox toolbar action opens `popup.html`.
-- Firefox also exposes the same mailbox UI through `sidebar_action` because the shared sidepanel entrypoint is still bundled.
+- Firefox no longer bundles the shared sidepanel entrypoint; the sidebar UI remains Chrome-only.
 - Chrome keeps the side-panel workflow.
 - `firefox.config.ts` sets `browser_specific_settings.gecko.id`.
 - `firefox.config.ts` may optionally set `browser_specific_settings.gecko.update_url` for self-hosted Firefox updates.

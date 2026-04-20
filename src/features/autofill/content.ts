@@ -2,6 +2,7 @@ import { prioritizeDobValues, resolveAutofillMatch } from './matching';
 import type { AutofillContentResponse, GeneratedProfile } from './types';
 
 type FillableElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+const FILLABLE_SELECTOR = 'input, select, textarea';
 
 const SIGN_UP_CUES = ['sign up', 'signup', 'create account', 'register', 'join', 'get started'];
 const ACCOUNT_CUES = ['create profile', 'new customer', 'new account'];
@@ -246,6 +247,16 @@ export function isVisibleFillableElement(element: FillableElement, doc = documen
   if (style.display === 'none' || style.visibility === 'hidden') return false;
 
   return element.getClientRects().length > 0 || style.position === 'fixed';
+}
+
+function queryFillableElements(doc: Document) {
+  return [...doc.querySelectorAll(FILLABLE_SELECTOR)].filter(isFillableElement);
+}
+
+function getVisibleEditableFillableElements(doc: Document) {
+  return queryFillableElements(doc).filter(
+    (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
+  );
 }
 
 function getElementContext(element: FillableElement) {
@@ -559,6 +570,14 @@ function buildTargetScopes(visibleElements: FillableElement[]) {
   return [...scopes.entries()].map(([root, elements]) => ({ root, elements }));
 }
 
+function isElementInTargetScope(element: FillableElement, targetRoot: HTMLElement | null) {
+  if (targetRoot) {
+    return element.form === targetRoot || targetRoot.contains(element);
+  }
+
+  return element.form === null && getScopeRoot(element) === null;
+}
+
 function selectTargetScope(
   visibleElements: FillableElement[],
   profile: GeneratedProfile,
@@ -592,13 +611,7 @@ export async function fillProfile(
   profile: GeneratedProfile,
   doc: Document = document,
 ): Promise<AutofillContentResponse> {
-  const targetRoot = selectTargetScope(
-    [...doc.querySelectorAll('input, select, textarea')]
-      .filter(isFillableElement)
-      .filter((element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element)),
-    profile,
-    doc,
-  );
+  const targetRoot = selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
 
   const filledFields = new Set<string>();
   let filledCount = 0;
@@ -608,35 +621,16 @@ export async function fillProfile(
   let shouldKeepRescanning = false;
 
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
-    const visibleElements = elements.filter(
-      (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
+    const prioritizedElements = getVisibleEditableFillableElements(doc).filter((element) =>
+      isElementInTargetScope(element, targetRoot),
     );
-
-    const prioritizedElements = visibleElements.filter((element) => {
-      if (targetRoot) {
-        return element.form === targetRoot || targetRoot.contains(element);
-      }
-
-      return element.form === null && getScopeRoot(element) === null;
-    });
 
     let didFillAny = false;
     let didFillSelect = false;
 
     for (const element of prioritizedElements) {
-      if (element.disabled) continue;
-      if (
-        element instanceof HTMLInputElement &&
-        ['hidden', 'submit', 'button', 'checkbox', 'radio'].includes(element.type)
-      ) {
-        continue;
-      }
-      if (hasExistingUserValue(element)) continue;
-
-      const match = resolveAutofillMatch(buildFieldKey(element), profile);
+      const match = getFieldMatch(element, profile);
       if (!match) continue;
-      if (!match.values.some(Boolean)) continue;
 
       const didFill = assignValue(
         element,
@@ -676,12 +670,7 @@ export function getTargetRootForTesting(
   profile: GeneratedProfile,
   doc: Document = document,
 ): HTMLElement | null {
-  const elements = [...doc.querySelectorAll('input, select, textarea')].filter(isFillableElement);
-  const visibleElements = elements.filter(
-    (element) => isVisibleFillableElement(element, doc) && !isReadonlyElement(element),
-  );
-
-  return selectTargetScope(visibleElements, profile, doc);
+  return selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
 }
 
 export function getTargetFormForTesting(

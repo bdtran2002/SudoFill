@@ -494,6 +494,8 @@ function buildFuzzyMatch(
       return { field: 'lastName', values: [profile.lastName] };
     case 'fullName':
       return { field: 'fullName', values: [profile.fullName] };
+    case 'businessName':
+      return { field: 'businessName', values: [profile.businessName] };
     case 'birthDateIso':
       return { field: 'birthDateIso', values: dobValues(profile) };
     case 'email':

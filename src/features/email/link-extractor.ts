@@ -3,8 +3,25 @@ import type { MailboxLink } from './types';
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
 const MAX_MAILBOX_LINKS = 5;
 
+function countCharacter(value: string, character: string) {
+  return [...value].filter((candidate) => candidate === character).length;
+}
+
 function trimTrailingLinkPunctuation(url: string) {
-  return url.replace(/[),.]+$/, '');
+  let trimmed = url.replace(/[,.]+$/, '');
+
+  while (trimmed.endsWith(')')) {
+    const openingParentheses = countCharacter(trimmed, '(');
+    const closingParentheses = countCharacter(trimmed, ')');
+
+    if (closingParentheses <= openingParentheses) {
+      break;
+    }
+
+    trimmed = trimmed.slice(0, -1).replace(/[,.]+$/, '');
+  }
+
+  return trimmed;
 }
 
 /**

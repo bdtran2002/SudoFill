@@ -43,7 +43,8 @@ function normalizeStateValue(value: unknown) {
 }
 
 function normalizeSexValue(value: unknown): AutofillSettings['sex'] {
-  const candidate = normalizeString(value);
+  const candidate =
+    typeof value === 'string' ? normalizeString(value) : DEFAULT_AUTOFILL_SETTINGS.sex;
   return VALID_SEX_VALUES.has(candidate)
     ? (candidate as AutofillSettings['sex'])
     : DEFAULT_AUTOFILL_SETTINGS.sex;

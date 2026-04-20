@@ -19,23 +19,22 @@ export function toMailboxSnapshot(
   session: ActiveMailboxSession | null,
   overrides?: Partial<MailboxSnapshot>,
 ): MailboxSnapshot {
-  if (!session) {
-    return {
-      ...EMPTY_MAILBOX_SNAPSHOT,
-      ...overrides,
-    };
-  }
+  const snapshot: MailboxSnapshot = session
+    ? {
+        status: 'active',
+        address: session.address,
+        unreadCount: session.unreadMessageIds.length,
+        messages: session.messages,
+        selectedMessageId: session.selectedMessageId,
+        selectedMessage: session.selectedMessage,
+        lastCheckedAt: session.lastCheckedAt,
+        error: null,
+        diagnostics: null,
+      }
+    : EMPTY_MAILBOX_SNAPSHOT;
 
   return {
-    status: 'active',
-    address: session.address,
-    unreadCount: session.unreadMessageIds.length,
-    messages: session.messages,
-    selectedMessageId: session.selectedMessageId,
-    selectedMessage: session.selectedMessage,
-    lastCheckedAt: session.lastCheckedAt,
-    error: null,
-    diagnostics: null,
+    ...snapshot,
     ...overrides,
   };
 }

@@ -96,6 +96,42 @@ function createMailboxPassword() {
   return faker.string.alphanumeric({ length: 20 });
 }
 
+function createMailTmJsonRequest(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+function createMailTmAuthHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function createMailTmSessionSnapshot(
+  account: MailTmAccount,
+  password: string,
+  token: string,
+): ActiveMailboxSession {
+  return {
+    address: account.address,
+    password,
+    token,
+    accountId: account.id,
+    messages: [],
+    selectedMessageId: null,
+    selectedMessage: null,
+    unreadMessageIds: [],
+    knownMessageIds: [],
+    lastCheckedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 /**
  * Converts a Mail.tm message list item into the extension summary shape.
  */
@@ -132,39 +168,13 @@ export function createMailTmSession(): ResultAsync<ActiveMailboxSession, Mailbox
   return getAvailableDomain().andThen((domain) => {
     const address = createMailboxAddress(domain);
     const password = createMailboxPassword();
+    const credentials = { address, password };
 
-    return mailTmFetch<MailTmAccount>('/accounts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        address,
-        password,
-      }),
-    }).andThen((account) =>
-      mailTmFetch<MailTmToken>('/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address,
-          password,
-        }),
-      }).map((tokenResponse) => ({
-        address: account.address,
-        password,
-        token: tokenResponse.token,
-        accountId: account.id,
-        messages: [],
-        selectedMessageId: null,
-        selectedMessage: null,
-        unreadMessageIds: [],
-        knownMessageIds: [],
-        lastCheckedAt: null,
-        createdAt: new Date().toISOString(),
-      })),
+    return mailTmFetch<MailTmAccount>('/accounts', createMailTmJsonRequest(credentials)).andThen(
+      (account) =>
+        mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials)).map(
+          (tokenResponse) => createMailTmSessionSnapshot(account, password, tokenResponse.token),
+        ),
     );
   });
 }
@@ -176,9 +186,7 @@ export function listMailTmMessages(
   token: string,
 ): ResultAsync<MailboxMessageSummary[], MailboxError> {
   return mailTmFetch<MailTmCollection<MailTmMessageListItem>>('/messages', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: createMailTmAuthHeaders(token),
   }).map((response) => response['hydra:member'].map(normalizeMessageSummary));
 }
 
@@ -190,9 +198,7 @@ export function getMailTmMessage(
   messageId: string,
 ): ResultAsync<MailboxMessageDetail, MailboxError> {
   return mailTmFetch<MailTmMessageDetailResponse>(`/messages/${messageId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: createMailTmAuthHeaders(token),
   }).map((message) => {
     const summary = normalizeMessageSummary(message);
     const text = message.text?.trim() ?? '';
@@ -217,9 +223,7 @@ export function deleteMailTmAccount(
   return ResultAsync.fromPromise(
     fetch(`${MAIL_TM_API_BASE_URL}/accounts/${session.accountId}`, {
       method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-      },
+      headers: createMailTmAuthHeaders(session.token),
     }),
     (error) => toUnexpectedMailboxError(error, 'Failed to delete Mail.tm account'),
   )

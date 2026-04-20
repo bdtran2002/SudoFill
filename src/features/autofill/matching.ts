@@ -445,6 +445,7 @@ const FUZZY_ALIASES: FuzzyAlias[] = [
 
 const FUZZY_MATCHER = new Fuse(FUZZY_ALIASES, {
   keys: ['alias'],
+  includeScore: true,
   threshold: FUZZY_THRESHOLD,
   ignoreLocation: true,
   minMatchCharLength: 2,
@@ -483,6 +484,10 @@ function isGuardrailedLabel(key: string) {
   ]);
 }
 
+function isPhoneLikeNonEmailLabel(key: string) {
+  return hasAnyToken(key, ['phone', 'mobile', 'tel']) && !hasToken(key, 'email');
+}
+
 function buildFuzzyMatch(
   field: FuzzyAlias['field'],
   profile: GeneratedProfile,
@@ -515,6 +520,8 @@ function resolveFuzzyFallback(
     (entry) => normalizeFieldKey(entry.alias) === normalizedKey,
   );
   if (directMatch) return buildFuzzyMatch(directMatch.field, profile);
+
+  if (isPhoneLikeNonEmailLabel(normalizedKey)) return null;
 
   const result = FUZZY_MATCHER.search(normalizedKey)[0];
   if (!result || result.score === undefined || result.score > FUZZY_THRESHOLD) return null;

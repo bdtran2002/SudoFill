@@ -80,7 +80,7 @@ export function normalizeAutofillTabError(tab?: {
   url?: string;
   pendingUrl?: string;
 }) {
-  if (!tab?.id) {
+  if (tab?.id == null) {
     return OPEN_PAGE_FIRST_ERROR;
   }
 

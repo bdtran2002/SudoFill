@@ -14,6 +14,7 @@ describe('popup autofill error helpers', () => {
     expect(normalizeAutofillTabError(undefined)).toBe(
       'Open a page first, then try autofill again.',
     );
+    expect(normalizeAutofillTabError({ id: 0, url: 'https://example.com' })).toBeNull();
     expect(normalizeAutofillTabError({ id: 1, url: 'chrome://settings' })).toBe(
       getUnsupportedAutofillPageMessage(),
     );

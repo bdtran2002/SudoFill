@@ -5,7 +5,14 @@
     ".": {
       "package-name": "sudofill",
       "release-type": "node",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "firefox-addon/manifest.json",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }

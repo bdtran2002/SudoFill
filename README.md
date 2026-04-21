@@ -4,124 +4,104 @@
 
 <h1 align="center">⚡ SudoFill</h1>
 
-<p align="center">Browser extension for fast disposable sign-up flows.</p>
-
 <p align="center">
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" />
-  <img alt="HTML" src="https://img.shields.io/badge/HTML-E34F26?logo=html5&logoColor=white" />
-  <img alt="CSS" src="https://img.shields.io/badge/CSS-1572B6?logo=css3&logoColor=white" />
+  Create a temporary inbox, fill common sign-up forms, and handle verification emails without using your personal inbox.
 </p>
 
-<p align="center">
-  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml/badge.svg" /></a>
-  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml"><img alt="Actionlint" src="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml/badge.svg" /></a>
-  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml"><img alt="Release-please" src="https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml/badge.svg" /></a>
-  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml"><img alt="Release" src="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml/badge.svg" /></a>
-  <a href="https://github.com/bdtran2002/SudoFill/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bdtran2002/SudoFill" /></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue.svg" /></a>
-</p>
+SudoFill is a browser extension for temporary sign-ups. It gives you a disposable email address, helps fill common registration fields, and keeps verification emails in one place so you do not have to use your real inbox.
 
-It creates a temporary Mail.tm inbox, autofills common registration fields on supported HTTPS pages, keeps verification emails inside the extension UI, and lets you open detected verification links without bouncing between tabs.
+- **Firefox:** toolbar popup
+- **Chrome:** side panel
+- **Your autofill profile stays in the browser**
 
-- **Firefox** uses a toolbar popup.
-- **Chrome** uses a side panel.
-- **Autofill stays local in the browser**; the extension only talks to Mail.tm for mailbox creation and message retrieval.
+## What it does
 
-## Highlights
-
-- Create, refresh, and discard disposable inboxes
-- Copy the active mailbox address with one click
-- Read incoming verification emails in the extension UI
+- Create, refresh, and discard temporary inboxes
+- Copy the active email address with one click
+- Read incoming verification emails inside the extension
 - Open detected verification links in a new tab
-- Autofill common sign-up fields like name, email, date of birth, and address
-- Tune autofill defaults from the Options page
-- Build and package Firefox and Chrome artifacts from the same codebase
+- Autofill common sign-up fields like name, email, birth date, and address
+- Adjust autofill defaults from the Options page
 
-## How it works
+## How to use it
 
 1. Open SudoFill in your browser.
 2. Create a temporary mailbox.
 3. Open the sign-up page you want to fill.
-4. Trigger **Autofill** from the extension.
+4. Click **Autofill** in the extension.
 5. Wait for the verification email to arrive.
-6. Open the message and click a detected verification link.
+6. Open the message and follow the verification link.
 
-The extension polls for mailbox updates, restores mailbox state during a session, and keeps the sign-up flow centered in the extension instead of your real inbox.
+## What it can fill
 
-## Autofill behavior
+SudoFill works best on standard account-creation forms.
 
-SudoFill is aimed at typical sign-up and account-creation forms.
-
-It can fill fields such as:
+It can usually fill fields such as:
 
 - email
-- first name / last name / full name
+- first name, last name, or full name
 - date of birth
 - sex or gender when a form asks for it
-- business name in some form layouts
+- business name in some sign-up layouts
 - street, city, state, country, and postal code
 
-It uses form labels, placeholders, ARIA text, fieldset context, and nearby text to match fields. It also tries to avoid destructive fills by skipping:
+It also tries to avoid bad fills by skipping:
 
 - hidden fields
-- read-only inputs
-- fields that already contain user-entered values
-- unsupported or low-intent flows like non-sign-up pages
+- read-only fields
+- fields that already contain something you entered
+- pages that do not look like a normal sign-up flow
 
-## Autofill settings
+## Customize autofill
 
-The Options page lets you tune the generated profile used during autofill.
+The Options page lets you adjust the profile SudoFill uses during autofill.
 
-Current settings include:
+You can adjust:
 
-- generated address on/off
+- generated address on or off
 - preferred US state
 - age range
-- sex bias for generated profiles
+- whether generated profiles lean male or female when a form asks
 
-Settings are saved in browser storage so they persist across sessions.
+These settings are saved in browser storage.
 
-## Limits and caveats
+## Browser support
 
-- Temporary inboxes are best for short-lived sign-ups, not long-term accounts.
-- Phone/SMS verification is not handled.
-- Very custom or multi-step forms may still need manual cleanup.
+| Browser | Experience    | Notes                                       |
+| ------- | ------------- | ------------------------------------------- |
+| Firefox | Toolbar popup | Best for quick access from the browser bar. |
+| Chrome  | Side panel    | Same core flow in a wider side panel.       |
+
+## Privacy
+
+- SudoFill only talks to `https://api.mail.tm/*` to create temporary inboxes and fetch messages.
+- Temporary mailbox session state is kept in browser session storage.
+- Autofill preferences are kept in synced browser storage.
+- Autofill only runs when you trigger it from the extension UI.
+- The extension does not download and run remote code.
+- Verification links open in a new tab only when you choose them.
+
+## Limitations
+
+- SudoFill is best for short-lived sign-ups, not accounts you want to keep forever.
+- Sites that require phone or SMS verification are not supported.
+- Very custom or multi-step forms may still need manual fixes.
 - Autofill only targets normal `https://` pages.
-- HTML-only emails may not render fully in the UI, but detected verification links can still be opened directly.
+- HTML-heavy emails may not fully render in the UI, but detected verification links can still be opened directly.
 
-## Next up
+## For developers
 
-- Broaden autofill coverage for more custom and multi-step signup flows.
-- Improve rendering for HTML-heavy verification emails.
-- Explore support for flows that require phone or SMS verification.
-
-## Browser experience
-
-| Browser | Primary UI    | Notes                                                                                           |
-| ------- | ------------- | ----------------------------------------------------------------------------------------------- |
-| Firefox | Toolbar popup | Uses the Firefox mailbox flow and supports self-hosted update metadata via `firefox.config.ts`. |
-| Chrome  | Side panel    | Uses the same mailbox UI in a side-panel workflow.                                              |
-
-## Privacy and data handling
-
-- Mailbox creation and email retrieval go through `https://api.mail.tm/*`.
-- Temporary mailbox session state is stored in browser session storage.
-- Autofill preferences are stored in synced browser storage.
-- Page autofill is user-triggered from the extension UI.
-- The extension does not execute remote code.
-- Verification links found in emails open in a new browser tab.
-
-## Developer setup
+### Local setup
 
 SudoFill uses **Bun**, **WXT**, **React**, and **TypeScript**.
 
-### Install dependencies
+Install dependencies:
 
 ```bash
 bun install
 ```
 
-### Run in development
+Run in development:
 
 Firefox:
 
@@ -135,36 +115,29 @@ Chrome:
 bun run dev:chrome
 ```
 
-### Quick local dev test
+Quick local check:
 
 ```bash
 bun run dev:test
 ```
 
-Runs a fast local sanity check without Docker: typecheck, unit tests, and Firefox + Chrome production builds.
+This runs a fast sanity check without Docker: typecheck, unit tests, and Firefox + Chrome production builds.
 
-### Build production bundles
-
-Firefox:
+Build production bundles:
 
 ```bash
-bun run build
-```
-
-Chrome:
-
-```bash
+bun run build:firefox
 bun run build:chrome
 ```
 
-### Package browser bundles
+Package browser bundles:
 
 ```bash
 bun run zip:firefox
 bun run zip:chrome
 ```
 
-### Quality checks
+Quality checks:
 
 ```bash
 bun run lint
@@ -175,30 +148,7 @@ bun run release:check
 bun run firefox-addon:check
 ```
 
-### Useful scripts
-
-- `bun run dev`
-- `bun run dev:firefox`
-- `bun run dev:chrome`
-- `bun run dev:test`
-- `bun run build`
-- `bun run build:firefox`
-- `bun run build:chrome`
-- `bun run zip`
-- `bun run zip:firefox`
-- `bun run zip:chrome`
-- `bun run lint`
-- `bun run format`
-- `bun run format:check`
-- `bun run typecheck`
-- `bun run test`
-- `bun run test:watch`
-- `bun run release:check`
-- `bun run release:check:artifacts`
-- `bun run firefox-addon:check`
-- `bun run firefox-addon:sync`
-
-## Firefox review and self-distribution
+### Firefox packaging and review
 
 The committed `firefox-addon/` directory is a checked-in Firefox review snapshot. Refresh it with:
 
@@ -215,9 +165,9 @@ For self-distributed Firefox releases:
 5. Submit the Firefox package to AMO as an **unlisted** add-on for signing.
 6. Host the signed `.xpi` yourself after AMO returns it.
 
-Use `SOURCE_CODE_REVIEW.md` for reviewer-facing build notes and the exact Firefox review flow.
+Use `SOURCE_CODE_REVIEW.md` for reviewer-facing notes and the exact Firefox review flow.
 
-## Release workflow
+### Release workflow
 
 SudoFill ships with an automated release pipeline:
 
@@ -233,9 +183,7 @@ Release-please keeps these files in sync for versioned releases:
 - `.release-please-manifest.json`
 - `firefox-addon/manifest.json`
 
-## Repository map
-
-Developer view of the main runtime pieces:
+### Repository map
 
 ```mermaid
 flowchart TD
@@ -263,19 +211,15 @@ flowchart TD
   Email --> Mailtm
 ```
 
-- `entrypoints/background.ts` — mailbox lifecycle, polling, badge updates, message routing
+- `entrypoints/background.ts` — mailbox lifecycle, polling, badge updates, and message routing
 - `entrypoints/content.ts` — autofill entrypoint for supported pages
 - `entrypoints/options/main.tsx` — autofill settings UI
 - `entrypoints/popup/main.tsx` — Firefox popup UI
 - `entrypoints/sidepanel/main.tsx` — Chrome side-panel UI
-- `src/features/email/` — mailbox state, Mail.tm integration, email parsing, command routing
-- `src/features/autofill/` — profile generation, matching heuristics, settings, content-script fill logic
+- `src/features/email/` — mailbox state, Mail.tm integration, email parsing, and command routing
+- `src/features/autofill/` — profile generation, matching heuristics, settings, and content-script fill logic
 - `wxt.config.ts` — manifest generation and browser-specific config
 - `firefox.config.ts` — Firefox ID and optional update URL
-
-## Status
-
-The core temporary-email + autofill workflow is live and validated in CI. The main areas that still depend on site-specific behavior are complex registration forms and any flow that requires SMS or long-term mailbox access.
 
 ## License
 

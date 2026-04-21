@@ -94,24 +94,24 @@ function getFirefoxSidebarAction(): FirefoxSidebarActionApi | undefined {
   ).browser?.sidebarAction;
 }
 
-function openFirefoxSidebar() {
+async function openFirefoxSidebar(): Promise<void> {
   const sidebarAction = getFirefoxSidebarAction();
 
   if (!sidebarAction?.open) {
-    return Promise.reject(new Error('Firefox sidebar is unavailable'));
+    throw new Error('Firefox sidebar is unavailable');
   }
 
-  return Promise.resolve(sidebarAction.open());
+  await sidebarAction.open();
 }
 
-function closeFirefoxSidebar() {
+async function closeFirefoxSidebar(): Promise<void> {
   const sidebarAction = getFirefoxSidebarAction();
 
   if (!sidebarAction?.close) {
-    return Promise.reject(new Error('Firefox sidebar is unavailable'));
+    throw new Error('Firefox sidebar is unavailable');
   }
 
-  return Promise.resolve(sidebarAction.close());
+  await sidebarAction.close();
 }
 
 type AutofillStatus =
@@ -493,7 +493,12 @@ export function MailboxApp() {
 
         {sidebarActionStatus.tone === 'error' && (
           <div className='animate-fade-in px-4 pb-4 sm:px-5'>
-            <div className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
+            <div
+              aria-atomic='true'
+              aria-live='assertive'
+              className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'
+              role='alert'
+            >
               <p>{sidebarActionStatus.message}</p>
             </div>
           </div>

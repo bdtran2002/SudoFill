@@ -235,6 +235,34 @@ Release-please keeps these files in sync for versioned releases:
 
 ## Repository map
 
+Developer view of the main runtime pieces:
+
+```mermaid
+flowchart TD
+  WXT[WXT config/build]
+  BG[entrypoints/background.ts]
+  Content[entrypoints/content.ts]
+  Popup[entrypoints/popup/main.tsx]
+  Sidepanel[entrypoints/sidepanel/main.tsx]
+  Options[entrypoints/options/main.tsx]
+  Email[src/features/email]
+  Autofill[src/features/autofill]
+  Mailtm[Mail.tm API]
+
+  WXT --> BG
+  WXT --> Content
+  WXT --> Popup
+  WXT --> Sidepanel
+  WXT --> Options
+
+  BG --> Email
+  Popup --> Email
+  Sidepanel --> Email
+  Content --> Autofill
+  Options --> Autofill
+  Email --> Mailtm
+```
+
 - `entrypoints/background.ts` — mailbox lifecycle, polling, badge updates, message routing
 - `entrypoints/content.ts` — autofill entrypoint for supported pages
 - `entrypoints/options/main.tsx` — autofill settings UI

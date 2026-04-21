@@ -42,11 +42,13 @@ Verified locally with Bun 1.3.11.
 
 1. Load the Firefox build or signed XPI.
 2. Click the toolbar button to open the popup.
-3. Create a mailbox and verify the generated address appears.
-4. Open any HTTPS signup page and run autofill.
-5. Open the options page and save settings.
-6. Refresh or discard the mailbox.
-7. If a message arrives, open it and click a detected verification link.
+3. In `popup.html`, click `Open sidebar` and confirm the shared sidebar UI appears with the mailbox content.
+4. Use the sidebar close action to close it, then confirm the popup regains control.
+5. Create a mailbox and verify the generated address appears.
+6. Open any HTTPS signup page and run autofill.
+7. Open the options page and save settings.
+8. Refresh or discard the mailbox.
+9. If a message arrives, open it and click a detected verification link.
 
 ## Main review entrypoints
 

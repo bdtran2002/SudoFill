@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.2.0...sudofill-v0.3.0) (2026-04-21)
+
+
+### Features
+
+* let Firefox popup open the sidebar ([5348418](https://github.com/bdtran2002/SudoFill/commit/5348418f6de792f23dac16116282ef6e1fa99b04))
+* let Firefox popup open the sidebar ([c5159f5](https://github.com/bdtran2002/SudoFill/commit/c5159f5762abde8fd4887db5cf6dc1b313f92da9))
+
+
+### Bug Fixes
+
+* accept tab id zero in popup autofill ([6b9632e](https://github.com/bdtran2002/SudoFill/commit/6b9632ee9c940bb7b57b0adc12fa39406bee2aa9))
+* harden Firefox sidebar action errors ([0ca0995](https://github.com/bdtran2002/SudoFill/commit/0ca0995af996976838d2eb037598059b259c5519))
+* harden Firefox sidebar action errors ([20f3821](https://github.com/bdtran2002/SudoFill/commit/20f38211f74bab6b3c2202638340f35542feba02))
+* keep Firefox on the popup UI ([918163a](https://github.com/bdtran2002/SudoFill/commit/918163a6b865a65edea542f996b56e27a47b8a05))
+* preserve autofill helper edge cases ([be0df38](https://github.com/bdtran2002/SudoFill/commit/be0df38a85b9c5f2caca5b8b892c831ff4b043d4))
+* restore fuzzy autofill fallback matching ([113de85](https://github.com/bdtran2002/SudoFill/commit/113de85a7c53f26a419c71f4e1de650079d14009))
+* surface Firefox sidebar action failures ([108c091](https://github.com/bdtran2002/SudoFill/commit/108c091b44ddfca9f0b41bf89fba2c7e575db87a))
+
 ## [0.2.0](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.1.0...sudofill-v0.2.0) (2026-04-20)
 
 

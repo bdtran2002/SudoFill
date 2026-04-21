@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.3.0...sudofill-v0.3.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* restore Firefox toolbar popup sizing ([d0be9f6](https://github.com/bdtran2002/SudoFill/commit/d0be9f60900f912bd59246288dd285b230f97d5a))
+
 ## [0.3.0](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.2.0...sudofill-v0.3.0) (2026-04-21)
 
 

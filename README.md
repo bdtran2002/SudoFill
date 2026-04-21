@@ -1,17 +1,25 @@
 <p align="center">
-  <img src="./assets/icon.png" alt="SudoFill icon" width="96" height="96" />
+  <img src="./assets/icon.png" alt="SudoFill icon" width="160" height="160" />
 </p>
 
-[![CI](https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml)
-[![Actionlint](https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml)
-[![Release-please](https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml)
-[![Release](https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml/badge.svg)](https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml)
-[![Latest release](https://img.shields.io/github/v/release/bdtran2002/SudoFill)](https://github.com/bdtran2002/SudoFill/releases/latest)
-[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+<h1 align="center">⚡ SudoFill</h1>
 
-# ⚡ SudoFill
+<p align="center">Browser extension for fast disposable sign-up flows.</p>
 
-SudoFill is a browser extension for fast disposable sign-up flows.
+<p align="center">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" />
+  <img alt="HTML" src="https://img.shields.io/badge/HTML-E34F26?logo=html5&logoColor=white" />
+  <img alt="CSS" src="https://img.shields.io/badge/CSS-1572B6?logo=css3&logoColor=white" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml"><img alt="Actionlint" src="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml/badge.svg" /></a>
+  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml"><img alt="Release-please" src="https://github.com/bdtran2002/SudoFill/actions/workflows/release-please.yml/badge.svg" /></a>
+  <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml"><img alt="Release" src="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml/badge.svg" /></a>
+  <a href="https://github.com/bdtran2002/SudoFill/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/bdtran2002/SudoFill" /></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue.svg" /></a>
+</p>
 
 It creates a temporary Mail.tm inbox, autofills common registration fields on supported HTTPS pages, keeps verification emails inside the extension UI, and lets you open detected verification links without bouncing between tabs.
 
@@ -120,6 +128,14 @@ Chrome:
 ```bash
 bun run dev:chrome
 ```
+
+### Quick local dev test
+
+```bash
+bun run dev:test
+```
+
+Runs a fast local sanity check without Docker: typecheck, unit tests, and a Firefox build.
 
 ### Build production bundles
 

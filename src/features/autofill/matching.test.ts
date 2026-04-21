@@ -123,6 +123,12 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('your name', profile)?.field).toBe('fullName');
   });
 
+  it('fuzzily matches typo variants through the Fuse fallback', () => {
+    expect(resolveAutofillMatch('your nme', profile)?.field).toBe('fullName');
+    expect(resolveAutofillMatch('compny name', profile)?.field).toBe('businessName');
+    expect(resolveAutofillMatch('email adress', profile)?.field).toBe('email');
+  });
+
   it('maps hybrid contact fields to email', () => {
     expect(resolveAutofillMatch('phone number or email', profile)?.field).toBe('email');
     expect(resolveAutofillMatch('email or phone', profile)?.field).toBe('email');

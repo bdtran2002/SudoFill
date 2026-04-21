@@ -5,6 +5,8 @@ const UNSUPPORTED_PROTOCOLS = ['chrome:', 'chrome-extension:', 'edge:', 'about:'
 const UNSUPPORTED_PAGE_ERROR = 'Autofill is not available on this page yet.';
 const NO_FIELDS_ERROR = 'No supported fields found on this page.';
 const INVALID_RESPONSE_ERROR = 'Autofill could not confirm whether the page was filled.';
+const DEFAULT_AUTOFILL_ERROR = 'Autofill failed.';
+const OPEN_PAGE_FIRST_ERROR = 'Open a page first, then try autofill again.';
 const VALID_FAILURE_REASONS = new Set<AutofillFailureReason>(['no-fields', 'payload', 'runtime']);
 
 function hasUnsupportedProtocol(url?: string) {
@@ -40,6 +42,22 @@ function getTabUrl(tab?: { url?: string; pendingUrl?: string }) {
   return tab?.url ?? tab?.pendingUrl;
 }
 
+function getUnsupportedPageMessageForTab(tab?: { url?: string; pendingUrl?: string }) {
+  return hasUnsupportedProtocol(getTabUrl(tab)) ? UNSUPPORTED_PAGE_ERROR : null;
+}
+
+function getResponseFailureMessage(response: AutofillContentResponse) {
+  if (response.reason === 'runtime') {
+    return response.error ?? 'Autofill failed on this page.';
+  }
+
+  if (response.reason === 'payload') {
+    return response.error ?? 'Malformed autofill profile payload.';
+  }
+
+  return response.error;
+}
+
 export function isAutofillContentResponse(value: unknown): value is AutofillContentResponse {
   if (!value || typeof value !== 'object') return false;
 
@@ -63,22 +81,19 @@ export function normalizeAutofillTabError(tab?: {
   pendingUrl?: string;
 }) {
   if (!tab?.id) {
-    return 'Open a page first, then try autofill again.';
+    return OPEN_PAGE_FIRST_ERROR;
   }
 
-  if (hasUnsupportedProtocol(getTabUrl(tab))) {
-    return UNSUPPORTED_PAGE_ERROR;
-  }
-
-  return null;
+  return getUnsupportedPageMessageForTab(tab);
 }
 
 export function getAutofillErrorMessage(
   error: unknown,
   tab?: { url?: string; pendingUrl?: string },
 ) {
-  if (hasUnsupportedProtocol(getTabUrl(tab))) {
-    return UNSUPPORTED_PAGE_ERROR;
+  const unsupportedPageMessage = getUnsupportedPageMessageForTab(tab);
+  if (unsupportedPageMessage) {
+    return unsupportedPageMessage;
   }
 
   if (error instanceof Error) {
@@ -90,7 +105,7 @@ export function getAutofillErrorMessage(
     return error.message;
   }
 
-  return 'Autofill failed.';
+  return DEFAULT_AUTOFILL_ERROR;
 }
 
 export function getAutofillResponseMessage(response: AutofillContentResponse) {
@@ -102,22 +117,16 @@ export function getAutofillResponseMessage(response: AutofillContentResponse) {
     return NO_FIELDS_ERROR;
   }
 
-  if (response.reason === 'runtime') {
-    return response.error ?? 'Autofill failed on this page.';
-  }
+  const failureMessage = getResponseFailureMessage(response);
 
-  if (response.reason === 'payload') {
-    return response.error ?? 'Malformed autofill profile payload.';
-  }
-
-  if (!response.error) {
+  if (!failureMessage) {
     return NO_FIELDS_ERROR;
   }
 
-  const normalizedError = response.error.toLowerCase();
+  const normalizedError = failureMessage.toLowerCase();
   if (normalizedError.includes('no supported fields found')) {
     return NO_FIELDS_ERROR;
   }
 
-  return response.error;
+  return failureMessage;
 }

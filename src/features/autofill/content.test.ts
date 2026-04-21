@@ -253,6 +253,33 @@ describe('content autofill targeting', () => {
     );
   });
 
+  it('keeps a weakly labeled password form eligible without explicit signup copy', async () => {
+    document.body.innerHTML = `
+      <form id="account" aria-label="Account">
+        <label>First name <input name="firstName" /></label>
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <label>Confirm password <input type="password" name="confirmPassword" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    expect(getTargetFormForTesting(profile, document)?.id).toBe('account');
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#account [name="firstName"]') as HTMLInputElement).value).toBe(
+      'Ada',
+    );
+    expect((document.querySelector('#account [name="email"]') as HTMLInputElement).value).toBe(
+      'ada@example.com',
+    );
+    expect((document.querySelector('#account [name="password"]') as HTMLInputElement).value).toBe(
+      '',
+    );
+  });
+
   it('fills ungrouped fields when no form tags exist', async () => {
     document.body.innerHTML = `
       <div>

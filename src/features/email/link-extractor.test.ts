@@ -27,6 +27,17 @@ describe('extractMailboxLinks', () => {
     ]);
   });
 
+  it('keeps balanced closing parentheses that are part of the URL', () => {
+    expect(
+      extractMailboxLinks('Visit https://en.wikipedia.org/wiki/Function_(mathematics).'),
+    ).toEqual([
+      {
+        label: 'en.wikipedia.org',
+        url: 'https://en.wikipedia.org/wiki/Function_(mathematics)',
+      },
+    ]);
+  });
+
   it('truncates long hostnames in labels', () => {
     expect(
       extractMailboxLinks('Visit https://averyveryveryveryverylonghostname.example.com/path'),

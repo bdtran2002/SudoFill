@@ -1,6 +1,28 @@
 import type { MailboxLink } from './types';
 
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
+const MAX_MAILBOX_LINKS = 5;
+
+function countCharacter(value: string, character: string) {
+  return [...value].filter((candidate) => candidate === character).length;
+}
+
+function trimTrailingLinkPunctuation(url: string) {
+  let trimmed = url.replace(/[,.]+$/, '');
+
+  while (trimmed.endsWith(')')) {
+    const openingParentheses = countCharacter(trimmed, '(');
+    const closingParentheses = countCharacter(trimmed, ')');
+
+    if (closingParentheses <= openingParentheses) {
+      break;
+    }
+
+    trimmed = trimmed.slice(0, -1).replace(/[,.]+$/, '');
+  }
+
+  return trimmed;
+}
 
 /**
  * Converts a URL into a compact label suitable for the mailbox UI.
@@ -12,6 +34,13 @@ function normalizeLabel(url: string) {
   } catch {
     return 'Open link';
   }
+}
+
+function createMailboxLink(url: string): MailboxLink {
+  return {
+    label: normalizeLabel(url),
+    url,
+  };
 }
 
 /**
@@ -28,16 +57,13 @@ export function extractMailboxLinks(...sources: Array<string | null | undefined>
     const matches = source.match(URL_PATTERN) ?? [];
 
     for (const match of matches) {
-      const trimmed = match.replace(/[),.]+$/, '');
+      const trimmed = trimTrailingLinkPunctuation(match);
 
       if (!uniqueLinks.has(trimmed)) {
-        uniqueLinks.set(trimmed, {
-          label: normalizeLabel(trimmed),
-          url: trimmed,
-        });
+        uniqueLinks.set(trimmed, createMailboxLink(trimmed));
       }
     }
   }
 
-  return [...uniqueLinks.values()].slice(0, 5);
+  return [...uniqueLinks.values()].slice(0, MAX_MAILBOX_LINKS);
 }

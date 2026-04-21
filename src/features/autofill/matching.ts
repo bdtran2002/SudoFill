@@ -82,6 +82,15 @@ function dobValues(profile: GeneratedProfile) {
   ].filter((value): value is string => Boolean(value));
 }
 
+function birthMonthValues(profile: GeneratedProfile) {
+  return [
+    profile.birthMonth,
+    String(Number(profile.birthMonth)),
+    monthName(profile.birthMonth),
+    shortMonthName(profile.birthMonth),
+  ].filter((value): value is string => Boolean(value));
+}
+
 function countryValues(profile: GeneratedProfile) {
   if (!profile.country && !profile.countryName) {
     return [];
@@ -192,6 +201,37 @@ export function prioritizeDobValues(values: string[], context: DobFieldContext =
   return values;
 }
 
+function resolveDobMatch(
+  normalizedKey: string,
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  const isSplitDob = isSplitDobField(normalizedKey);
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'month')) {
+    return {
+      field: 'birthMonth',
+      values: birthMonthValues(profile),
+    };
+  }
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'day')) {
+    return { field: 'birthDay', values: [profile.birthDay] };
+  }
+
+  if (isSplitDob && hasDobPartToken(normalizedKey, 'year')) {
+    return { field: 'birthYear', values: [profile.birthYear] };
+  }
+
+  if (
+    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
+    hasAnyToken(normalizedKey, ['birthdate', 'dateofbirth'])
+  ) {
+    return { field: 'birthDateIso', values: dobValues(profile) };
+  }
+
+  return null;
+}
+
 export function resolveAutofillMatch(
   key: string,
   profile: GeneratedProfile,
@@ -287,30 +327,8 @@ export function resolveAutofillMatch(
   if (hasAnyToken(normalizedKey, ['zip', 'postal']) || hasToken(normalizedKey, 'postalcode'))
     return { field: 'postalCode', values: [profile.postalCode] };
 
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'month')) {
-    return {
-      field: 'birthMonth',
-      values: [
-        profile.birthMonth,
-        String(Number(profile.birthMonth)),
-        monthName(profile.birthMonth),
-        shortMonthName(profile.birthMonth),
-      ].filter((value): value is string => Boolean(value)),
-    };
-  }
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'day')) {
-    return { field: 'birthDay', values: [profile.birthDay] };
-  }
-  if (isSplitDobField(normalizedKey) && hasDobPartToken(normalizedKey, 'year')) {
-    return { field: 'birthYear', values: [profile.birthYear] };
-  }
-
-  if (
-    hasAnyToken(normalizedKey, ['birthday', 'dob', 'birth date', 'date of birth']) ||
-    hasAnyToken(normalizedKey, ['birthdate', 'dateofbirth'])
-  ) {
-    return { field: 'birthDateIso', values: dobValues(profile) };
-  }
+  const dobMatch = resolveDobMatch(normalizedKey, profile);
+  if (dobMatch) return dobMatch;
 
   if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };
 
@@ -362,6 +380,8 @@ type FuzzyAlias = {
   field: keyof GeneratedProfile;
   alias: string;
 };
+
+const FUZZY_THRESHOLD = 0.24;
 
 const FUZZY_ALIASES: FuzzyAlias[] = [
   { field: 'firstName', alias: 'first name' },
@@ -425,7 +445,8 @@ const FUZZY_ALIASES: FuzzyAlias[] = [
 
 const FUZZY_MATCHER = new Fuse(FUZZY_ALIASES, {
   keys: ['alias'],
-  threshold: 0.24,
+  includeScore: true,
+  threshold: FUZZY_THRESHOLD,
   ignoreLocation: true,
   minMatchCharLength: 2,
 });
@@ -463,42 +484,47 @@ function isGuardrailedLabel(key: string) {
   ]);
 }
 
-function resolveFuzzyFallback(key: string, profile: GeneratedProfile): AutofillFieldMatch | null {
-  const normalizedKey = normalizeFieldKey(key);
-  if (isGuardrailedLabel(normalizedKey)) return null;
-  const directMatch = FUZZY_ALIASES.find(
-    (entry) => normalizeFieldKey(entry.alias) === normalizedKey,
-  );
-  if (directMatch) {
-    switch (directMatch.field) {
-      case 'firstName':
-        return { field: 'firstName', values: [profile.firstName] };
-      case 'lastName':
-        return { field: 'lastName', values: [profile.lastName] };
-      case 'fullName':
-        return { field: 'fullName', values: [profile.fullName] };
-      case 'birthDateIso':
-        return { field: 'birthDateIso', values: dobValues(profile) };
-      case 'email':
-        return { field: 'email', values: [profile.email] };
-    }
-  }
+function isPhoneLikeNonEmailLabel(key: string) {
+  return hasAnyToken(key, ['phone', 'mobile', 'tel']) && !hasToken(key, 'email');
+}
 
-  const result = FUZZY_MATCHER.search(normalizedKey)[0];
-  if (!result || result.score === undefined || result.score > 0.24) return null;
-
-  switch (result.item.field) {
+function buildFuzzyMatch(
+  field: FuzzyAlias['field'],
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  switch (field) {
     case 'firstName':
       return { field: 'firstName', values: [profile.firstName] };
     case 'lastName':
       return { field: 'lastName', values: [profile.lastName] };
     case 'fullName':
       return { field: 'fullName', values: [profile.fullName] };
+    case 'businessName':
+      return { field: 'businessName', values: [profile.businessName] };
     case 'birthDateIso':
       return { field: 'birthDateIso', values: dobValues(profile) };
     case 'email':
       return { field: 'email', values: [profile.email] };
+    default:
+      return null;
   }
+}
 
-  return null;
+function resolveFuzzyFallback(
+  normalizedKey: string,
+  profile: GeneratedProfile,
+): AutofillFieldMatch | null {
+  if (isGuardrailedLabel(normalizedKey)) return null;
+
+  const directMatch = FUZZY_ALIASES.find(
+    (entry) => normalizeFieldKey(entry.alias) === normalizedKey,
+  );
+  if (directMatch) return buildFuzzyMatch(directMatch.field, profile);
+
+  if (isPhoneLikeNonEmailLabel(normalizedKey)) return null;
+
+  const result = FUZZY_MATCHER.search(normalizedKey)[0];
+  if (!result || result.score === undefined || result.score > FUZZY_THRESHOLD) return null;
+
+  return buildFuzzyMatch(result.item.field, profile);
 }

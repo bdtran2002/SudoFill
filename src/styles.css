@@ -65,11 +65,8 @@ body {
 
 /* popup sizing */
 html.popup {
-  width: 100%;
-  max-width: 400px;
-  height: 100dvh;
-  min-height: 100dvh;
   overflow: hidden;
+  background: #111010;
 }
 
 html.sidepanel {
@@ -81,11 +78,19 @@ html.sidepanel {
     radial-gradient(circle at top right, rgba(110, 168, 254, 0.06), transparent 30%), #111010;
 }
 
-html.popup body,
-html.popup #root,
 html.sidepanel body,
 html.sidepanel #root {
   min-height: 100%;
+}
+
+/* Firefox sizes toolbar popups from <body>, not :root. */
+html.popup body {
+  width: 400px;
+}
+
+html.popup #root,
+html.sidepanel body,
+html.sidepanel #root {
   width: 100%;
 }
 
@@ -117,7 +122,8 @@ html.sidepanel .sidepanel-scroll-region::-webkit-scrollbar {
 
 html.popup body,
 html.popup #root {
-  height: 100dvh;
+  height: 100%;
+  min-height: 100%;
   overflow: hidden;
 }
 

@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   Trash2,
   WandSparkles,
+  X,
 } from 'lucide-react';
 
 import {
@@ -78,10 +79,47 @@ function useCopiedFlash() {
   return { copied, flash } as const;
 }
 
+type FirefoxSidebarActionApi = {
+  open?: () => Promise<void> | void;
+  close?: () => Promise<void> | void;
+};
+
+function getFirefoxSidebarAction(): FirefoxSidebarActionApi | undefined {
+  return (
+    globalThis as typeof globalThis & {
+      browser?: {
+        sidebarAction?: FirefoxSidebarActionApi;
+      };
+    }
+  ).browser?.sidebarAction;
+}
+
+function openFirefoxSidebar() {
+  const sidebarAction = getFirefoxSidebarAction();
+
+  if (!sidebarAction?.open) {
+    return Promise.reject(new Error('Firefox sidebar is unavailable'));
+  }
+
+  return Promise.resolve(sidebarAction.open());
+}
+
+function closeFirefoxSidebar() {
+  const sidebarAction = getFirefoxSidebarAction();
+
+  if (!sidebarAction?.close) {
+    return Promise.reject(new Error('Firefox sidebar is unavailable'));
+  }
+
+  return Promise.resolve(sidebarAction.close());
+}
+
 type AutofillStatus =
   | { tone: 'idle'; message: string }
   | { tone: 'success'; message: string }
   | { tone: 'error'; message: string };
+
+type SidebarActionStatus = { tone: 'idle'; message: '' } | { tone: 'error'; message: string };
 
 function MessagePanel({
   snapshot,
@@ -165,8 +203,34 @@ export function MailboxApp() {
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
   });
+  const [sidebarActionStatus, setSidebarActionStatus] = useState<SidebarActionStatus>({
+    tone: 'idle',
+    message: '',
+  });
   const { copied, flash } = useCopiedFlash();
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
+  const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
+  const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
+
+  useEffect(() => {
+    if (sidebarActionStatus.tone !== 'error') {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setSidebarActionStatus({ tone: 'idle', message: '' });
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [sidebarActionStatus]);
+
+  function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
+    const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
+    console.error(message, error);
+    setSidebarActionStatus({ tone: 'error', message });
+  }
 
   useEffect(() => {
     let disposed = false;
@@ -301,12 +365,44 @@ export function MailboxApp() {
         <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>
-            {snapshot.unreadCount > 0 && (
-              <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
-                <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
-                {snapshot.unreadCount} new
-              </span>
-            )}
+            <div className='flex items-center gap-2'>
+              {canOpenFirefoxSidebar && (
+                <button
+                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={isBusy}
+                  onClick={() => {
+                    void openFirefoxSidebar().catch((error) =>
+                      reportSidebarActionFailure('open', error),
+                    );
+                  }}
+                  type='button'
+                >
+                  <ArrowRight className='h-3 w-3' />
+                  Open sidebar
+                </button>
+              )}
+              {snapshot.unreadCount > 0 && (
+                <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
+                  <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
+                  {snapshot.unreadCount} new
+                </span>
+              )}
+              {canCloseFirefoxSidebar && (
+                <button
+                  aria-label='Close sidebar'
+                  className='flex cursor-pointer items-center justify-center rounded-md border border-border p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={isBusy}
+                  onClick={() => {
+                    void closeFirefoxSidebar().catch((error) =>
+                      reportSidebarActionFailure('close', error),
+                    );
+                  }}
+                  type='button'
+                >
+                  <X className='h-3.5 w-3.5' />
+                </button>
+              )}
+            </div>
           </div>
           {isSidepanel && (
             <p className='mt-2 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
@@ -394,6 +490,14 @@ export function MailboxApp() {
             </div>
           </div>
         </div>
+
+        {sidebarActionStatus.tone === 'error' && (
+          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
+            <div className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
+              <p>{sidebarActionStatus.message}</p>
+            </div>
+          </div>
+        )}
 
         <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '90ms' }}>
           <div className='overflow-hidden rounded-xl border border-border bg-surface'>

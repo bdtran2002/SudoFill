@@ -12,7 +12,6 @@
 ### Bug Fixes
 
 * accept tab id zero in popup autofill ([6b9632e](https://github.com/bdtran2002/SudoFill/commit/6b9632ee9c940bb7b57b0adc12fa39406bee2aa9))
-* harden Firefox sidebar action errors ([0ca0995](https://github.com/bdtran2002/SudoFill/commit/0ca0995af996976838d2eb037598059b259c5519))
 * harden Firefox sidebar action errors ([20f3821](https://github.com/bdtran2002/SudoFill/commit/20f38211f74bab6b3c2202638340f35542feba02))
 * keep Firefox on the popup UI ([918163a](https://github.com/bdtran2002/SudoFill/commit/918163a6b865a65edea542f996b56e27a47b8a05))
 * preserve autofill helper edge cases ([be0df38](https://github.com/bdtran2002/SudoFill/commit/be0df38a85b9c5f2caca5b8b892c831ff4b043d4))

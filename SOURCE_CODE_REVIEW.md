@@ -11,7 +11,12 @@ bun run firefox-addon:check
 bun run zip:firefox
 ```
 
-Verified locally with Bun 1.3.11.
+Verified locally with Bun 1.3.11 using the commands above. Local verification covered the Firefox review bundle refresh/check flow and a fresh `zip:firefox` package.
+
+## Not exercised locally
+
+- AMO upload/signing for the unlisted Firefox package.
+- A self-hosted `browser_specific_settings.gecko.update_url` distribution flow.
 
 ## Packaging notes
 
@@ -22,7 +27,7 @@ Verified locally with Bun 1.3.11.
 - Firefox can optionally switch into the shared sidebar UI from the popup.
 - Chrome keeps the side-panel workflow.
 - `firefox.config.ts` sets `browser_specific_settings.gecko.id`.
-- `firefox.config.ts` may optionally set `browser_specific_settings.gecko.update_url` for self-hosted Firefox updates.
+- `firefox.config.ts` may optionally set `browser_specific_settings.gecko.update_url` for self-hosted Firefox updates; it is not required for local verification or AMO review builds.
 
 ## External services
 

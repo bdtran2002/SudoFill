@@ -89,6 +89,12 @@ Settings are saved in browser storage so they persist across sessions.
 - Autofill only targets normal `https://` pages.
 - HTML-only emails may not render fully in the UI, but detected verification links can still be opened directly.
 
+## Next up
+
+- Broaden autofill coverage for more custom and multi-step signup flows.
+- Improve rendering for HTML-heavy verification emails.
+- Explore support for flows that require phone or SMS verification.
+
 ## Browser experience
 
 | Browser | Primary UI    | Notes                                                                                           |
@@ -135,7 +141,7 @@ bun run dev:chrome
 bun run dev:test
 ```
 
-Runs a fast local sanity check without Docker: typecheck, unit tests, and a Firefox build.
+Runs a fast local sanity check without Docker: typecheck, unit tests, and Firefox + Chrome production builds.
 
 ### Build production bundles
 
@@ -174,6 +180,7 @@ bun run firefox-addon:check
 - `bun run dev`
 - `bun run dev:firefox`
 - `bun run dev:chrome`
+- `bun run dev:test`
 - `bun run build`
 - `bun run build:firefox`
 - `bun run build:chrome`

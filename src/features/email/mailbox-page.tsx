@@ -170,6 +170,8 @@ export function MailboxPage() {
   const sentVisibleRef = useRef(false);
   const { copied, flash } = useCopiedFlash();
   const isPollingActive = snapshot.pollingActive;
+  const mailboxUrl = chrome.runtime.getURL('mailbox.html');
+  const settingsUrl = chrome.runtime.getURL('options.html');
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -324,10 +326,6 @@ export function MailboxPage() {
     }
   }
 
-  async function openAutofillSettings() {
-    await callWebExtensionApi('runtime', 'openOptionsPage');
-  }
-
   return (
     <main className='min-h-screen bg-void font-body text-ink antialiased'>
       <div className='mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-6'>
@@ -343,27 +341,34 @@ export function MailboxPage() {
           </div>
 
           <div className='flex flex-wrap items-center gap-2'>
-              {snapshot.address && (
-                <span className='inline-flex items-center gap-1 rounded-full border border-border-dim px-3 py-1.5 text-xs font-medium text-ink-muted'>
-                  <RefreshCw className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
-                  {isPollingActive ? 'Polling' : 'Standby'}
-                </span>
-              )}
-              {snapshot.unreadCount > 0 && (
-                <span className='inline-flex items-center gap-1.5 rounded-full border border-unread/25 bg-unread-bg px-3 py-1.5 text-xs font-medium text-unread'>
-                  <span className='inline-block h-1.5 w-1.5 rounded-full bg-unread' />
-                  {snapshot.unreadCount} unread
-                </span>
-              )}
-              <button
-                className='inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
-                disabled={isBusy}
-                onClick={() => void openAutofillSettings()}
-                type='button'
+            <nav className='flex items-center gap-1 rounded-lg border border-border-dim bg-surface-raised p-1'>
+              <a
+                className='inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white'
+                href={mailboxUrl}
+              >
+                <Mail className='h-4 w-4' />
+                Mailbox
+              </a>
+              <a
+                className='inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink'
+                href={settingsUrl}
               >
                 <Settings className='h-4 w-4' />
                 Settings
-              </button>
+              </a>
+            </nav>
+            {snapshot.address && (
+              <span className='inline-flex items-center gap-1 rounded-full border border-border-dim px-3 py-1.5 text-xs font-medium text-ink-muted'>
+                <RefreshCw className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
+                {isPollingActive ? 'Polling' : 'Standby'}
+              </span>
+            )}
+            {snapshot.unreadCount > 0 && (
+              <span className='inline-flex items-center gap-1.5 rounded-full border border-unread/25 bg-unread-bg px-3 py-1.5 text-xs font-medium text-unread'>
+                <span className='inline-block h-1.5 w-1.5 rounded-full bg-unread' />
+                {snapshot.unreadCount} unread
+              </span>
+            )}
           </div>
         </header>
 

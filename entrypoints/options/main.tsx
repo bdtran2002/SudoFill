@@ -25,6 +25,8 @@ function OptionsApp() {
   const [forwardingPreviewEnabled, setForwardingPreviewEnabled] = useState(false);
   const [forwardingPreviewAddress, setForwardingPreviewAddress] = useState('');
   const statusTimeoutRef = useRef<number | null>(null);
+  const mailboxUrl = chrome.runtime.getURL('mailbox.html');
+  const settingsUrl = chrome.runtime.getURL('options.html');
 
   function clearStatusTimeout() {
     if (statusTimeoutRef.current !== null) {
@@ -120,19 +122,32 @@ function OptionsApp() {
     <main className='min-h-screen bg-void px-5 py-6 font-body text-ink antialiased sm:px-6 sm:py-8'>
       <div className='mx-auto flex w-full max-w-3xl flex-col'>
         <header className='animate-fade-in px-1 pb-4 sm:px-0'>
-          <div className='flex items-baseline justify-between gap-4'>
-            <div>
-              <p className='text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-muted'>
-                Options
-              </p>
-              <h1 className='font-brand mt-1 text-2xl font-bold tracking-tight sm:text-3xl'>
-                SudoFill
-              </h1>
+          <div className='flex flex-wrap items-center justify-between gap-4 border-b border-border-dim pb-4'>
+            <div className='flex min-w-0 items-center gap-3'>
+              <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white'>
+                <Settings className='h-4 w-4' />
+              </div>
+              <div>
+                <p className='text-lg font-semibold tracking-tight text-ink'>SudoFill Settings</p>
+                <p className='text-xs text-ink-muted'>Adjust autofill defaults and preview future controls</p>
+              </div>
             </div>
-            <div className='hidden rounded-full border border-border bg-surface px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted sm:flex sm:items-center sm:gap-2'>
-              <Settings className='h-3.5 w-3.5' />
-              Autofill defaults
-            </div>
+            <nav className='flex items-center gap-1 rounded-lg border border-border-dim bg-surface-raised p-1'>
+              <a
+                className='inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink'
+                href={mailboxUrl}
+              >
+                <Mail className='h-4 w-4' />
+                Mailbox
+              </a>
+              <a
+                className='inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white'
+                href={settingsUrl}
+              >
+                <Settings className='h-4 w-4' />
+                Settings
+              </a>
+            </nav>
           </div>
           <p className='mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
             Tune the generated profile used by the popup autofill action. Keep it broad for

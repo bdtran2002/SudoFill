@@ -28,7 +28,7 @@ const MAILBOX_ALARM_NAME = 'email.pollMailbox';
 const UI_OPEN_POLL_INTERVAL_MS = 500;
 const UI_CLOSED_POLL_INTERVAL_MS = 1_000;
 const UI_ACTIVE_WINDOW_MS = 60_000;
-const FALLBACK_ALARM_PERIOD_MINUTES = 0.5;
+const FALLBACK_ALARM_PERIOD_MINUTES = 5;
 
 let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
@@ -451,7 +451,7 @@ export default defineBackground(() => {
   );
 
   chrome.alarms.onAlarm.addListener((alarm: chrome.alarms.Alarm) => {
-    if (alarm.name === MAILBOX_ALARM_NAME && shouldPollActively()) {
+    if (alarm.name === MAILBOX_ALARM_NAME && activeSession) {
       void pollMailbox();
     }
   });

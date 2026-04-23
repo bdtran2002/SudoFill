@@ -91,7 +91,7 @@ function MessageDetail({
 }) {
   if (!snapshot.selectedMessage) {
     return (
-      <section className='flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-border-dim bg-surface/90 p-8 text-center'>
+      <section className='flex h-full min-h-[320px] items-center justify-center p-8 text-center'>
         <div className='flex max-w-sm flex-col items-center gap-3 text-ink-muted'>
           <Mail className='h-6 w-6' />
           <p className='text-sm'>Pick a message to read it here.</p>
@@ -103,7 +103,7 @@ function MessageDetail({
   const message = snapshot.selectedMessage;
 
   return (
-    <section className='flex h-full min-h-[320px] flex-col rounded-2xl border border-border-dim bg-surface/90'>
+    <section className='flex h-full min-h-[320px] flex-col'>
       <div className='flex items-start justify-between gap-3 border-b border-border-dim px-5 py-4'>
         <div className='min-w-0'>
           <button
@@ -114,7 +114,7 @@ function MessageDetail({
             <ArrowLeft className='h-3.5 w-3.5' />
             Back to inbox
           </button>
-          <h2 className='font-brand break-words text-2xl font-semibold leading-tight text-ink'>
+          <h2 className='break-words text-2xl font-semibold leading-tight text-ink'>
             {message.subject}
           </h2>
           <p className='mt-2 break-words text-sm text-ink-secondary'>{message.from}</p>
@@ -131,7 +131,7 @@ function MessageDetail({
             {message.links.map((link) => (
               <button
                 key={link.url}
-                className='group inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-accent/20 bg-accent-bg px-3 py-2 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
+                className='group inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
                 onClick={() => onOpenLink(link.url)}
                 type='button'
               >
@@ -147,7 +147,7 @@ function MessageDetail({
         {message.text ? (
           <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
         ) : message.html ? (
-          <div className='rounded-xl border border-border-dim bg-surface-raised px-4 py-3 text-sm text-ink-muted'>
+          <div className='rounded-md border border-border-dim bg-surface-raised px-4 py-3 text-sm text-ink-muted'>
             HTML-only email. Use a verification link above if one was detected.
           </div>
         ) : (
@@ -328,44 +328,35 @@ export function MailboxPage() {
     await callWebExtensionApi('runtime', 'openOptionsPage');
   }
 
-  async function openFullMailboxPage() {
-    await callWebExtensionApi('tabs', 'create', {
-      url: chrome.runtime.getURL('mailbox.html'),
-    });
-  }
-
   return (
     <main className='min-h-screen bg-void font-body text-ink antialiased'>
-      <div className='mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-4 py-4 sm:px-6 lg:px-8'>
-        <header className='mb-4 rounded-2xl border border-border-dim bg-surface/95 px-5 py-4 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
-          <div className='flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between'>
-            <div>
-              <p className='text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-muted'>
-                Mailbox
-              </p>
-              <h1 className='font-brand mt-1 text-3xl font-bold tracking-tight sm:text-4xl'>
-                SudoFill
-              </h1>
-              <p className='mt-2 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
-                A full-page inbox for temporary signups, verification links, and quick autofill.
-              </p>
+      <div className='mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-6'>
+        <header className='mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border-dim px-1 pb-3'>
+          <div className='flex min-w-0 items-center gap-3'>
+            <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white'>
+              <Mail className='h-4 w-4' />
             </div>
+            <div className='min-w-0'>
+              <h1 className='truncate text-lg font-semibold tracking-tight text-ink'>SudoFill Mail</h1>
+              <p className='text-xs text-ink-muted'>Temporary inbox for signups and verification links</p>
+            </div>
+          </div>
 
-            <div className='flex flex-wrap items-center gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
               {snapshot.address && (
-                <span className='inline-flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted'>
+                <span className='inline-flex items-center gap-1 rounded-full border border-border-dim px-3 py-1.5 text-xs font-medium text-ink-muted'>
                   <RefreshCw className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
                   {isPollingActive ? 'Polling' : 'Standby'}
                 </span>
               )}
               {snapshot.unreadCount > 0 && (
-                <span className='inline-flex items-center gap-1.5 rounded-full bg-unread-bg px-3 py-1.5 text-xs font-medium text-unread'>
-                  <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
+                <span className='inline-flex items-center gap-1.5 rounded-full border border-unread/25 bg-unread-bg px-3 py-1.5 text-xs font-medium text-unread'>
+                  <span className='inline-block h-1.5 w-1.5 rounded-full bg-unread' />
                   {snapshot.unreadCount} unread
                 </span>
               )}
               <button
-                className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                className='inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                 disabled={isBusy}
                 onClick={() => void openAutofillSettings()}
                 type='button'
@@ -373,21 +364,11 @@ export function MailboxPage() {
                 <Settings className='h-4 w-4' />
                 Settings
               </button>
-              <button
-                className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
-                disabled={isBusy}
-                onClick={() => void openFullMailboxPage()}
-                type='button'
-              >
-                <ExternalLink className='h-4 w-4' />
-                New tab
-              </button>
-            </div>
           </div>
         </header>
 
         {snapshot.error && (
-          <div className='mb-4 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger'>
+          <div className='mb-3 rounded-md border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger'>
             <p>{snapshot.error}</p>
             {snapshot.diagnostics && (
               <p className='mt-1 text-[10px] uppercase tracking-[0.16em] text-danger/80'>
@@ -399,8 +380,8 @@ export function MailboxPage() {
           </div>
         )}
 
-        <div className='grid min-h-0 flex-1 gap-4 lg:grid-cols-[220px_minmax(320px,420px)_minmax(0,1fr)]'>
-          <aside className='rounded-2xl border border-border-dim bg-surface/95 p-4 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+        <div className='grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 lg:grid-cols-[220px_minmax(320px,420px)_minmax(0,1fr)]'>
+          <aside className='border-b border-border-dim px-4 py-4 lg:border-r lg:border-b-0'>
             <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>Mailbox</p>
             {snapshot.address ? (
               <>
@@ -408,7 +389,7 @@ export function MailboxPage() {
                 <p className='mt-2 break-all text-sm font-semibold text-accent'>{snapshot.address}</p>
                 <div className='mt-4 flex flex-col gap-2'>
                   <button
-                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void copyAddress()}
                     type='button'
@@ -417,7 +398,7 @@ export function MailboxPage() {
                     {copied ? 'Copied' : 'Copy address'}
                   </button>
                   <button
-                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
                     disabled={isBusy}
                     onClick={() => void autofillCurrentPage()}
                     type='button'
@@ -426,7 +407,7 @@ export function MailboxPage() {
                     Autofill page
                   </button>
                   <button
-                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
@@ -435,7 +416,7 @@ export function MailboxPage() {
                     Refresh
                   </button>
                   <button
-                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:discard' })}
                     type='button'
@@ -446,12 +427,12 @@ export function MailboxPage() {
                 </div>
               </>
             ) : (
-              <div className='mt-4 rounded-xl border border-border-dim bg-surface-raised p-4'>
+              <div className='mt-4 rounded-md border border-border-dim bg-surface-raised p-4'>
                 <p className='text-sm leading-relaxed text-ink-secondary'>
                   Create a temp mailbox to start collecting verification emails.
                 </p>
                 <button
-                  className='mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                  className='mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
                   disabled={isBusy || snapshot.status === 'creating'}
                   onClick={() => void runCommand({ type: 'mailbox:create' })}
                   type='button'
@@ -462,7 +443,7 @@ export function MailboxPage() {
               </div>
             )}
 
-            <div className='mt-5 rounded-xl border border-border-dim bg-surface-raised px-3 py-3'>
+            <div className='mt-5 border-t border-border-dim pt-4'>
               <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>Status</p>
               <p className='mt-2 text-sm text-ink-secondary'>
                 {snapshot.lastCheckedAt ? `Last checked ${formatTimestamp(snapshot.lastCheckedAt)}` : 'Not checked yet'}
@@ -482,11 +463,11 @@ export function MailboxPage() {
           </aside>
 
           <section
-            className={`rounded-2xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)] ${
+            className={`border-b border-border-dim lg:border-r lg:border-b-0 ${
               mobileDetailOpen ? 'hidden md:block' : ''
             }`}
           >
-            <div className='flex items-center justify-between border-b border-border-dim px-5 py-4'>
+            <div className='flex items-center justify-between border-b border-border-dim px-4 py-3'>
               <div className='flex items-center gap-2'>
                 <Inbox className='h-4 w-4 text-accent' />
                 <p className='text-sm font-semibold text-ink'>Inbox</p>
@@ -501,15 +482,17 @@ export function MailboxPage() {
                 {snapshot.messages.map((message) => (
                   <button
                     key={message.id}
-                    className={`group flex w-full cursor-pointer items-start gap-3 px-5 py-4 text-left transition-colors ${
-                      snapshot.selectedMessageId === message.id ? 'bg-accent-bg' : 'hover:bg-surface-hover'
+                    className={`group flex w-full cursor-pointer items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors ${
+                      snapshot.selectedMessageId === message.id
+                        ? 'border-accent bg-accent-bg/40'
+                        : 'border-transparent hover:bg-surface-hover/80'
                     }`}
                     onClick={() => void runCommand({ type: 'mailbox:open-message', messageId: message.id })}
                     type='button'
                   >
-                    <div className='mt-1 flex w-3 shrink-0 justify-center'>
+                    <div className='mt-1 flex w-2 shrink-0 justify-center'>
                       {!message.seen && (
-                        <span className='inline-block h-2 w-2 animate-pulse-unread rounded-full bg-unread' />
+                        <span className='inline-block h-1.5 w-1.5 rounded-full bg-unread' />
                       )}
                     </div>
                     <div className='min-w-0 flex-1'>

@@ -35,7 +35,7 @@ let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 let mailboxUiOpen = false;
-let lastMailboxUiOpenAt = 0;
+let lastMailboxUiClosedAt = 0;
 
 type ActionLikeApi = {
   onClicked?: {
@@ -168,7 +168,7 @@ function clearPollTimer() {
 function shouldPollActively() {
   return (
     Boolean(activeSession) &&
-    (mailboxUiOpen || Date.now() - lastMailboxUiOpenAt < UI_ACTIVE_WINDOW_MS)
+    (mailboxUiOpen || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS)
   );
 }
 
@@ -437,7 +437,7 @@ export default defineBackground(() => {
       ) {
         mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
         if (!mailboxUiOpen) {
-          lastMailboxUiOpenAt = Date.now();
+          lastMailboxUiClosedAt = Date.now();
         }
         schedulePoll();
         sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);

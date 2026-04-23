@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Copy,
@@ -200,6 +200,7 @@ export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
+  const sentVisibleRef = useRef(false);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
@@ -243,15 +244,31 @@ export function MailboxApp() {
     void callWebExtensionApi('runtime', 'sendMessage', {
       type: 'mailbox-ui-visibility',
       visible: isVisible,
-    }).catch(() => undefined);
+    })
+      .then(() => {
+        sentVisibleRef.current = isVisible;
+      })
+      .catch(() => undefined);
 
+    if (!isVisible) {
+      sentVisibleRef.current = false;
+    }
+  }, [isVisible]);
+
+  useEffect(() => {
     return () => {
+      if (!sentVisibleRef.current) {
+        return;
+      }
+
       void callWebExtensionApi('runtime', 'sendMessage', {
         type: 'mailbox-ui-visibility',
         visible: false,
       }).catch(() => undefined);
+
+      sentVisibleRef.current = false;
     };
-  }, [isVisible]);
+  }, []);
 
   function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
     const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';

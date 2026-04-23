@@ -366,7 +366,7 @@ export function MailboxApp() {
             <div className='flex items-center gap-2'>
               {canOpenFirefoxSidebar && (
                 <button
-                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
                     void openFirefoxSidebar().catch((error) =>
@@ -388,7 +388,7 @@ export function MailboxApp() {
               {canCloseFirefoxSidebar && (
                 <button
                   aria-label='Close sidebar'
-                  className='flex cursor-pointer items-center justify-center rounded-md border border-border p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
                     void closeFirefoxSidebar().catch((error) =>

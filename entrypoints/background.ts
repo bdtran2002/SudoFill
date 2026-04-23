@@ -25,13 +25,17 @@ import { callWebExtensionApi } from '../src/lib/webext-async';
 
 const MAILBOX_STORAGE_KEY = 'email.activeMailbox';
 const MAILBOX_ALARM_NAME = 'email.pollMailbox';
-const FAST_POLL_INTERVAL_MS = 4_000;
+const UI_OPEN_POLL_INTERVAL_MS = 500;
+const UI_CLOSED_POLL_INTERVAL_MS = 1_000;
+const UI_ACTIVE_WINDOW_MS = 60_000;
 const FALLBACK_ALARM_PERIOD_MINUTES = 0.5;
 
 let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
+let mailboxUiOpen = false;
+let lastMailboxUiOpenAt = 0;
 
 type ActionLikeApi = {
   onClicked?: {
@@ -44,6 +48,11 @@ type ActionLikeApi = {
 type FirefoxBrowserApi = {
   action?: ActionLikeApi;
   browserAction?: ActionLikeApi;
+};
+
+type MailboxUiVisibilityMessage = {
+  type: 'mailbox-ui-visibility';
+  visible: boolean;
 };
 
 function getFirefoxBrowserApi(): FirefoxBrowserApi | undefined {
@@ -156,16 +165,24 @@ function clearPollTimer() {
   }
 }
 
-function scheduleFastPoll() {
+function shouldPollActively() {
+  return Boolean(activeSession) && (mailboxUiOpen || Date.now() - lastMailboxUiOpenAt < UI_ACTIVE_WINDOW_MS);
+}
+
+function getNextPollDelayMs() {
+  return mailboxUiOpen ? UI_OPEN_POLL_INTERVAL_MS : UI_CLOSED_POLL_INTERVAL_MS;
+}
+
+function schedulePoll() {
   clearPollTimer();
 
-  if (!activeSession) {
+  if (!shouldPollActively()) {
     return;
   }
 
   pollTimer = setTimeout(() => {
     void pollMailbox();
-  }, FAST_POLL_INTERVAL_MS);
+  }, getNextPollDelayMs());
 }
 
 function ensureFallbackAlarm(enabled: boolean): ResultAsync<void, MailboxError> {
@@ -192,7 +209,7 @@ function replaceSession(
   return writeSessionToStorage()
     .andThen(() => ensureFallbackAlarm(Boolean(session)))
     .andThen(() => {
-      scheduleFastPoll();
+      schedulePoll();
       return updateSnapshot(toMailboxSnapshot(session, snapshot));
     });
 }
@@ -237,7 +254,7 @@ function pollMailbox(force = false) {
 
     if (!session) {
       pollInFlight = null;
-      scheduleFastPoll();
+      schedulePoll();
       return;
     }
 
@@ -264,7 +281,7 @@ function pollMailbox(force = false) {
 
     {
       pollInFlight = null;
-      scheduleFastPoll();
+      schedulePoll();
     }
   })();
 
@@ -332,7 +349,11 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
       .andThen(() => {
-        scheduleFastPoll();
+        schedulePoll();
+        if (!shouldPollActively()) {
+          return okAsync(undefined);
+        }
+
         return fromBrowserPromise(pollMailbox(), 'Failed to restore mailbox session');
       });
   });
@@ -399,7 +420,27 @@ export default defineBackground(() => {
   );
 
   chrome.runtime.onMessage.addListener(
-    (message: MailboxCommand, _sender, sendResponse: (response: MailboxResponse) => void) => {
+    (
+      message: MailboxCommand | MailboxUiVisibilityMessage,
+      _sender,
+      sendResponse: (response: MailboxResponse) => void,
+    ) => {
+      if (
+        message &&
+        typeof message === 'object' &&
+        'type' in message &&
+        message.type === 'mailbox-ui-visibility' &&
+        'visible' in message
+      ) {
+        mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
+        if (mailboxUiOpen) {
+          lastMailboxUiOpenAt = Date.now();
+        }
+        schedulePoll();
+        sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
+        return true;
+      }
+
       void handleCommand(message)
         .then(sendResponse)
         .catch((error) => {
@@ -410,7 +451,7 @@ export default defineBackground(() => {
   );
 
   chrome.alarms.onAlarm.addListener((alarm: chrome.alarms.Alarm) => {
-    if (alarm.name === MAILBOX_ALARM_NAME) {
+    if (alarm.name === MAILBOX_ALARM_NAME && shouldPollActively()) {
       void pollMailbox();
     }
   });

@@ -199,6 +199,7 @@ function MessagePanel({
 export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
@@ -211,6 +212,7 @@ export function MailboxApp() {
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
+  const isPollingActive = Boolean(snapshot.address) && isVisible;
 
   useEffect(() => {
     if (sidebarActionStatus.tone !== 'error') {
@@ -225,6 +227,31 @@ export function MailboxApp() {
       window.clearTimeout(timeout);
     };
   }, [sidebarActionStatus]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      setIsVisible(document.visibilityState === 'visible');
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    void callWebExtensionApi('runtime', 'sendMessage', {
+      type: 'mailbox-ui-visibility',
+      visible: isVisible,
+    }).catch(() => undefined);
+
+    return () => {
+      void callWebExtensionApi('runtime', 'sendMessage', {
+        type: 'mailbox-ui-visibility',
+        visible: false,
+      }).catch(() => undefined);
+    };
+  }, [isVisible]);
 
   function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
     const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
@@ -243,12 +270,12 @@ export function MailboxApp() {
     }
 
     void loadState();
-    const interval = window.setInterval(loadState, 2_500);
+    const interval = window.setInterval(loadState, isVisible ? 500 : 1000);
     return () => {
       disposed = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [isVisible]);
 
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
@@ -379,6 +406,12 @@ export function MailboxApp() {
                   Open sidebar
                 </button>
               )}
+              {snapshot.address && (
+                <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
+                  <RefreshCw className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
+                  {isPollingActive ? 'Polling' : 'Standby'}
+                </span>
+              )}
               {snapshot.unreadCount > 0 && (
                 <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
                   <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
@@ -439,7 +472,7 @@ export function MailboxApp() {
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`} />
                     Refresh
                   </button>
                   <button

@@ -78,9 +78,20 @@ html.sidepanel {
     radial-gradient(circle at top right, rgba(110, 168, 254, 0.06), transparent 30%), #111010;
 }
 
+html.mailbox-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(239, 75, 75, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(110, 168, 254, 0.05), transparent 26%),
+    linear-gradient(180deg, rgba(36, 33, 33, 0.45), rgba(17, 16, 16, 0.98)),
+    #111010;
+}
+
 html.sidepanel,
 html.sidepanel body,
-html.sidepanel #root {
+html.sidepanel #root,
+html.mailbox-page body,
+html.mailbox-page #root {
   min-height: 100%;
   background-color: #111010;
   color-scheme: dark;
@@ -93,7 +104,9 @@ html.popup body {
 
 html.popup #root,
 html.sidepanel body,
-html.sidepanel #root {
+html.sidepanel #root,
+html.mailbox-page body,
+html.mailbox-page #root {
   width: 100%;
 }
 

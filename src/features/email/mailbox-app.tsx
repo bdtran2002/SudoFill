@@ -114,6 +114,12 @@ async function closeFirefoxSidebar(): Promise<void> {
   await sidebarAction.close();
 }
 
+async function openFullMailboxPage() {
+  await callWebExtensionApi('tabs', 'create', {
+    url: chrome.runtime.getURL('mailbox.html'),
+  });
+}
+
 type AutofillStatus =
   | { tone: 'idle'; message: string }
   | { tone: 'success'; message: string }
@@ -416,6 +422,17 @@ export function MailboxApp() {
                   Open sidebar
                 </button>
               )}
+              <button
+                className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                disabled={isBusy}
+                onClick={() => {
+                  void openFullMailboxPage();
+                }}
+                type='button'
+              >
+                <ExternalLink className='h-3 w-3' />
+                Full page
+              </button>
               {snapshot.address && (
                 <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
                   <RefreshCw

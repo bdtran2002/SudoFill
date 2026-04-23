@@ -352,9 +352,7 @@ export function MailboxApp() {
   return (
     <main
       className={`flex h-full min-h-0 w-full font-body text-ink antialiased ${
-        isSidepanel
-          ? 'overflow-hidden rounded-[28px] border border-border/80 bg-void/92 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm'
-          : 'bg-void'
+        isSidepanel ? 'overflow-hidden bg-void' : 'bg-void'
       }`}
     >
       <div

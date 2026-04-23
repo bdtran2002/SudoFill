@@ -103,12 +103,6 @@ html.sidepanel #root {
 
 html.sidepanel body {
   box-sizing: border-box;
-  padding: 18px;
-}
-
-html.sidepanel #root {
-  max-width: 840px;
-  margin: 0 auto;
 }
 
 html.sidepanel .sidepanel-scroll-region {

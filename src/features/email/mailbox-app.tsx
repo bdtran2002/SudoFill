@@ -360,7 +360,7 @@ export function MailboxApp() {
           isSidepanel ? 'sidepanel-scroll-region' : ''
         }`}
       >
-        <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
+        <header className='animate-fade-in px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>
             <div className='flex items-center gap-2'>
@@ -410,8 +410,8 @@ export function MailboxApp() {
           )}
         </header>
 
-        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '60ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border bg-surface'>
+        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '60ms' }}>
+          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
             {snapshot.address ? (
               <div className='p-4'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
@@ -490,7 +490,7 @@ export function MailboxApp() {
         </div>
 
         {sidebarActionStatus.tone === 'error' && (
-          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div
               aria-atomic='true'
               aria-live='assertive'
@@ -502,8 +502,8 @@ export function MailboxApp() {
           </div>
         )}
 
-        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '90ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border bg-surface'>
+        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '90ms' }}>
+          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
             <div className='p-4'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -556,7 +556,7 @@ export function MailboxApp() {
         </div>
 
         {snapshot.error && (
-          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
               <p>{snapshot.error}</p>
               {snapshot.diagnostics && (
@@ -571,8 +571,8 @@ export function MailboxApp() {
         )}
 
         {snapshot.address && (
-          <div className='animate-fade-in px-4 pb-5 sm:px-5' style={{ animationDelay: '120ms' }}>
-            <div className='w-full overflow-hidden rounded-xl border border-border bg-surface'>
+          <div className='animate-fade-in px-3 pb-5 sm:px-4' style={{ animationDelay: '120ms' }}>
+            <div className='w-full overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
               <div className='border-b border-border-dim px-4 py-3'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
                   Inbox

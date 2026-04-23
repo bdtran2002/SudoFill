@@ -31,6 +31,11 @@ type AutofillStatus =
   | { tone: 'success'; message: string }
   | { tone: 'error'; message: string };
 
+type MailboxActionStatus =
+  | { tone: 'idle'; message: string }
+  | { tone: 'success'; message: string }
+  | { tone: 'error'; message: string };
+
 function toTransportFailureResponse(
   error: unknown,
   command: MailboxCommand,
@@ -166,6 +171,10 @@ export function MailboxPage() {
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
   });
+  const [actionStatus, setActionStatus] = useState<MailboxActionStatus>({
+    tone: 'idle',
+    message: 'Mailbox ready.',
+  });
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const sentVisibleRef = useRef(false);
   const { copied, flash } = useCopiedFlash();
@@ -230,6 +239,20 @@ export function MailboxPage() {
     }
   }, [snapshot.selectedMessageId]);
 
+  useEffect(() => {
+    if (actionStatus.tone === 'idle') {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setActionStatus({ tone: 'idle', message: 'Mailbox ready.' });
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [actionStatus]);
+
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
     try {
@@ -237,6 +260,17 @@ export function MailboxPage() {
         toTransportFailureResponse(error, command, snapshot),
       );
       setSnapshot(response.snapshot);
+
+      if (!response.ok) {
+        setActionStatus({ tone: 'error', message: response.error });
+      } else if (command.type === 'mailbox:create') {
+        setActionStatus({ tone: 'success', message: 'Temporary mailbox created.' });
+      } else if (command.type === 'mailbox:refresh') {
+        setActionStatus({ tone: 'success', message: 'Mailbox refreshed.' });
+      } else if (command.type === 'mailbox:discard') {
+        setActionStatus({ tone: 'success', message: 'Mailbox discarded.' });
+      }
+
       if (command.type === 'mailbox:open-message') {
         setMobileDetailOpen(true);
       }
@@ -252,6 +286,7 @@ export function MailboxPage() {
 
     await navigator.clipboard.writeText(snapshot.address);
     flash();
+    setActionStatus({ tone: 'success', message: 'Address copied to clipboard.' });
   }
 
   async function autofillCurrentPage() {
@@ -316,8 +351,13 @@ export function MailboxPage() {
         tone: 'success',
         message: getAutofillResponseMessage(response),
       });
+      setActionStatus({ tone: 'success', message: 'Autofill sent to the active tab.' });
     } catch (error) {
       setAutofillStatus({
+        tone: 'error',
+        message: getAutofillErrorMessage(error, activeTab),
+      });
+      setActionStatus({
         tone: 'error',
         message: getAutofillErrorMessage(error, activeTab),
       });
@@ -329,7 +369,7 @@ export function MailboxPage() {
   return (
     <main className='min-h-screen bg-void font-body text-ink antialiased'>
       <div className='mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-6'>
-        <header className='mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border-dim px-1 pb-3'>
+        <header className='mb-3 flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-border-dim px-1 pb-3'>
           <div className='flex min-w-0 items-center gap-3'>
             <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white'>
               <Mail className='h-4 w-4' />
@@ -455,6 +495,17 @@ export function MailboxPage() {
               </p>
               <p
                 className={`mt-2 text-sm ${
+                  actionStatus.tone === 'error'
+                    ? 'text-danger'
+                    : actionStatus.tone === 'success'
+                      ? 'text-accent'
+                      : 'text-ink-muted'
+                }`}
+              >
+                {actionStatus.message}
+              </p>
+              <p
+                className={`mt-2 text-sm ${
                   autofillStatus.tone === 'error'
                     ? 'text-danger'
                     : autofillStatus.tone === 'success'
@@ -516,10 +567,23 @@ export function MailboxPage() {
                 ))}
               </div>
             ) : (
-              <div className='flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center text-ink-muted'>
+              <div className='flex min-h-[320px] flex-col items-center justify-center gap-4 px-6 text-center text-ink-muted'>
                 <Mail className='h-6 w-6 opacity-30' />
-                <p className='text-sm'>No messages yet</p>
-                <p className='max-w-xs text-xs'>Keep the mailbox active and refresh after signing up.</p>
+                <div className='space-y-1'>
+                  <p className='text-sm text-ink'>No messages yet</p>
+                  <p className='max-w-xs text-xs'>Keep this tab open while signing up, then refresh or wait for new mail.</p>
+                </div>
+                {!snapshot.address && (
+                  <button
+                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                    disabled={isBusy || snapshot.status === 'creating'}
+                    onClick={() => void runCommand({ type: 'mailbox:create' })}
+                    type='button'
+                  >
+                    <Plus className='h-4 w-4' />
+                    {snapshot.status === 'creating' ? 'Creating...' : 'Create temp email'}
+                  </button>
+                )}
               </div>
             )}
           </section>

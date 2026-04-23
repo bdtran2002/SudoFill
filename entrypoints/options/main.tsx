@@ -122,7 +122,7 @@ function OptionsApp() {
     <main className='min-h-screen bg-void px-5 py-6 font-body text-ink antialiased sm:px-6 sm:py-8'>
       <div className='mx-auto flex w-full max-w-3xl flex-col'>
         <header className='animate-fade-in px-1 pb-4 sm:px-0'>
-          <div className='flex flex-wrap items-center justify-between gap-4 border-b border-border-dim pb-4'>
+          <div className='flex min-h-14 flex-wrap items-center justify-between gap-4 border-b border-border-dim pb-4'>
             <div className='flex min-w-0 items-center gap-3'>
               <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white'>
                 <Settings className='h-4 w-4' />

@@ -127,16 +127,17 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
 
   const setBadgeBackgroundColor = actionApi.setBadgeBackgroundColor;
   const setBadgeText = actionApi.setBadgeText;
+  const hasUnread = unreadCount > 0;
 
   return fromBrowserPromise(
     setBadgeBackgroundColor({
-      color: error ? '#b91c1c' : '#2563eb',
+      color: error ? '#b91c1c' : hasUnread ? '#f97316' : '#2563eb',
     }),
     'Failed to update extension badge',
   ).andThen(() =>
     fromBrowserPromise(
       setBadgeText({
-        text: error ? '!' : unreadCount > 0 ? String(Math.min(unreadCount, 99)) : '',
+        text: error ? '!' : hasUnread ? String(Math.min(unreadCount, 99)) : '',
       }),
       'Failed to update extension badge',
     ),

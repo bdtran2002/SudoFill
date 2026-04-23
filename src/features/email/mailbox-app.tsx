@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Copy,
@@ -199,6 +199,8 @@ function MessagePanel({
 export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
+  const sentVisibleRef = useRef(false);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
@@ -211,6 +213,7 @@ export function MailboxApp() {
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
+  const isPollingActive = snapshot.pollingActive;
 
   useEffect(() => {
     if (sidebarActionStatus.tone !== 'error') {
@@ -225,6 +228,37 @@ export function MailboxApp() {
       window.clearTimeout(timeout);
     };
   }, [sidebarActionStatus]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      setIsVisible(document.visibilityState === 'visible');
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    sentVisibleRef.current = isVisible;
+
+    void callWebExtensionApi('runtime', 'sendMessage', {
+      type: 'mailbox-ui-visibility',
+      visible: isVisible,
+    }).catch(() => undefined);
+  }, [isVisible]);
+
+  useEffect(() => {
+    return () => {
+      sentVisibleRef.current = false;
+
+      void callWebExtensionApi('runtime', 'sendMessage', {
+        type: 'mailbox-ui-visibility',
+        visible: false,
+      }).catch(() => undefined);
+    };
+  }, []);
 
   function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
     const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
@@ -243,12 +277,12 @@ export function MailboxApp() {
     }
 
     void loadState();
-    const interval = window.setInterval(loadState, 2_500);
+    const interval = window.setInterval(loadState, isVisible ? 500 : 1000);
     return () => {
       disposed = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [isVisible]);
 
   async function runCommand(command: MailboxCommand) {
     setIsBusy(true);
@@ -352,9 +386,7 @@ export function MailboxApp() {
   return (
     <main
       className={`flex h-full min-h-0 w-full font-body text-ink antialiased ${
-        isSidepanel
-          ? 'overflow-hidden rounded-[28px] border border-border/80 bg-void/92 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm'
-          : 'bg-void'
+        isSidepanel ? 'overflow-hidden bg-void' : 'bg-void'
       }`}
     >
       <div
@@ -362,13 +394,13 @@ export function MailboxApp() {
           isSidepanel ? 'sidepanel-scroll-region' : ''
         }`}
       >
-        <header className='animate-fade-in px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4'>
+        <header className='animate-fade-in px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4'>
           <div className='flex items-baseline justify-between'>
             <h1 className='font-brand text-2xl font-bold tracking-tight'>SudoFill</h1>
             <div className='flex items-center gap-2'>
               {canOpenFirefoxSidebar && (
                 <button
-                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
                     void openFirefoxSidebar().catch((error) =>
@@ -381,6 +413,14 @@ export function MailboxApp() {
                   Open sidebar
                 </button>
               )}
+              {snapshot.address && (
+                <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
+                  <RefreshCw
+                    className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
+                  />
+                  {isPollingActive ? 'Polling' : 'Standby'}
+                </span>
+              )}
               {snapshot.unreadCount > 0 && (
                 <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
                   <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
@@ -390,7 +430,7 @@ export function MailboxApp() {
               {canCloseFirefoxSidebar && (
                 <button
                   aria-label='Close sidebar'
-                  className='flex cursor-pointer items-center justify-center rounded-md border border-border p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
                     void closeFirefoxSidebar().catch((error) =>
@@ -412,8 +452,8 @@ export function MailboxApp() {
           )}
         </header>
 
-        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '60ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border bg-surface'>
+        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '60ms' }}>
+          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
             {snapshot.address ? (
               <div className='p-4'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
@@ -441,7 +481,9 @@ export function MailboxApp() {
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                    />
                     Refresh
                   </button>
                   <button
@@ -492,7 +534,7 @@ export function MailboxApp() {
         </div>
 
         {sidebarActionStatus.tone === 'error' && (
-          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div
               aria-atomic='true'
               aria-live='assertive'
@@ -504,8 +546,8 @@ export function MailboxApp() {
           </div>
         )}
 
-        <div className='animate-fade-in px-4 pb-4 sm:px-5' style={{ animationDelay: '90ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border bg-surface'>
+        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '90ms' }}>
+          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
             <div className='p-4'>
               <div className='flex items-start justify-between gap-3'>
                 <div>
@@ -558,7 +600,7 @@ export function MailboxApp() {
         </div>
 
         {snapshot.error && (
-          <div className='animate-fade-in px-4 pb-4 sm:px-5'>
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
               <p>{snapshot.error}</p>
               {snapshot.diagnostics && (
@@ -573,8 +615,8 @@ export function MailboxApp() {
         )}
 
         {snapshot.address && (
-          <div className='animate-fade-in px-4 pb-5 sm:px-5' style={{ animationDelay: '120ms' }}>
-            <div className='w-full overflow-hidden rounded-xl border border-border bg-surface'>
+          <div className='animate-fade-in px-3 pb-5 sm:px-4' style={{ animationDelay: '120ms' }}>
+            <div className='w-full overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
               <div className='border-b border-border-dim px-4 py-3'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
                   Inbox

@@ -43,6 +43,7 @@ describe('toMailboxSnapshot', () => {
     ).toEqual({
       status: 'active',
       address: 'test@example.com',
+      pollingActive: false,
       unreadCount: 2,
       messages: [messageSummary],
       selectedMessageId: '1',

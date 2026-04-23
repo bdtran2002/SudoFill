@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronDown, Mail, RotateCcw, Save, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings } from 'lucide-react';
 
 import '../../src/styles.css';
 import {
@@ -24,20 +24,45 @@ function OptionsApp() {
   const [hint, setHint] = useState('');
   const [forwardingPreviewEnabled, setForwardingPreviewEnabled] = useState(false);
   const [forwardingPreviewAddress, setForwardingPreviewAddress] = useState('');
+  const statusTimeoutRef = useRef<number | null>(null);
+
+  function clearStatusTimeout() {
+    if (statusTimeoutRef.current !== null) {
+      window.clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = null;
+    }
+  }
+
+  function scheduleIdleStatus(delayMs: number) {
+    clearStatusTimeout();
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setSaveState('idle');
+      statusTimeoutRef.current = null;
+    }, delayMs);
+  }
 
   useEffect(() => {
     let mounted = true;
 
     void getStoredAutofillSettings()
       .then((loaded) => {
-        if (mounted) setSettings(loaded);
+        if (mounted) {
+          setSettings(loaded);
+          setHint('');
+        }
       })
-      .catch(() => {
-        if (mounted) setSaveState('error');
+      .catch((error) => {
+        if (mounted) {
+          setSaveState('error');
+          setHint(
+            `Error reading settings: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
       });
 
     return () => {
       mounted = false;
+      clearStatusTimeout();
     };
   }, []);
 
@@ -55,12 +80,14 @@ function OptionsApp() {
       return;
     }
 
+    clearStatusTimeout();
     setSaveState('saving');
+    setHint('');
     try {
       await setStoredAutofillSettings(settings);
       setSaveState('saved');
       setHint('Saved to browser storage.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
+      scheduleIdleStatus(1800);
     } catch {
       setSaveState('error');
       setHint('Could not save settings.');
@@ -74,15 +101,18 @@ function OptionsApp() {
 
     const next = DEFAULT_AUTOFILL_SETTINGS;
     setSettings(next);
-    setHint('Reset to defaults.');
+    clearStatusTimeout();
     setSaveState('saving');
+    setHint('');
 
     try {
       await setStoredAutofillSettings(next);
       setSaveState('saved');
-      window.setTimeout(() => setSaveState('idle'), 1200);
+      setHint('Reset to defaults.');
+      scheduleIdleStatus(1200);
     } catch {
       setSaveState('error');
+      setHint('Could not reset settings.');
     }
   }
 
@@ -160,24 +190,24 @@ function OptionsApp() {
               title='Age range'
             >
               <div className='grid grid-cols-2 gap-3'>
-                <LabeledInput
+                <AgeField
+                  fallbackValue={18}
                   invalid={ageHasError}
                   label='Min'
-                  onChange={(event) =>
-                    setSettings((current) => ({ ...current, ageMin: event.target.value }))
-                  }
+                  max={99}
+                  min={18}
+                  onChange={(next) => setSettings((current) => ({ ...current, ageMin: next }))}
                   placeholder='18'
-                  type='number'
                   value={settings.ageMin}
                 />
-                <LabeledInput
+                <AgeField
+                  fallbackValue={99}
                   invalid={ageHasError}
                   label='Max'
-                  onChange={(event) =>
-                    setSettings((current) => ({ ...current, ageMax: event.target.value }))
-                  }
+                  max={99}
+                  min={18}
+                  onChange={(next) => setSettings((current) => ({ ...current, ageMax: next }))}
                   placeholder='99'
-                  type='number'
                   value={settings.ageMax}
                 />
               </div>
@@ -373,6 +403,82 @@ function LabeledInput({
   );
 }
 
+function AgeField({
+  label,
+  invalid,
+  value,
+  placeholder,
+  fallbackValue,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  invalid?: boolean;
+  value: string;
+  placeholder: string;
+  fallbackValue: number;
+  min: number;
+  max: number;
+  onChange: (next: string) => void;
+}) {
+  const current = value === '' ? NaN : Number(value);
+
+  function stepAge(delta: 1 | -1) {
+    if (!Number.isFinite(current)) {
+      onChange(String(fallbackValue));
+      return;
+    }
+
+    onChange(String(Math.min(max, Math.max(min, current + delta))));
+  }
+
+  return (
+    <label className='block'>
+      <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+        {label}
+      </span>
+      <div
+        className={`flex items-center gap-1 rounded-lg border bg-surface px-2 py-2.5 transition-colors ${
+          invalid
+            ? 'border-danger-border focus-within:ring-2 focus-within:ring-danger/20'
+            : 'border-border focus-within:border-accent/50 focus-within:ring-2 focus-within:ring-accent/20'
+        }`}
+      >
+        <input
+          className='min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted'
+          inputMode='numeric'
+          onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
+          pattern='[0-9]*'
+          placeholder={placeholder}
+          type='text'
+          value={value}
+        />
+        <div className='flex flex-col overflow-hidden rounded-md border border-border-dim bg-surface-raised'>
+          <button
+            aria-label={`Increase ${label.toLowerCase()}`}
+            className='grid h-5 w-6 place-items-center text-ink-muted transition-colors hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35'
+            disabled={Number.isFinite(current) ? current >= max : false}
+            onClick={() => stepAge(1)}
+            type='button'
+          >
+            <ChevronUp className='h-3 w-3' />
+          </button>
+          <button
+            aria-label={`Decrease ${label.toLowerCase()}`}
+            className='grid h-5 w-6 place-items-center border-t border-border-dim text-ink-muted transition-colors hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:opacity-35'
+            disabled={Number.isFinite(current) ? current <= min : false}
+            onClick={() => stepAge(-1)}
+            type='button'
+          >
+            <ChevronDown className='h-3 w-3' />
+          </button>
+        </div>
+      </div>
+    </label>
+  );
+}
+
 function ToggleField({
   ariaLabel = 'Toggle setting',
   checked,
@@ -406,7 +512,7 @@ function ToggleField({
       >
         <span
           className={`absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-void shadow-sm transition-transform ${
-            checked ? '-translate-x-5' : 'translate-x-0'
+            checked ? 'translate-x-0' : '-translate-x-5'
           }`}
         />
       </span>

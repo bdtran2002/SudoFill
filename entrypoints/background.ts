@@ -166,7 +166,10 @@ function clearPollTimer() {
 }
 
 function shouldPollActively() {
-  return Boolean(activeSession) && (mailboxUiOpen || Date.now() - lastMailboxUiOpenAt < UI_ACTIVE_WINDOW_MS);
+  return (
+    Boolean(activeSession) &&
+    (mailboxUiOpen || Date.now() - lastMailboxUiOpenAt < UI_ACTIVE_WINDOW_MS)
+  );
 }
 
 function getNextPollDelayMs() {
@@ -433,7 +436,7 @@ export default defineBackground(() => {
         'visible' in message
       ) {
         mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
-        if (mailboxUiOpen) {
+        if (!mailboxUiOpen) {
           lastMailboxUiOpenAt = Date.now();
         }
         schedulePoll();

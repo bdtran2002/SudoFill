@@ -408,7 +408,9 @@ export function MailboxApp() {
               )}
               {snapshot.address && (
                 <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
-                  <RefreshCw className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
+                  />
                   {isPollingActive ? 'Polling' : 'Standby'}
                 </span>
               )}
@@ -472,7 +474,9 @@ export function MailboxApp() {
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                    />
                     Refresh
                   </button>
                   <button

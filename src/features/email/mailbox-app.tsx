@@ -241,32 +241,22 @@ export function MailboxApp() {
   }, []);
 
   useEffect(() => {
+    sentVisibleRef.current = isVisible;
+
     void callWebExtensionApi('runtime', 'sendMessage', {
       type: 'mailbox-ui-visibility',
       visible: isVisible,
-    })
-      .then(() => {
-        sentVisibleRef.current = isVisible;
-      })
-      .catch(() => undefined);
-
-    if (!isVisible) {
-      sentVisibleRef.current = false;
-    }
+    }).catch(() => undefined);
   }, [isVisible]);
 
   useEffect(() => {
     return () => {
-      if (!sentVisibleRef.current) {
-        return;
-      }
+      sentVisibleRef.current = false;
 
       void callWebExtensionApi('runtime', 'sendMessage', {
         type: 'mailbox-ui-visibility',
         visible: false,
       }).catch(() => undefined);
-
-      sentVisibleRef.current = false;
     };
   }, []);
 

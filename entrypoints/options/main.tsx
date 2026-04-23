@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings } from 'lucide-react';
@@ -24,20 +24,45 @@ function OptionsApp() {
   const [hint, setHint] = useState('');
   const [forwardingPreviewEnabled, setForwardingPreviewEnabled] = useState(false);
   const [forwardingPreviewAddress, setForwardingPreviewAddress] = useState('');
+  const statusTimeoutRef = useRef<number | null>(null);
+
+  function clearStatusTimeout() {
+    if (statusTimeoutRef.current !== null) {
+      window.clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = null;
+    }
+  }
+
+  function scheduleIdleStatus(delayMs: number) {
+    clearStatusTimeout();
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setSaveState('idle');
+      statusTimeoutRef.current = null;
+    }, delayMs);
+  }
 
   useEffect(() => {
     let mounted = true;
 
     void getStoredAutofillSettings()
       .then((loaded) => {
-        if (mounted) setSettings(loaded);
+        if (mounted) {
+          setSettings(loaded);
+          setHint('');
+        }
       })
-      .catch(() => {
-        if (mounted) setSaveState('error');
+      .catch((error) => {
+        if (mounted) {
+          setSaveState('error');
+          setHint(
+            `Error reading settings: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
       });
 
     return () => {
       mounted = false;
+      clearStatusTimeout();
     };
   }, []);
 
@@ -55,12 +80,14 @@ function OptionsApp() {
       return;
     }
 
+    clearStatusTimeout();
     setSaveState('saving');
+    setHint('');
     try {
       await setStoredAutofillSettings(settings);
       setSaveState('saved');
       setHint('Saved to browser storage.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
+      scheduleIdleStatus(1800);
     } catch {
       setSaveState('error');
       setHint('Could not save settings.');
@@ -74,15 +101,18 @@ function OptionsApp() {
 
     const next = DEFAULT_AUTOFILL_SETTINGS;
     setSettings(next);
-    setHint('Reset to defaults.');
+    clearStatusTimeout();
     setSaveState('saving');
+    setHint('');
 
     try {
       await setStoredAutofillSettings(next);
       setSaveState('saved');
-      window.setTimeout(() => setSaveState('idle'), 1200);
+      setHint('Reset to defaults.');
+      scheduleIdleStatus(1200);
     } catch {
       setSaveState('error');
+      setHint('Could not reset settings.');
     }
   }
 

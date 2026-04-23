@@ -154,8 +154,11 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
 }
 
 function updateSnapshot(snapshot: MailboxSnapshot): ResultAsync<void, MailboxError> {
-  currentSnapshot = snapshot;
-  return setBadge(snapshot.unreadCount, snapshot.error);
+  currentSnapshot = {
+    ...snapshot,
+    pollingActive: shouldPollActively(),
+  };
+  return setBadge(currentSnapshot.unreadCount, currentSnapshot.error);
 }
 
 function clearPollTimer() {
@@ -376,6 +379,7 @@ function createMailboxResponseError(
     diagnostics: nextDiagnostics,
     status: activeSession ? 'active' : 'error',
   });
+  snapshot.pollingActive = shouldPollActively();
 
   return updateSnapshot(snapshot)
     .orElse(() => okAsync(undefined))
@@ -440,6 +444,10 @@ export default defineBackground(() => {
           lastMailboxUiClosedAt = Date.now();
         }
         schedulePoll();
+        currentSnapshot = {
+          ...currentSnapshot,
+          pollingActive: shouldPollActively(),
+        };
         sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
         return true;
       }

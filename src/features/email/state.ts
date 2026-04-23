@@ -3,6 +3,7 @@ import type { ActiveMailboxSession, MailboxSnapshot } from './types';
 export const EMPTY_MAILBOX_SNAPSHOT: MailboxSnapshot = {
   status: 'idle',
   address: null,
+  pollingActive: false,
   unreadCount: 0,
   messages: [],
   selectedMessageId: null,
@@ -23,6 +24,7 @@ export function toMailboxSnapshot(
     ? {
         status: 'active',
         address: session.address,
+        pollingActive: false,
         unreadCount: session.unreadMessageIds.length,
         messages: session.messages,
         selectedMessageId: session.selectedMessageId,

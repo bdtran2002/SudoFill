@@ -31,6 +31,7 @@ export interface MailboxDiagnostics {
 export interface MailboxSnapshot {
   status: MailboxStatus;
   address: string | null;
+  pollingActive: boolean;
   unreadCount: number;
   messages: MailboxMessageSummary[];
   selectedMessageId: string | null;

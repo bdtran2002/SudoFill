@@ -213,7 +213,7 @@ export function MailboxApp() {
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
-  const isPollingActive = Boolean(snapshot.address) && isVisible;
+  const isPollingActive = snapshot.pollingActive;
 
   useEffect(() => {
     if (sidebarActionStatus.tone !== 'error') {

@@ -7,6 +7,7 @@ import type { MailboxSnapshot } from './types';
 const snapshot: MailboxSnapshot = {
   status: 'active',
   address: 'test@example.com',
+  pollingActive: true,
   unreadCount: 2,
   messages: [],
   selectedMessageId: null,

@@ -127,7 +127,7 @@ function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   );
 }
 
-function setBadge(unreadCount: number, error: string | null): ResultAsync<void, MailboxError> {
+function setBadge(notificationCount: number, error: string | null): ResultAsync<void, MailboxError> {
   const actionApi = getActionApi();
 
   if (!actionApi?.setBadgeBackgroundColor || !actionApi.setBadgeText) {
@@ -136,7 +136,7 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
 
   const setBadgeBackgroundColor = actionApi.setBadgeBackgroundColor;
   const setBadgeText = actionApi.setBadgeText;
-  const hasUnread = unreadCount > 0;
+  const hasUnread = notificationCount > 0;
 
   return fromBrowserPromise(
     setBadgeBackgroundColor({
@@ -146,7 +146,7 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
   ).andThen(() =>
     fromBrowserPromise(
       setBadgeText({
-        text: error ? '!' : hasUnread ? String(Math.min(unreadCount, 99)) : '',
+        text: error ? '!' : hasUnread ? String(Math.min(notificationCount, 99)) : '',
       }),
       'Failed to update extension badge',
     ),
@@ -158,7 +158,7 @@ function updateSnapshot(snapshot: MailboxSnapshot): ResultAsync<void, MailboxErr
     ...snapshot,
     pollingActive: shouldPollActively(),
   };
-  return setBadge(currentSnapshot.unreadCount, currentSnapshot.error);
+  return setBadge(activeSession?.browserNotificationMessageIds.length ?? 0, currentSnapshot.error);
 }
 
 function clearPollTimer() {
@@ -226,10 +226,14 @@ function syncMessages(
 ) {
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
+  const browserNotificationMessageIds = new Set(session.browserNotificationMessageIds);
 
   for (const message of nextMessages) {
     if (!session.knownMessageIds.includes(message.id)) {
       unreadMessageIds.add(message.id);
+      if (!mailboxUiOpen) {
+        browserNotificationMessageIds.add(message.id);
+      }
     }
   }
 
@@ -238,6 +242,9 @@ function syncMessages(
   session.unreadMessageIds = [...unreadMessageIds].filter((messageId) =>
     nextMessageIds.has(messageId),
   );
+  session.browserNotificationMessageIds = mailboxUiOpen
+    ? []
+    : [...browserNotificationMessageIds].filter((messageId) => nextMessageIds.has(messageId));
   session.lastCheckedAt = new Date().toISOString();
 
   if (session.selectedMessageId && !nextMessageIds.has(session.selectedMessageId)) {
@@ -351,7 +358,10 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
     }
 
-    activeSession = session;
+    activeSession = {
+      ...session,
+      browserNotificationMessageIds: session.browserNotificationMessageIds ?? [],
+    };
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
       .andThen(() => {
@@ -442,12 +452,15 @@ export default defineBackground(() => {
         mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
         if (!mailboxUiOpen) {
           lastMailboxUiClosedAt = Date.now();
+        } else if (activeSession) {
+          activeSession.browserNotificationMessageIds = [];
         }
         schedulePoll();
         currentSnapshot = {
           ...currentSnapshot,
           pollingActive: shouldPollActively(),
         };
+        void setBadge(activeSession?.browserNotificationMessageIds.length ?? 0, currentSnapshot.error);
         sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
         return true;
       }

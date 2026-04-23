@@ -381,6 +381,9 @@ export function MailboxApp() {
 
   async function openAutofillSettings() {
     await callWebExtensionApi('runtime', 'openOptionsPage');
+    if (!isSidepanel) {
+      window.close();
+    }
   }
 
   return (

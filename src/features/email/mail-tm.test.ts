@@ -5,6 +5,9 @@ vi.mock('@faker-js/faker', () => ({
     string: {
       alphanumeric: vi.fn(),
     },
+    helpers: {
+      arrayElement: vi.fn(),
+    },
   },
 }));
 
@@ -15,9 +18,11 @@ import {
   deleteMailTmAccount,
   getMailTmMessage,
   listMailTmMessages,
+  listAvailableMailTmDomains,
 } from './mail-tm';
 
 const alphanumericMock = faker.string.alphanumeric as unknown as ReturnType<typeof vi.fn>;
+const arrayElementMock = faker.helpers.arrayElement as unknown as ReturnType<typeof vi.fn>;
 
 const session = {
   address: 'test@example.com',
@@ -29,6 +34,7 @@ const session = {
   selectedMessage: null,
   unreadMessageIds: [],
   knownMessageIds: [],
+  browserNotificationMessageIds: [],
   lastCheckedAt: null,
   createdAt: '2025-01-01T00:00:00.000Z',
 };
@@ -47,10 +53,12 @@ describe('mail-tm', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
     alphanumericMock.mockReset();
+    arrayElementMock.mockReset();
     alphanumericMock.mockImplementation((options?: number | { length?: number }) => {
       const length = typeof options === 'number' ? options : options?.length;
       return length === 20 ? 'abcdefghijklmnopqrst' : 'abcdefghijkl';
     });
+    arrayElementMock.mockImplementation((items: string[]) => items[0]);
   });
 
   it('creates a session from the first active public domain', async () => {
@@ -78,6 +86,7 @@ describe('mail-tm', () => {
         password: 'abcdefghijklmnopqrst',
         token: 'token-1',
         accountId: 'acct-1',
+        browserNotificationMessageIds: [],
         messages: [],
         selectedMessageId: null,
         selectedMessage: null,
@@ -118,6 +127,26 @@ describe('mail-tm', () => {
         type: 'mail-tm-no-domain',
         message: 'No Mail.tm domains are currently available',
       });
+    }
+  });
+
+  it('lists all active public domains', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockJsonResponse({
+        'hydra:member': [
+          { domain: 'private.example', isActive: true, isPrivate: true },
+          { domain: 'inactive.example', isActive: false, isPrivate: false },
+          { domain: 'one.example', isActive: true, isPrivate: false },
+          { domain: 'two.example', isActive: true, isPrivate: false },
+        ],
+      }),
+    );
+
+    const result = await listAvailableMailTmDomains();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(['one.example', 'two.example']);
     }
   });
 

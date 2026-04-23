@@ -66,18 +66,20 @@ function mailTmFetch<T>(path: string, init?: RequestInit): ResultAsync<T, Mailbo
 /**
  * Finds the first public Mail.tm domain that can be used for account creation.
  */
-function getAvailableDomain(): ResultAsync<string, MailboxError> {
+export function listAvailableMailTmDomains(): ResultAsync<string[], MailboxError> {
   return mailTmFetch<MailTmCollection<MailTmDomain>>('/domains').andThen((response) => {
-    const domain = response['hydra:member'].find((item) => item.isActive && !item.isPrivate);
+    const domains = response['hydra:member']
+      .filter((item) => item.isActive && !item.isPrivate)
+      .map((item) => item.domain);
 
-    if (!domain) {
+    if (!domains.length) {
       return errAsync({
         type: 'mail-tm-no-domain' as const,
         message: 'No Mail.tm domains are currently available',
       });
     }
 
-    return okAsync(domain.domain);
+    return okAsync(domains);
   });
 }
 
@@ -127,6 +129,7 @@ function createMailTmSessionSnapshot(
     selectedMessage: null,
     unreadMessageIds: [],
     knownMessageIds: [],
+    browserNotificationMessageIds: [],
     lastCheckedAt: null,
     createdAt: new Date().toISOString(),
   };
@@ -165,7 +168,8 @@ function normalizeHtml(html: MailTmMessageDetailResponse['html']) {
  * Creates a new temporary mailbox session backed by Mail.tm.
  */
 export function createMailTmSession(): ResultAsync<ActiveMailboxSession, MailboxError> {
-  return getAvailableDomain().andThen((domain) => {
+  return listAvailableMailTmDomains().andThen((availableDomains) => {
+    const domain = faker.helpers.arrayElement(availableDomains);
     const address = createMailboxAddress(domain);
     const password = createMailboxPassword();
     const credentials = { address, password };

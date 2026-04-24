@@ -268,6 +268,12 @@ export function MailboxApp() {
         toTransportFailureResponse(error, command, snapshotRef.current),
       );
       setSnapshot(response.snapshot);
+
+      if (!response.ok) {
+        setSidebarActionStatus({ tone: 'error', message: response.error });
+      } else if (response.snapshot.error) {
+        setSidebarActionStatus({ tone: 'error', message: response.snapshot.error });
+      }
     } finally {
       if (command.type === 'mailbox:open-message') {
         setPendingMessageId(null);

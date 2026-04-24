@@ -22,7 +22,11 @@ import {
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
 
-type MailboxActionStatus = { tone: 'idle' | 'success' | 'error'; message: string };
+type MailboxActionStatus = {
+  tone: 'idle' | 'success' | 'error';
+  message: string;
+  source: 'mailbox' | 'ui' | null;
+};
 
 function MessageDetail({
   snapshot,
@@ -119,13 +123,16 @@ export function MailboxPage() {
   const [actionStatus, setActionStatus] = useState<MailboxActionStatus>({
     tone: 'idle',
     message: 'Mailbox ready.',
+    source: null,
   });
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
   const isPollingActive = snapshot.pollingActive;
-  const displayedStatusTone = snapshot.error ? 'error' : actionStatus.tone;
-  const displayedStatusMessage = snapshot.error ?? actionStatus.message;
+  const displayedStatusTone =
+    snapshot.error && actionStatus.source !== 'ui' ? 'error' : actionStatus.tone;
+  const displayedStatusMessage =
+    snapshot.error && actionStatus.source !== 'ui' ? snapshot.error : actionStatus.message;
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
 
@@ -178,7 +185,7 @@ export function MailboxPage() {
     }
 
     const timeout = window.setTimeout(() => {
-      setActionStatus({ tone: 'idle', message: 'Mailbox ready.' });
+      setActionStatus({ tone: 'idle', message: 'Mailbox ready.', source: null });
     }, 2200);
 
     return () => {
@@ -199,15 +206,19 @@ export function MailboxPage() {
       setSnapshot(response.snapshot);
 
       if (!response.ok) {
-        setActionStatus({ tone: 'error', message: response.error });
+        setActionStatus({ tone: 'error', message: response.error, source: 'mailbox' });
       } else if (response.snapshot.error) {
-        setActionStatus({ tone: 'error', message: response.snapshot.error });
+        setActionStatus({ tone: 'error', message: response.snapshot.error, source: 'mailbox' });
       } else if (command.type === 'mailbox:create') {
-        setActionStatus({ tone: 'success', message: 'Temporary mailbox created.' });
+        setActionStatus({
+          tone: 'success',
+          message: 'Temporary mailbox created.',
+          source: 'mailbox',
+        });
       } else if (command.type === 'mailbox:refresh') {
-        setActionStatus({ tone: 'success', message: 'Mailbox refreshed.' });
+        setActionStatus({ tone: 'success', message: 'Mailbox refreshed.', source: 'mailbox' });
       } else if (command.type === 'mailbox:discard') {
-        setActionStatus({ tone: 'success', message: 'Mailbox discarded.' });
+        setActionStatus({ tone: 'success', message: 'Mailbox discarded.', source: 'mailbox' });
       }
 
       if (command.type === 'mailbox:open-message' && response.ok) {
@@ -229,9 +240,13 @@ export function MailboxPage() {
     try {
       await copyTextToClipboard(snapshot.address);
       flash();
-      setActionStatus({ tone: 'success', message: 'Address copied to clipboard.' });
+      setActionStatus({ tone: 'success', message: 'Address copied to clipboard.', source: 'ui' });
     } catch {
-      setActionStatus({ tone: 'error', message: 'Could not copy address to clipboard.' });
+      setActionStatus({
+        tone: 'error',
+        message: 'Could not copy address to clipboard.',
+        source: 'ui',
+      });
     }
   }
 

@@ -255,6 +255,10 @@ function syncMessages(
   }
 }
 
+function isCurrentSession(session: ActiveMailboxSession) {
+  return activeSession === session;
+}
+
 function pollMailbox(force = false) {
   if (!activeSession) {
     return Promise.resolve();
@@ -275,10 +279,18 @@ function pollMailbox(force = false) {
 
     await listMailTmMessages(session.token)
       .andThen((messages) => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
         syncMessages(session, messages);
 
         if (session.selectedMessageId && (!session.selectedMessage || force)) {
           return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {
+            if (!isCurrentSession(session)) {
+              return okAsync(undefined);
+            }
+
             session.selectedMessage = message;
             return okAsync(undefined);
           });
@@ -286,12 +298,26 @@ function pollMailbox(force = false) {
 
         return okAsync(undefined);
       })
-      .andThen(() => writeSessionToStorage())
-      .andThen(() => updateSnapshot(toMailboxSnapshot(session)))
+      .andThen(() => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
+        return writeSessionToStorage();
+      })
+      .andThen(() => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
+        return updateSnapshot(toMailboxSnapshot(session));
+      })
       .orElse((error) =>
-        updateSnapshot(toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) })).orElse(
-          () => okAsync(undefined),
-        ),
+        !isCurrentSession(session)
+          ? okAsync(undefined)
+          : updateSnapshot(toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) })).orElse(
+              () => okAsync(undefined),
+            ),
       );
 
     {

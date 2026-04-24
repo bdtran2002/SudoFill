@@ -22,8 +22,6 @@ import {
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
 
-type AutofillStatus = { tone: 'idle' | 'success' | 'error'; message: string };
-
 type MailboxActionStatus = { tone: 'idle' | 'success' | 'error'; message: string };
 
 function MessageDetail({
@@ -110,10 +108,6 @@ export function MailboxPage() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
-  const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
-    tone: 'idle',
-    message: 'Open the popup or sidebar on the site you want to fill.',
-  });
   const [actionStatus, setActionStatus] = useState<MailboxActionStatus>({
     tone: 'idle',
     message: 'Mailbox ready.',
@@ -352,17 +346,6 @@ export function MailboxPage() {
                 }`}
               >
                 {actionStatus.message}
-              </p>
-              <p
-                className={`mt-2 text-sm ${
-                  autofillStatus.tone === 'error'
-                    ? 'text-danger'
-                    : autofillStatus.tone === 'success'
-                      ? 'text-accent'
-                      : 'text-ink-muted'
-                }`}
-              >
-                {autofillStatus.message}
               </p>
               <p className='mt-2 text-xs leading-relaxed text-ink-muted'>
                 The full-page inbox is for reading mail. Autofill works from the popup or sidebar on the site tab you want to fill.

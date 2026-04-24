@@ -39,7 +39,9 @@ function MessageDetail({
       <section className='flex h-full min-h-[320px] items-center justify-center p-8 text-center'>
         <div className='flex max-w-sm flex-col items-center gap-3 text-ink-muted'>
           <Mail className='h-6 w-6' />
-          <p className='text-sm'>Pick a message to read it here.</p>
+          <p className='text-sm'>
+            {snapshot.selectedMessageId ? 'Loading message…' : 'Pick a message to read it here.'}
+          </p>
         </div>
       </section>
     );

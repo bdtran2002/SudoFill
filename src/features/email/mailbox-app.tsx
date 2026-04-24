@@ -90,7 +90,9 @@ function MessagePanel({
       >
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
-          <span className='text-sm'>Select a message to read it</span>
+          <span className='text-sm'>
+            {snapshot.selectedMessageId ? 'Loading message…' : 'Select a message to read it'}
+          </span>
         </div>
       </section>
     );

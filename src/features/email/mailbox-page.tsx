@@ -198,6 +198,8 @@ export function MailboxPage() {
 
       if (!response.ok) {
         setActionStatus({ tone: 'error', message: response.error });
+      } else if (response.snapshot.error) {
+        setActionStatus({ tone: 'error', message: response.snapshot.error });
       } else if (command.type === 'mailbox:create') {
         setActionStatus({ tone: 'success', message: 'Temporary mailbox created.' });
       } else if (command.type === 'mailbox:refresh') {

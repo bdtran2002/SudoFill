@@ -124,6 +124,8 @@ export function MailboxPage() {
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
   const isPollingActive = snapshot.pollingActive;
+  const displayedStatusTone = snapshot.error ? 'error' : actionStatus.tone;
+  const displayedStatusMessage = snapshot.error ?? actionStatus.message;
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
 
@@ -360,14 +362,14 @@ export function MailboxPage() {
               </p>
               <p
                 className={`mt-2 text-sm ${
-                  actionStatus.tone === 'error'
+                  displayedStatusTone === 'error'
                     ? 'text-danger'
-                    : actionStatus.tone === 'success'
+                    : displayedStatusTone === 'success'
                       ? 'text-accent'
                       : 'text-ink-muted'
                 }`}
               >
-                {actionStatus.message}
+                {displayedStatusMessage}
               </p>
               <p className='mt-2 text-xs leading-relaxed text-ink-muted'>
                 The full-page inbox is for reading mail. Autofill works from the popup or sidebar on the site tab you want to fill.

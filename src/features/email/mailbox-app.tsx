@@ -84,7 +84,9 @@ type AutofillStatus =
   | { tone: 'success'; message: string }
   | { tone: 'error'; message: string };
 
-type SidebarActionStatus = { tone: 'idle'; message: '' } | { tone: 'error'; message: string };
+type SidebarActionStatus =
+  | { tone: 'idle'; message: ''; source: null }
+  | { tone: 'error'; message: string; source: 'mailbox' | 'ui' };
 
 function MessagePanel({
   snapshot,
@@ -182,6 +184,7 @@ export function MailboxApp() {
   const [sidebarActionStatus, setSidebarActionStatus] = useState<SidebarActionStatus>({
     tone: 'idle',
     message: '',
+    source: null,
   });
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
@@ -200,7 +203,7 @@ export function MailboxApp() {
     }
 
     const timeout = window.setTimeout(() => {
-      setSidebarActionStatus({ tone: 'idle', message: '' });
+      setSidebarActionStatus({ tone: 'idle', message: '', source: null });
     }, 5000);
 
     return () => {
@@ -236,7 +239,7 @@ export function MailboxApp() {
               ? 'Could not copy address to clipboard'
               : 'Failed to open settings';
     console.error(message, error);
-    setSidebarActionStatus({ tone: 'error', message });
+    setSidebarActionStatus({ tone: 'error', message, source: 'ui' });
   }
 
   useEffect(() => {
@@ -270,9 +273,19 @@ export function MailboxApp() {
       setSnapshot(response.snapshot);
 
       if (!response.ok) {
-        setSidebarActionStatus({ tone: 'error', message: response.error });
+        setSidebarActionStatus({ tone: 'error', message: response.error, source: 'mailbox' });
       } else if (response.snapshot.error) {
-        setSidebarActionStatus({ tone: 'error', message: response.snapshot.error });
+        setSidebarActionStatus({
+          tone: 'error',
+          message: response.snapshot.error,
+          source: 'mailbox',
+        });
+      } else {
+        setSidebarActionStatus((currentStatus) =>
+          currentStatus.source === 'mailbox'
+            ? { tone: 'idle', message: '', source: null }
+            : currentStatus,
+        );
       }
     } finally {
       if (command.type === 'mailbox:open-message') {

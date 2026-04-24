@@ -287,14 +287,6 @@ export function MailboxPage() {
                 Settings
               </a>
             </nav>
-            {snapshot.address && (
-              <span className='inline-flex items-center gap-1 rounded-full border border-border-dim px-3 py-1.5 text-xs font-medium text-ink-muted'>
-                <RefreshCw
-                  className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
-                />
-                {isPollingActive ? 'Polling' : 'Standby'}
-              </span>
-            )}
             {snapshot.unreadCount > 0 && (
               <span className='inline-flex items-center gap-1.5 rounded-full border border-unread/25 bg-unread-bg px-3 py-1.5 text-xs font-medium text-unread'>
                 <span className='inline-block h-1.5 w-1.5 rounded-full bg-unread' />
@@ -354,7 +346,7 @@ export function MailboxPage() {
                     type='button'
                   >
                     <RefreshCw
-                      className={`h-4 w-4 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                      className={`h-4 w-4 ${isBusy || isPollingActive ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                     />
                     Refresh
                   </button>

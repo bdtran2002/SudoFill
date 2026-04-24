@@ -418,14 +418,6 @@ export function MailboxApp() {
                 <ExternalLink className='h-3 w-3' />
                 Full page
               </button>
-              {snapshot.address && (
-                <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
-                  <RefreshCw
-                    className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
-                  />
-                  {isPollingActive ? 'Polling' : 'Standby'}
-                </span>
-              )}
               {snapshot.unreadCount > 0 && (
                 <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
                   <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
@@ -487,7 +479,7 @@ export function MailboxApp() {
                     type='button'
                   >
                     <RefreshCw
-                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                     />
                     Refresh
                   </button>

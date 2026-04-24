@@ -35,6 +35,7 @@ let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 let pendingForcedPoll = false;
+let pendingForcedPollWaiters: Array<() => void> = [];
 const openMailboxUiInstanceIds = new Set<string>();
 let lastMailboxUiClosedAt = 0;
 
@@ -268,6 +269,9 @@ function pollMailbox(force = false) {
   if (pollInFlight) {
     if (force) {
       pendingForcedPoll = true;
+      return new Promise<void>((resolve) => {
+        pendingForcedPollWaiters.push(resolve);
+      });
     }
 
     return pollInFlight;
@@ -326,13 +330,19 @@ function pollMailbox(force = false) {
       );
 
     const shouldRunForcedFollowUp = pendingForcedPoll;
+    const forcedPollWaiters = pendingForcedPollWaiters;
     pendingForcedPoll = false;
+    pendingForcedPollWaiters = [];
     pollInFlight = null;
 
     if (shouldRunForcedFollowUp && activeSession) {
-      void pollMailbox(true);
+      void pollMailbox(true).finally(() => {
+        forcedPollWaiters.forEach((resolve) => resolve());
+      });
       return;
     }
+
+    forcedPollWaiters.forEach((resolve) => resolve());
 
     schedulePoll();
   })();

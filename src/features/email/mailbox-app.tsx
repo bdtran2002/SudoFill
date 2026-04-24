@@ -193,6 +193,13 @@ export function MailboxApp() {
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
   const isPollingActive = snapshot.pollingActive;
+  const shouldShowPersistentMailboxError =
+    Boolean(snapshot.error) &&
+    !(
+      sidebarActionStatus.tone === 'error' &&
+      sidebarActionStatus.source === 'mailbox' &&
+      sidebarActionStatus.message === snapshot.error
+    );
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -598,7 +605,7 @@ export function MailboxApp() {
           </div>
         </div>
 
-        {snapshot.error && (
+        {shouldShowPersistentMailboxError && snapshot.error && (
           <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
               <p>{snapshot.error}</p>

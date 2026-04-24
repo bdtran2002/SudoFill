@@ -14,6 +14,7 @@ import {
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
+  copyTextToClipboard,
   formatTimestamp,
   sendMailboxCommand,
   toTransportFailureResponse,
@@ -207,9 +208,13 @@ export function MailboxPage() {
       return;
     }
 
-    await navigator.clipboard.writeText(snapshot.address);
-    flash();
-    setActionStatus({ tone: 'success', message: 'Address copied to clipboard.' });
+    try {
+      await copyTextToClipboard(snapshot.address);
+      flash();
+      setActionStatus({ tone: 'success', message: 'Address copied to clipboard.' });
+    } catch {
+      setActionStatus({ tone: 'error', message: 'Could not copy address to clipboard.' });
+    }
   }
 
   return (

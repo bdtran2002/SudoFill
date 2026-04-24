@@ -15,6 +15,7 @@ import {
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
+  copyTextToClipboard,
   formatTimestamp,
   runMailboxAutofillFlow,
   sendMailboxCommand,
@@ -203,7 +204,7 @@ export function MailboxApp() {
   useMailboxUiVisibilityReporting(isVisible);
 
   function reportUiActionFailure(
-    action: 'open-sidebar' | 'close-sidebar' | 'open-full-page' | 'open-settings',
+    action: 'open-sidebar' | 'close-sidebar' | 'open-full-page' | 'open-settings' | 'copy-address',
     error: unknown,
   ) {
     const message =
@@ -213,7 +214,9 @@ export function MailboxApp() {
           ? 'Failed to close sidebar'
           : action === 'open-full-page'
             ? 'Failed to open full-page mailbox'
-            : 'Failed to open settings';
+            : action === 'copy-address'
+              ? 'Could not copy address to clipboard'
+              : 'Failed to open settings';
     console.error(message, error);
     setSidebarActionStatus({ tone: 'error', message });
   }
@@ -250,8 +253,13 @@ export function MailboxApp() {
 
   async function copyAddress() {
     if (!snapshot.address) return;
-    await navigator.clipboard.writeText(snapshot.address);
-    flash();
+
+    try {
+      await copyTextToClipboard(snapshot.address);
+      flash();
+    } catch (error) {
+      reportUiActionFailure('copy-address', error);
+    }
   }
 
   async function autofillCurrentPage() {

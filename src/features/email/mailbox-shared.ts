@@ -51,6 +51,10 @@ export async function sendMailboxCommand(command: MailboxCommand) {
   return (await callWebExtensionApi<MailboxResponse>('runtime', 'sendMessage', command)) as MailboxResponse;
 }
 
+export async function copyTextToClipboard(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text);
+}
+
 export function useCopiedFlash() {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);

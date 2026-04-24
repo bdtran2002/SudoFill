@@ -97,7 +97,10 @@ function MessagePanel({
   pendingMessageId: string | null;
   isSidepanel: boolean;
 }) {
-  if (!snapshot.selectedMessage) {
+  const isPendingDifferentMessage =
+    pendingMessageId !== null && pendingMessageId !== snapshot.selectedMessageId;
+
+  if (!snapshot.selectedMessage || isPendingDifferentMessage) {
     return (
       <section
         className={`flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center ${

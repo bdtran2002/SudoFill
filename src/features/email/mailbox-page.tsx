@@ -35,7 +35,10 @@ function MessageDetail({
   onOpenLink: (url: string) => void;
   pendingMessageId: string | null;
 }) {
-  if (!snapshot.selectedMessage) {
+  const isPendingDifferentMessage =
+    pendingMessageId !== null && pendingMessageId !== snapshot.selectedMessageId;
+
+  if (!snapshot.selectedMessage || isPendingDifferentMessage) {
     return (
       <section className='flex h-full min-h-[320px] items-center justify-center p-8 text-center'>
         <div className='flex max-w-sm flex-col items-center gap-3 text-ink-muted'>

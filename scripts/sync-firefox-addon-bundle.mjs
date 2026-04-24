@@ -54,9 +54,11 @@ function deleteRecursively(dirPath) {
 }
 
 let quarantinedTargetDir = null;
+let exitCode = 0;
 
 if (fs.existsSync(targetDir)) {
-  quarantinedTargetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sudofill-firefox-addon-'));
+  const quarantineParentDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sudofill-firefox-addon-'));
+  quarantinedTargetDir = path.join(quarantineParentDir, 'firefox-addon');
   copyDir(targetDir, quarantinedTargetDir);
   deleteRecursively(targetDir);
 }
@@ -66,7 +68,8 @@ try {
 
   if (!fs.existsSync(sourceDir)) {
     console.error(`Missing source bundle: ${path.relative(repoRoot, sourceDir)}`);
-    process.exit(1);
+    exitCode = 1;
+    return;
   }
 
   const sourceFiles = walk(sourceDir, sourceDir);
@@ -91,30 +94,29 @@ try {
   if (mode === 'check') {
     if (!hasDiff) {
       console.log('firefox-addon bundle is up to date.');
-      process.exit(0);
+    } else {
+      console.error('firefox-addon bundle is out of date.');
+      if (missing.length) console.error(`Missing in firefox-addon: ${missing.join(', ')}`);
+      if (extra.length) console.error(`Extra in firefox-addon: ${extra.join(', ')}`);
+      if (different.length) console.error(`Different content: ${different.join(', ')}`);
+      exitCode = 1;
+    }
+  } else {
+    if (fs.existsSync(targetDir)) {
+      deleteRecursively(targetDir);
+    }
+    ensureDir(targetDir);
+    for (const file of sourceFiles) {
+      const src = path.join(sourceDir, file);
+      const dest = path.join(targetDir, file);
+      ensureDir(path.dirname(dest));
+      fs.copyFileSync(src, dest);
     }
 
-    console.error('firefox-addon bundle is out of date.');
-    if (missing.length) console.error(`Missing in firefox-addon: ${missing.join(', ')}`);
-    if (extra.length) console.error(`Extra in firefox-addon: ${extra.join(', ')}`);
-    if (different.length) console.error(`Different content: ${different.join(', ')}`);
-    process.exit(1);
+    console.log(
+      `Synced ${sourceFiles.length} files from ${path.relative(repoRoot, sourceDir)} to ${path.relative(repoRoot, targetDir)}.`,
+    );
   }
-
-  if (fs.existsSync(targetDir)) {
-    deleteRecursively(targetDir);
-  }
-  ensureDir(targetDir);
-  for (const file of sourceFiles) {
-    const src = path.join(sourceDir, file);
-    const dest = path.join(targetDir, file);
-    ensureDir(path.dirname(dest));
-    fs.copyFileSync(src, dest);
-  }
-
-  console.log(
-    `Synced ${sourceFiles.length} files from ${path.relative(repoRoot, sourceDir)} to ${path.relative(repoRoot, targetDir)}.`,
-  );
 } finally {
   if (mode === 'check' && quarantinedTargetDir) {
     if (fs.existsSync(targetDir)) {
@@ -127,3 +129,5 @@ try {
     deleteRecursively(quarantinedTargetDir);
   }
 }
+
+process.exit(exitCode);

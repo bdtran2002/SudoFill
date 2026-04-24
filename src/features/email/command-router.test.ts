@@ -105,5 +105,4 @@ describe('createCommandHandler', () => {
     });
     expect(openLink).toHaveBeenCalledWith('https://example.com');
   });
-
 });

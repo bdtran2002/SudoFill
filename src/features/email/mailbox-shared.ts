@@ -48,7 +48,11 @@ export function formatTimestamp(value: string) {
 }
 
 export async function sendMailboxCommand(command: MailboxCommand) {
-  return (await callWebExtensionApi<MailboxResponse>('runtime', 'sendMessage', command)) as MailboxResponse;
+  return (await callWebExtensionApi<MailboxResponse>(
+    'runtime',
+    'sendMessage',
+    command,
+  )) as MailboxResponse;
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
@@ -83,28 +87,34 @@ export function useCopiedFlash() {
 }
 
 export function useMailboxUiVisibilityReporting(isVisible: boolean) {
-  const instanceIdRef = useRef(globalThis.crypto?.randomUUID?.() ?? `mailbox-ui-${Date.now()}-${Math.random()}`);
+  const instanceIdRef = useRef(
+    globalThis.crypto?.randomUUID?.() ?? `mailbox-ui-${Date.now()}-${Math.random()}`,
+  );
+  const instanceId = instanceIdRef.current;
 
   useEffect(() => {
     void callWebExtensionApi('runtime', 'sendMessage', {
       type: 'mailbox-ui-visibility',
       visible: isVisible,
-      instanceId: instanceIdRef.current,
+      instanceId,
     }).catch(() => undefined);
-  }, [isVisible]);
+  }, [instanceId, isVisible]);
 
   useEffect(() => {
     return () => {
       void callWebExtensionApi('runtime', 'sendMessage', {
         type: 'mailbox-ui-visibility',
         visible: false,
-        instanceId: instanceIdRef.current,
+        instanceId,
       }).catch(() => undefined);
     };
-  }, []);
+  }, [instanceId]);
 }
 
-type AutofillStatusSetter = (status: { tone: 'idle' | 'success' | 'error'; message: string }) => void;
+type AutofillStatusSetter = (status: {
+  tone: 'idle' | 'success' | 'error';
+  message: string;
+}) => void;
 
 export const MAILBOX_AUTOFILL_IDLE_MESSAGE =
   'Generate a profile, then fill the page you already have open.';

@@ -134,7 +134,10 @@ function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   );
 }
 
-function setBadge(notificationCount: number, error: string | null): ResultAsync<void, MailboxError> {
+function setBadge(
+  notificationCount: number,
+  error: string | null,
+): ResultAsync<void, MailboxError> {
   const actionApi = getActionApi();
 
   if (!actionApi?.setBadgeBackgroundColor || !actionApi.setBadgeText) {
@@ -176,7 +179,10 @@ function clearPollTimer() {
 }
 
 function shouldPollActively() {
-  return Boolean(activeSession) && (isMailboxUiOpen() || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS);
+  return (
+    Boolean(activeSession) &&
+    (isMailboxUiOpen() || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS)
+  );
 }
 
 function getNextPollDelayMs() {
@@ -324,9 +330,9 @@ function pollMailbox(force = false) {
       .orElse((error) =>
         !isCurrentSession(session)
           ? okAsync(undefined)
-          : updateSnapshot(toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) })).orElse(
-              () => okAsync(undefined),
-            ),
+          : updateSnapshot(
+              toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) }),
+            ).orElse(() => okAsync(undefined)),
       );
 
     const shouldRunForcedFollowUp = pendingForcedPoll;
@@ -543,7 +549,10 @@ export default defineBackground(() => {
           ...currentSnapshot,
           pollingActive: shouldPollActively(),
         };
-        void setBadge(activeSession?.browserNotificationMessageIds.length ?? 0, currentSnapshot.error);
+        void setBadge(
+          activeSession?.browserNotificationMessageIds.length ?? 0,
+          currentSnapshot.error,
+        );
         sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
         return true;
       }

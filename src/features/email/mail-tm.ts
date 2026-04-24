@@ -185,7 +185,10 @@ export function createMailTmSession(): ResultAsync<ActiveMailboxSession, Mailbox
         .map((account) => ({ account, credentials }))
         .orElse(() => {
           const retryCredentials = createMailTmCredentials(availableDomains);
-          return createAccount(retryCredentials).map((account) => ({ account, credentials: retryCredentials }));
+          return createAccount(retryCredentials).map((account) => ({
+            account,
+            credentials: retryCredentials,
+          }));
         });
 
     const createSessionFromAccount = ({

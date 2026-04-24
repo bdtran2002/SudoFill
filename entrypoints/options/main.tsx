@@ -69,7 +69,12 @@ function OptionsApp() {
   const canSave = useMemo(() => isAutofillAgeRangeValid(settings), [settings]);
   const ageHasError = !canSave && Boolean(settings.ageMin || settings.ageMax);
 
-  async function persistSettings(next: AutofillSettings, successHint: string, errorHint: string, idleDelay: number) {
+  async function persistSettings(
+    next: AutofillSettings,
+    successHint: string,
+    errorHint: string,
+    idleDelay: number,
+  ) {
     if (saveState === 'saving') {
       return;
     }
@@ -130,7 +135,9 @@ function OptionsApp() {
               </div>
               <div>
                 <p className='text-lg font-semibold tracking-tight text-ink'>SudoFill Settings</p>
-                <p className='text-xs text-ink-muted'>Adjust autofill defaults used by the popup and sidebar</p>
+                <p className='text-xs text-ink-muted'>
+                  Adjust autofill defaults used by the popup and sidebar
+                </p>
               </div>
             </div>
             <nav className='flex items-center gap-1 rounded-lg border border-border-dim bg-surface-raised p-1'>
@@ -151,8 +158,8 @@ function OptionsApp() {
             </nav>
           </div>
           <p className='mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
-            Tune the generated profile used by SudoFill autofill. Keep it broad for
-            flexibility, or narrow it just enough for your workflow.
+            Tune the generated profile used by SudoFill autofill. Keep it broad for flexibility, or
+            narrow it just enough for your workflow.
           </p>
         </header>
 
@@ -284,7 +291,6 @@ function OptionsApp() {
             </div>
           </div>
         </section>
-
       </div>
     </main>
   );

@@ -222,9 +222,12 @@ export function MailboxApp() {
       return undefined;
     }
 
-    const timeout = window.setTimeout(() => {
-      setSidebarActionStatus({ tone: 'idle', message: '', source: null });
-    }, sidebarActionStatus.tone === 'success' ? 2200 : 5000);
+    const timeout = window.setTimeout(
+      () => {
+        setSidebarActionStatus({ tone: 'idle', message: '', source: null });
+      },
+      sidebarActionStatus.tone === 'success' ? 2200 : 5000,
+    );
 
     return () => {
       window.clearTimeout(timeout);
@@ -652,7 +655,8 @@ export function MailboxApp() {
                       <button
                         key={message.id}
                         className={`group flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors ${
-                          pendingMessageId === message.id || snapshot.selectedMessageId === message.id
+                          pendingMessageId === message.id ||
+                          snapshot.selectedMessageId === message.id
                             ? 'bg-accent-bg'
                             : 'hover:bg-surface-hover'
                         }`}

@@ -76,7 +76,9 @@ function MessageDetail({
           </h2>
           <p className='mt-2 break-words text-sm text-ink-secondary'>{message.from}</p>
         </div>
-        <span className='shrink-0 text-xs text-ink-muted'>{formatTimestamp(message.createdAt)}</span>
+        <span className='shrink-0 text-xs text-ink-muted'>
+          {formatTimestamp(message.createdAt)}
+        </span>
       </div>
 
       {message.links.length > 0 && (
@@ -259,8 +261,12 @@ export function MailboxPage() {
               <Mail className='h-4 w-4' />
             </div>
             <div className='min-w-0'>
-              <h1 className='truncate text-lg font-semibold tracking-tight text-ink'>SudoFill Mail</h1>
-              <p className='text-xs text-ink-muted'>Temporary inbox for signups and verification links</p>
+              <h1 className='truncate text-lg font-semibold tracking-tight text-ink'>
+                SudoFill Mail
+              </h1>
+              <p className='text-xs text-ink-muted'>
+                Temporary inbox for signups and verification links
+              </p>
             </div>
           </div>
 
@@ -283,7 +289,9 @@ export function MailboxPage() {
             </nav>
             {snapshot.address && (
               <span className='inline-flex items-center gap-1 rounded-full border border-border-dim px-3 py-1.5 text-xs font-medium text-ink-muted'>
-                <RefreshCw className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-3.5 w-3.5 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
+                />
                 {isPollingActive ? 'Polling' : 'Standby'}
               </span>
             )}
@@ -311,11 +319,17 @@ export function MailboxPage() {
 
         <div className='grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 lg:grid-cols-[220px_minmax(320px,420px)_minmax(0,1fr)]'>
           <aside className='border-b border-border-dim px-4 py-4 lg:border-r lg:border-b-0'>
-            <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>Mailbox</p>
+            <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
+              Mailbox
+            </p>
             {snapshot.address ? (
               <>
-                <p className='mt-3 text-xs font-medium uppercase tracking-[0.18em] text-ink-muted'>Address</p>
-                <p className='mt-2 break-all text-sm font-semibold text-accent'>{snapshot.address}</p>
+                <p className='mt-3 text-xs font-medium uppercase tracking-[0.18em] text-ink-muted'>
+                  Address
+                </p>
+                <p className='mt-2 break-all text-sm font-semibold text-accent'>
+                  {snapshot.address}
+                </p>
                 <div className='mt-4 flex flex-col gap-2'>
                   <button
                     className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
@@ -339,7 +353,9 @@ export function MailboxPage() {
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
                   >
-                    <RefreshCw className={`h-4 w-4 ${isBusy || isPollingActive ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                    />
                     Refresh
                   </button>
                   <button
@@ -371,9 +387,13 @@ export function MailboxPage() {
             )}
 
             <div className='mt-5 border-t border-border-dim pt-4'>
-              <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>Status</p>
+              <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                Status
+              </p>
               <p className='mt-2 text-sm text-ink-secondary'>
-                {snapshot.lastCheckedAt ? `Last checked ${formatTimestamp(snapshot.lastCheckedAt)}` : 'Not checked yet'}
+                {snapshot.lastCheckedAt
+                  ? `Last checked ${formatTimestamp(snapshot.lastCheckedAt)}`
+                  : 'Not checked yet'}
               </p>
               <p
                 className={`mt-2 text-sm ${
@@ -387,7 +407,8 @@ export function MailboxPage() {
                 {displayedStatusMessage}
               </p>
               <p className='mt-2 text-xs leading-relaxed text-ink-muted'>
-                The full-page inbox is for reading mail. Autofill works from the popup or sidebar on the site tab you want to fill.
+                The full-page inbox is for reading mail. Autofill works from the popup or sidebar on
+                the site tab you want to fill.
               </p>
             </div>
           </aside>
@@ -418,7 +439,9 @@ export function MailboxPage() {
                         : 'border-transparent hover:bg-surface-hover/80'
                     }`}
                     disabled={isBusy}
-                    onClick={() => void runCommand({ type: 'mailbox:open-message', messageId: message.id })}
+                    onClick={() =>
+                      void runCommand({ type: 'mailbox:open-message', messageId: message.id })
+                    }
                     type='button'
                   >
                     <div className='mt-1 flex w-2 shrink-0 justify-center'>
@@ -428,7 +451,9 @@ export function MailboxPage() {
                     </div>
                     <div className='min-w-0 flex-1'>
                       <div className='flex items-baseline justify-between gap-3'>
-                        <p className={`truncate text-sm ${!message.seen ? 'font-semibold text-ink' : 'font-medium text-ink-secondary'}`}>
+                        <p
+                          className={`truncate text-sm ${!message.seen ? 'font-semibold text-ink' : 'font-medium text-ink-secondary'}`}
+                        >
                           {message.subject}
                         </p>
                         <span className='shrink-0 text-[11px] text-ink-muted'>
@@ -436,7 +461,9 @@ export function MailboxPage() {
                         </span>
                       </div>
                       <p className='mt-1 truncate text-xs text-ink-muted'>{message.from}</p>
-                      <p className='mt-1 line-clamp-2 text-sm text-ink-secondary'>{message.intro}</p>
+                      <p className='mt-1 line-clamp-2 text-sm text-ink-secondary'>
+                        {message.intro}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -446,7 +473,9 @@ export function MailboxPage() {
                 <Mail className='h-6 w-6 opacity-30' />
                 <div className='space-y-1'>
                   <p className='text-sm text-ink'>No messages yet</p>
-                  <p className='max-w-xs text-xs'>Keep this tab open while signing up, then refresh or wait for new mail.</p>
+                  <p className='max-w-xs text-xs'>
+                    Keep this tab open while signing up, then refresh or wait for new mail.
+                  </p>
                 </div>
                 {!snapshot.address && (
                   <button

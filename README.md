@@ -28,12 +28,12 @@ SudoFill is a browser extension for short-lived signups. It gives you a disposab
 
 ## Surfaces
 
-| Browser | Surface | Notes |
-| ------- | ------- | ----- |
-| Firefox | Toolbar popup | Fast compact flow from the browser bar |
-| Chrome  | Side panel | Wider mailbox and autofill workflow |
-| Both    | Full-page mailbox | Better for reading and managing email |
-| Both    | Options page | Adjust autofill defaults and behavior |
+| Browser | Surface           | Notes                                  |
+| ------- | ----------------- | -------------------------------------- |
+| Firefox | Toolbar popup     | Fast compact flow from the browser bar |
+| Chrome  | Side panel        | Wider mailbox and autofill workflow    |
+| Both    | Full-page mailbox | Better for reading and managing email  |
+| Both    | Options page      | Adjust autofill defaults and behavior  |
 
 ## Core workflow
 

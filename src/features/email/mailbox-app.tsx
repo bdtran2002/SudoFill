@@ -242,6 +242,12 @@ export function MailboxApp() {
     setSidebarActionStatus({ tone: 'error', message, source: 'ui' });
   }
 
+  function clearUiActionError() {
+    setSidebarActionStatus((currentStatus) =>
+      currentStatus.source === 'ui' ? { tone: 'idle', message: '', source: null } : currentStatus,
+    );
+  }
+
   useEffect(() => {
     let disposed = false;
 
@@ -301,6 +307,7 @@ export function MailboxApp() {
     try {
       await copyTextToClipboard(snapshot.address);
       flash();
+      clearUiActionError();
     } catch (error) {
       reportUiActionFailure('copy-address', error);
     }
@@ -321,6 +328,7 @@ export function MailboxApp() {
 
   async function openAutofillSettings() {
     await callWebExtensionApi('runtime', 'openOptionsPage');
+    clearUiActionError();
     if (!isSidepanel) {
       window.close();
     }
@@ -346,9 +354,9 @@ export function MailboxApp() {
                   className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
-                    void openFirefoxSidebar().catch((error) =>
-                      reportUiActionFailure('open-sidebar', error),
-                    );
+                    void openFirefoxSidebar()
+                      .then(() => clearUiActionError())
+                      .catch((error) => reportUiActionFailure('open-sidebar', error));
                   }}
                   type='button'
                 >
@@ -360,9 +368,9 @@ export function MailboxApp() {
                 className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                 disabled={isBusy}
                 onClick={() => {
-                  void openFullMailboxPage().catch((error) =>
-                    reportUiActionFailure('open-full-page', error),
-                  );
+                  void openFullMailboxPage()
+                    .then(() => clearUiActionError())
+                    .catch((error) => reportUiActionFailure('open-full-page', error));
                 }}
                 type='button'
               >
@@ -389,9 +397,9 @@ export function MailboxApp() {
                   className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
-                    void closeFirefoxSidebar().catch((error) =>
-                      reportUiActionFailure('close-sidebar', error),
-                    );
+                    void closeFirefoxSidebar()
+                      .then(() => clearUiActionError())
+                      .catch((error) => reportUiActionFailure('close-sidebar', error));
                   }}
                   type='button'
                 >

@@ -378,6 +378,7 @@ export function MailboxPage() {
                         ? 'border-accent bg-accent-bg/40'
                         : 'border-transparent hover:bg-surface-hover/80'
                     }`}
+                    disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:open-message', messageId: message.id })}
                     type='button'
                   >

@@ -559,6 +559,7 @@ export function MailboxApp() {
                             ? 'bg-accent-bg'
                             : 'hover:bg-surface-hover'
                         }`}
+                        disabled={isBusy}
                         onClick={() =>
                           void runCommand({ type: 'mailbox:open-message', messageId: message.id })
                         }

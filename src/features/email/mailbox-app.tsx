@@ -86,6 +86,7 @@ type AutofillStatus =
 
 type SidebarActionStatus =
   | { tone: 'idle'; message: ''; source: null }
+  | { tone: 'success'; message: string; source: 'mailbox' }
   | { tone: 'error'; message: string; source: 'mailbox' | 'ui' };
 
 function MessagePanel({
@@ -198,13 +199,13 @@ export function MailboxApp() {
   }, [snapshot]);
 
   useEffect(() => {
-    if (sidebarActionStatus.tone !== 'error') {
+    if (sidebarActionStatus.tone === 'idle') {
       return undefined;
     }
 
     const timeout = window.setTimeout(() => {
       setSidebarActionStatus({ tone: 'idle', message: '', source: null });
-    }, 5000);
+    }, sidebarActionStatus.tone === 'success' ? 2200 : 5000);
 
     return () => {
       window.clearTimeout(timeout);
@@ -284,6 +285,24 @@ export function MailboxApp() {
         setSidebarActionStatus({
           tone: 'error',
           message: response.snapshot.error,
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:create') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Temporary mailbox created.',
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:refresh') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Mailbox refreshed.',
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:discard') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Mailbox discarded.',
           source: 'mailbox',
         });
       } else {
@@ -504,6 +523,18 @@ export function MailboxApp() {
               aria-live='assertive'
               className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'
               role='alert'
+            >
+              <p>{sidebarActionStatus.message}</p>
+            </div>
+          </div>
+        )}
+        {sidebarActionStatus.tone === 'success' && (
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
+            <div
+              aria-atomic='true'
+              aria-live='polite'
+              className='rounded-lg border border-accent/25 bg-accent-bg px-4 py-3 text-xs text-accent'
+              role='status'
             >
               <p>{sidebarActionStatus.message}</p>
             </div>

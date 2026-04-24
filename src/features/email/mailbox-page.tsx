@@ -28,10 +28,12 @@ function MessageDetail({
   snapshot,
   onBack,
   onOpenLink,
+  pendingMessageId,
 }: {
   snapshot: MailboxSnapshot;
   onBack: () => void;
   onOpenLink: (url: string) => void;
+  pendingMessageId: string | null;
 }) {
   if (!snapshot.selectedMessage) {
     return (
@@ -39,7 +41,9 @@ function MessageDetail({
         <div className='flex max-w-sm flex-col items-center gap-3 text-ink-muted'>
           <Mail className='h-6 w-6' />
           <p className='text-sm'>
-            {snapshot.selectedMessageId ? 'Loading message…' : 'Pick a message to read it here.'}
+            {pendingMessageId || snapshot.selectedMessageId
+              ? 'Loading message…'
+              : 'Pick a message to read it here.'}
           </p>
         </div>
       </section>
@@ -107,6 +111,7 @@ function MessageDetail({
 export function MailboxPage() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
   const [actionStatus, setActionStatus] = useState<MailboxActionStatus>({
     tone: 'idle',
@@ -172,6 +177,10 @@ export function MailboxPage() {
   }, [actionStatus]);
 
   async function runCommand(command: MailboxCommand) {
+    if (command.type === 'mailbox:open-message') {
+      setPendingMessageId(command.messageId);
+    }
+
     setIsBusy(true);
     try {
       const response = await sendMailboxCommand(command).catch((error) =>
@@ -193,6 +202,9 @@ export function MailboxPage() {
         setMobileDetailOpen(true);
       }
     } finally {
+      if (command.type === 'mailbox:open-message') {
+        setPendingMessageId(null);
+      }
       setIsBusy(false);
     }
   }
@@ -374,7 +386,7 @@ export function MailboxPage() {
                   <button
                     key={message.id}
                     className={`group flex w-full cursor-pointer items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors ${
-                      snapshot.selectedMessageId === message.id
+                      pendingMessageId === message.id || snapshot.selectedMessageId === message.id
                         ? 'border-accent bg-accent-bg/40'
                         : 'border-transparent hover:bg-surface-hover/80'
                     }`}
@@ -428,6 +440,7 @@ export function MailboxPage() {
             <MessageDetail
               onBack={() => setMobileDetailOpen(false)}
               onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+              pendingMessageId={pendingMessageId}
               snapshot={snapshot}
             />
           </div>

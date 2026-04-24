@@ -89,10 +89,12 @@ type SidebarActionStatus = { tone: 'idle'; message: '' } | { tone: 'error'; mess
 function MessagePanel({
   snapshot,
   onOpenLink,
+  pendingMessageId,
   isSidepanel,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
+  pendingMessageId: string | null;
   isSidepanel: boolean;
 }) {
   if (!snapshot.selectedMessage) {
@@ -105,7 +107,9 @@ function MessagePanel({
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
           <span className='text-sm'>
-            {snapshot.selectedMessageId ? 'Loading message…' : 'Select a message to read it'}
+            {pendingMessageId || snapshot.selectedMessageId
+              ? 'Loading message…'
+              : 'Select a message to read it'}
           </span>
         </div>
       </section>
@@ -166,6 +170,7 @@ function MessagePanel({
 export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
@@ -245,6 +250,10 @@ export function MailboxApp() {
   }, [isVisible]);
 
   async function runCommand(command: MailboxCommand) {
+    if (command.type === 'mailbox:open-message') {
+      setPendingMessageId(command.messageId);
+    }
+
     setIsBusy(true);
     try {
       const response = await sendMailboxCommand(command).catch((error) =>
@@ -252,6 +261,9 @@ export function MailboxApp() {
       );
       setSnapshot(response.snapshot);
     } finally {
+      if (command.type === 'mailbox:open-message') {
+        setPendingMessageId(null);
+      }
       setIsBusy(false);
     }
   }
@@ -555,7 +567,7 @@ export function MailboxApp() {
                       <button
                         key={message.id}
                         className={`group flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors ${
-                          snapshot.selectedMessageId === message.id
+                          pendingMessageId === message.id || snapshot.selectedMessageId === message.id
                             ? 'bg-accent-bg'
                             : 'hover:bg-surface-hover'
                         }`}
@@ -599,6 +611,7 @@ export function MailboxApp() {
                   <MessagePanel
                     isSidepanel={isSidepanel}
                     onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+                    pendingMessageId={pendingMessageId}
                     snapshot={snapshot}
                   />
                 </div>

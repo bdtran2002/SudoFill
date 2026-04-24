@@ -335,6 +335,7 @@ function openMessage(messageId: string): ResultAsync<void, MailboxError> {
   }
 
   activeSession.selectedMessageId = messageId;
+  activeSession.selectedMessage = null;
   activeSession.unreadMessageIds = activeSession.unreadMessageIds.filter((id) => id !== messageId);
   activeSession.messages = activeSession.messages.map((message) =>
     message.id === messageId ? { ...message, seen: true } : message,

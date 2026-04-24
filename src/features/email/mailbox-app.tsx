@@ -383,7 +383,7 @@ export function MailboxApp() {
     >
       <div
         className={`flex min-h-0 w-full flex-1 flex-col overflow-y-auto ${
-          isSidepanel ? 'sidepanel-scroll-region' : ''
+          isSidepanel ? 'sidepanel-scroll-region' : 'popup-scroll-region'
         }`}
       >
         <header className='animate-fade-in px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4'>
@@ -396,7 +396,12 @@ export function MailboxApp() {
                   disabled={isBusy}
                   onClick={() => {
                     void openFirefoxSidebar()
-                      .then(() => clearUiActionError())
+                      .then(() => {
+                        clearUiActionError();
+                        if (!isSidepanel) {
+                          window.close();
+                        }
+                      })
                       .catch((error) => reportUiActionFailure('open-sidebar', error));
                   }}
                   type='button'

@@ -68,6 +68,11 @@ async function openFullMailboxPage() {
 
   if (existingTab?.id !== undefined) {
     await callWebExtensionApi('tabs', 'update', existingTab.id, { active: true });
+
+    if (existingTab.windowId !== undefined) {
+      await Promise.resolve(chrome.windows.update(existingTab.windowId, { focused: true }));
+    }
+
     return;
   }
 

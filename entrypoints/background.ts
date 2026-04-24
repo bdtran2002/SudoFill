@@ -516,11 +516,18 @@ export default defineBackground(() => {
           openMailboxUiInstanceIds.delete(message.instanceId);
         }
 
+        let clearedNotificationIds = false;
         if (!isMailboxUiOpen()) {
           lastMailboxUiClosedAt = Date.now();
-        } else if (activeSession) {
+        } else if (activeSession?.browserNotificationMessageIds.length) {
           activeSession.browserNotificationMessageIds = [];
+          clearedNotificationIds = true;
         }
+
+        if (clearedNotificationIds) {
+          void writeSessionToStorage().orElse(() => okAsync(undefined));
+        }
+
         schedulePoll();
         currentSnapshot = {
           ...currentSnapshot,

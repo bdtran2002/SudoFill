@@ -60,9 +60,17 @@ async function closeFirefoxSidebar(): Promise<void> {
 }
 
 async function openFullMailboxPage() {
-  await callWebExtensionApi('tabs', 'create', {
-    url: chrome.runtime.getURL('mailbox.html'),
+  const mailboxUrl = chrome.runtime.getURL('mailbox.html');
+  const [existingTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    url: mailboxUrl,
   });
+
+  if (existingTab?.id !== undefined) {
+    await callWebExtensionApi('tabs', 'update', existingTab.id, { active: true });
+    return;
+  }
+
+  await callWebExtensionApi('tabs', 'create', { url: mailboxUrl });
 }
 
 type AutofillStatus =

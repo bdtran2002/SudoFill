@@ -44,13 +44,7 @@ function copyDir(sourcePath, destinationPath) {
 }
 
 function deleteRecursively(dirPath) {
-  if (!fs.existsSync(dirPath)) return;
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-    const fullPath = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) deleteRecursively(fullPath);
-    else fs.unlinkSync(fullPath);
-  }
-  fs.rmdirSync(dirPath);
+  fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
 let quarantinedTargetDir = null;

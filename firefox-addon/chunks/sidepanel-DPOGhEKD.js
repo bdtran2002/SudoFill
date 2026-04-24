@@ -1,0 +1,1 @@
+import{p as e,t}from"./jsx-runtime-ItrKUa1B.js";import{t as n}from"./mailbox-app-Cg2EqKBc.js";var r=e(),i=t();(0,r.createRoot)(document.getElementById(`root`)).render((0,i.jsx)(n,{}));

@@ -69,53 +69,52 @@ try {
   if (!fs.existsSync(sourceDir)) {
     console.error(`Missing source bundle: ${path.relative(repoRoot, sourceDir)}`);
     exitCode = 1;
-    return;
-  }
-
-  const sourceFiles = walk(sourceDir, sourceDir);
-  const targetSnapshotDir = mode === 'check' ? quarantinedTargetDir : targetDir;
-  const targetFiles = walk(targetSnapshotDir, targetSnapshotDir);
-  const sourceSet = new Set(sourceFiles);
-  const targetSet = new Set(targetFiles);
-
-  const missing = sourceFiles.filter((file) => !targetSet.has(file));
-  const extra = targetFiles.filter((file) => !sourceSet.has(file));
-  const different = [];
-
-  for (const file of sourceFiles) {
-    if (!targetSet.has(file)) continue;
-    const sourceBytes = fs.readFileSync(path.join(sourceDir, file));
-    const targetBytes = fs.readFileSync(path.join(targetSnapshotDir, file));
-    if (!sourceBytes.equals(targetBytes)) different.push(file);
-  }
-
-  const hasDiff = missing.length > 0 || extra.length > 0 || different.length > 0;
-
-  if (mode === 'check') {
-    if (!hasDiff) {
-      console.log('firefox-addon bundle is up to date.');
-    } else {
-      console.error('firefox-addon bundle is out of date.');
-      if (missing.length) console.error(`Missing in firefox-addon: ${missing.join(', ')}`);
-      if (extra.length) console.error(`Extra in firefox-addon: ${extra.join(', ')}`);
-      if (different.length) console.error(`Different content: ${different.join(', ')}`);
-      exitCode = 1;
-    }
   } else {
-    if (fs.existsSync(targetDir)) {
-      deleteRecursively(targetDir);
-    }
-    ensureDir(targetDir);
+    const sourceFiles = walk(sourceDir, sourceDir);
+    const targetSnapshotDir = mode === 'check' ? quarantinedTargetDir : targetDir;
+    const targetFiles = walk(targetSnapshotDir, targetSnapshotDir);
+    const sourceSet = new Set(sourceFiles);
+    const targetSet = new Set(targetFiles);
+
+    const missing = sourceFiles.filter((file) => !targetSet.has(file));
+    const extra = targetFiles.filter((file) => !sourceSet.has(file));
+    const different = [];
+
     for (const file of sourceFiles) {
-      const src = path.join(sourceDir, file);
-      const dest = path.join(targetDir, file);
-      ensureDir(path.dirname(dest));
-      fs.copyFileSync(src, dest);
+      if (!targetSet.has(file)) continue;
+      const sourceBytes = fs.readFileSync(path.join(sourceDir, file));
+      const targetBytes = fs.readFileSync(path.join(targetSnapshotDir, file));
+      if (!sourceBytes.equals(targetBytes)) different.push(file);
     }
 
-    console.log(
-      `Synced ${sourceFiles.length} files from ${path.relative(repoRoot, sourceDir)} to ${path.relative(repoRoot, targetDir)}.`,
-    );
+    const hasDiff = missing.length > 0 || extra.length > 0 || different.length > 0;
+
+    if (mode === 'check') {
+      if (!hasDiff) {
+        console.log('firefox-addon bundle is up to date.');
+      } else {
+        console.error('firefox-addon bundle is out of date.');
+        if (missing.length) console.error(`Missing in firefox-addon: ${missing.join(', ')}`);
+        if (extra.length) console.error(`Extra in firefox-addon: ${extra.join(', ')}`);
+        if (different.length) console.error(`Different content: ${different.join(', ')}`);
+        exitCode = 1;
+      }
+    } else {
+      if (fs.existsSync(targetDir)) {
+        deleteRecursively(targetDir);
+      }
+      ensureDir(targetDir);
+      for (const file of sourceFiles) {
+        const src = path.join(sourceDir, file);
+        const dest = path.join(targetDir, file);
+        ensureDir(path.dirname(dest));
+        fs.copyFileSync(src, dest);
+      }
+
+      console.log(
+        `Synced ${sourceFiles.length} files from ${path.relative(repoRoot, sourceDir)} to ${path.relative(repoRoot, targetDir)}.`,
+      );
+    }
   }
 } finally {
   if (mode === 'check' && quarantinedTargetDir) {

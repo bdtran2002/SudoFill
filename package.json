@@ -22,8 +22,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "release:check": "node scripts/verify-release-version.mjs",
-    "firefox-addon:check": "bun run build:firefox && node scripts/sync-firefox-addon-bundle.mjs",
-    "firefox-addon:sync": "bun run build:firefox && node scripts/sync-firefox-addon-bundle.mjs --sync",
+    "firefox-addon:check": "node scripts/sync-firefox-addon-bundle.mjs",
+    "firefox-addon:sync": "node scripts/sync-firefox-addon-bundle.mjs --sync",
     "release:check:artifacts": "node scripts/verify-release-version.mjs --check-generated",
     "postinstall": "wxt prepare"
   },

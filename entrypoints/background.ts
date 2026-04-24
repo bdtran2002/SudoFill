@@ -353,24 +353,41 @@ function discardMailbox(): ResultAsync<void, MailboxError> {
 }
 
 function openMessage(messageId: string): ResultAsync<void, MailboxError> {
-  if (!activeSession) {
+  const session = activeSession;
+
+  if (!session) {
     return errAsync({
       type: 'mailbox-missing-session',
       message: 'Create a mailbox first',
     });
   }
 
-  return getMailTmMessage(activeSession.token, messageId)
+  return getMailTmMessage(session.token, messageId)
     .andThen((message) => {
-      activeSession!.selectedMessageId = messageId;
-      activeSession!.selectedMessage = message;
-      activeSession!.unreadMessageIds = activeSession!.unreadMessageIds.filter((id) => id !== messageId);
-      activeSession!.messages = activeSession!.messages.map((summary) =>
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
+      session.selectedMessageId = messageId;
+      session.selectedMessage = message;
+      session.unreadMessageIds = session.unreadMessageIds.filter((id) => id !== messageId);
+      session.messages = session.messages.map((summary) =>
         summary.id === messageId ? { ...summary, seen: true } : summary,
       );
+
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
       return writeSessionToStorage();
     })
-    .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)));
+    .andThen(() => {
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
+      return updateSnapshot(toMailboxSnapshot(session));
+    });
 }
 
 function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {

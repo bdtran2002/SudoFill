@@ -17,6 +17,8 @@ import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   copyTextToClipboard,
   formatTimestamp,
+  MAILBOX_AUTOFILL_IDLE_MESSAGE,
+  MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE,
   runMailboxAutofillFlow,
   sendMailboxCommand,
   toTransportFailureResponse,
@@ -180,7 +182,7 @@ export function MailboxApp() {
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
-    message: 'Generate a profile, then fill the page you already have open.',
+    message: MAILBOX_AUTOFILL_IDLE_MESSAGE,
   });
   const [sidebarActionStatus, setSidebarActionStatus] = useState<SidebarActionStatus>({
     tone: 'idle',
@@ -204,6 +206,16 @@ export function MailboxApp() {
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useEffect(() => {
+    if (
+      snapshot.address &&
+      autofillStatus.tone === 'error' &&
+      autofillStatus.message === MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE
+    ) {
+      setAutofillStatus({ tone: 'idle', message: MAILBOX_AUTOFILL_IDLE_MESSAGE });
+    }
+  }, [autofillStatus, snapshot.address]);
 
   useEffect(() => {
     if (sidebarActionStatus.tone === 'idle') {

@@ -106,6 +106,11 @@ export function useMailboxUiVisibilityReporting(isVisible: boolean) {
 
 type AutofillStatusSetter = (status: { tone: 'idle' | 'success' | 'error'; message: string }) => void;
 
+export const MAILBOX_AUTOFILL_IDLE_MESSAGE =
+  'Generate a profile, then fill the page you already have open.';
+export const MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE =
+  'Create a temp mailbox first, then run autofill.';
+
 export async function runMailboxAutofillFlow({
   snapshotAddress,
   setAutofillStatus,
@@ -119,7 +124,7 @@ export async function runMailboxAutofillFlow({
 
   try {
     if (!snapshotAddress) {
-      setAutofillStatus({ tone: 'error', message: 'Create a temp mailbox first, then run autofill.' });
+      setAutofillStatus({ tone: 'error', message: MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE });
       return;
     }
 

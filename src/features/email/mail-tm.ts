@@ -195,9 +195,11 @@ export function createMailTmSession(): ResultAsync<ActiveMailboxSession, Mailbox
       account: MailTmAccount;
       credentials: { address: string; password: string };
     }) =>
-      mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials)).map((tokenResponse) =>
-        createMailTmSessionSnapshot(account, credentials.password, tokenResponse.token),
-      );
+      mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials))
+        .orElse(() => mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials)))
+        .map((tokenResponse) =>
+          createMailTmSessionSnapshot(account, credentials.password, tokenResponse.token),
+        );
 
     return createAccountWithRetry(createMailTmCredentials(availableDomains)).andThen(
       createSessionFromAccount,

@@ -180,6 +180,71 @@ describe('mail-tm', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('retries token creation once with the same credentials', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-1', address: 'abcdefghijkl@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({ token: 'token-1' }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(false);
+    if (result.isOk()) {
+      expect(result.value).toMatchObject({
+        address: 'abcdefghijkl@public.example',
+        password: 'abcdefghijklmnopqrst',
+        token: 'token-1',
+        accountId: 'acct-1',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
+      address: 'abcdefghijkl@public.example',
+      password: 'abcdefghijklmnopqrst',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toEqual({
+      address: 'abcdefghijkl@public.example',
+      password: 'abcdefghijklmnopqrst',
+    });
+  });
+
+  it('returns the retry error when token creation still fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-1', address: 'abcdefghijkl@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 401 }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toEqual({
+        type: 'mail-tm-request',
+        status: 401,
+        message: 'Mail.tm request failed with 401',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it('returns no-domain error when no eligible domains exist', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockJsonResponse({

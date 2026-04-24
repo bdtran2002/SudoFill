@@ -34,7 +34,9 @@ let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
-let mailboxUiOpen = false;
+let pendingForcedPoll = false;
+let pendingForcedPollWaiters: Array<() => void> = [];
+const openMailboxUiInstanceIds = new Set<string>();
 let lastMailboxUiClosedAt = 0;
 
 type ActionLikeApi = {
@@ -53,7 +55,12 @@ type FirefoxBrowserApi = {
 type MailboxUiVisibilityMessage = {
   type: 'mailbox-ui-visibility';
   visible: boolean;
+  instanceId: string;
 };
+
+function isMailboxUiOpen() {
+  return openMailboxUiInstanceIds.size > 0;
+}
 
 function getFirefoxBrowserApi(): FirefoxBrowserApi | undefined {
   return (
@@ -127,7 +134,10 @@ function writeSessionToStorage(): ResultAsync<void, MailboxError> {
   );
 }
 
-function setBadge(unreadCount: number, error: string | null): ResultAsync<void, MailboxError> {
+function setBadge(
+  notificationCount: number,
+  error: string | null,
+): ResultAsync<void, MailboxError> {
   const actionApi = getActionApi();
 
   if (!actionApi?.setBadgeBackgroundColor || !actionApi.setBadgeText) {
@@ -136,7 +146,7 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
 
   const setBadgeBackgroundColor = actionApi.setBadgeBackgroundColor;
   const setBadgeText = actionApi.setBadgeText;
-  const hasUnread = unreadCount > 0;
+  const hasUnread = notificationCount > 0;
 
   return fromBrowserPromise(
     setBadgeBackgroundColor({
@@ -146,7 +156,7 @@ function setBadge(unreadCount: number, error: string | null): ResultAsync<void, 
   ).andThen(() =>
     fromBrowserPromise(
       setBadgeText({
-        text: error ? '!' : hasUnread ? String(Math.min(unreadCount, 99)) : '',
+        text: error ? '!' : hasUnread ? String(Math.min(notificationCount, 99)) : '',
       }),
       'Failed to update extension badge',
     ),
@@ -158,7 +168,7 @@ function updateSnapshot(snapshot: MailboxSnapshot): ResultAsync<void, MailboxErr
     ...snapshot,
     pollingActive: shouldPollActively(),
   };
-  return setBadge(currentSnapshot.unreadCount, currentSnapshot.error);
+  return setBadge(activeSession?.browserNotificationMessageIds.length ?? 0, currentSnapshot.error);
 }
 
 function clearPollTimer() {
@@ -171,12 +181,12 @@ function clearPollTimer() {
 function shouldPollActively() {
   return (
     Boolean(activeSession) &&
-    (mailboxUiOpen || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS)
+    (isMailboxUiOpen() || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS)
   );
 }
 
 function getNextPollDelayMs() {
-  return mailboxUiOpen ? UI_OPEN_POLL_INTERVAL_MS : UI_CLOSED_POLL_INTERVAL_MS;
+  return isMailboxUiOpen() ? UI_OPEN_POLL_INTERVAL_MS : UI_CLOSED_POLL_INTERVAL_MS;
 }
 
 function schedulePoll() {
@@ -226,10 +236,14 @@ function syncMessages(
 ) {
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
+  const browserNotificationMessageIds = new Set(session.browserNotificationMessageIds);
 
   for (const message of nextMessages) {
     if (!session.knownMessageIds.includes(message.id)) {
       unreadMessageIds.add(message.id);
+      if (!isMailboxUiOpen()) {
+        browserNotificationMessageIds.add(message.id);
+      }
     }
   }
 
@@ -238,6 +252,9 @@ function syncMessages(
   session.unreadMessageIds = [...unreadMessageIds].filter((messageId) =>
     nextMessageIds.has(messageId),
   );
+  session.browserNotificationMessageIds = isMailboxUiOpen()
+    ? []
+    : [...browserNotificationMessageIds].filter((messageId) => nextMessageIds.has(messageId));
   session.lastCheckedAt = new Date().toISOString();
 
   if (session.selectedMessageId && !nextMessageIds.has(session.selectedMessageId)) {
@@ -246,12 +263,23 @@ function syncMessages(
   }
 }
 
+function isCurrentSession(session: ActiveMailboxSession) {
+  return activeSession === session;
+}
+
 function pollMailbox(force = false) {
   if (!activeSession) {
     return Promise.resolve();
   }
 
   if (pollInFlight) {
+    if (force) {
+      pendingForcedPoll = true;
+      return new Promise<void>((resolve) => {
+        pendingForcedPollWaiters.push(resolve);
+      });
+    }
+
     return pollInFlight;
   }
 
@@ -266,10 +294,18 @@ function pollMailbox(force = false) {
 
     await listMailTmMessages(session.token)
       .andThen((messages) => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
         syncMessages(session, messages);
 
         if (session.selectedMessageId && (!session.selectedMessage || force)) {
           return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {
+            if (!isCurrentSession(session)) {
+              return okAsync(undefined);
+            }
+
             session.selectedMessage = message;
             return okAsync(undefined);
           });
@@ -277,18 +313,44 @@ function pollMailbox(force = false) {
 
         return okAsync(undefined);
       })
-      .andThen(() => writeSessionToStorage())
-      .andThen(() => updateSnapshot(toMailboxSnapshot(session)))
+      .andThen(() => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
+        return writeSessionToStorage();
+      })
+      .andThen(() => {
+        if (!isCurrentSession(session)) {
+          return okAsync(undefined);
+        }
+
+        return updateSnapshot(toMailboxSnapshot(session));
+      })
       .orElse((error) =>
-        updateSnapshot(toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) })).orElse(
-          () => okAsync(undefined),
-        ),
+        !isCurrentSession(session)
+          ? okAsync(undefined)
+          : updateSnapshot(
+              toMailboxSnapshot(session, { error: toMailboxErrorMessage(error) }),
+            ).orElse(() => okAsync(undefined)),
       );
 
-    {
-      pollInFlight = null;
-      schedulePoll();
+    const shouldRunForcedFollowUp = pendingForcedPoll;
+    const forcedPollWaiters = pendingForcedPollWaiters;
+    pendingForcedPoll = false;
+    pendingForcedPollWaiters = [];
+    pollInFlight = null;
+
+    if (shouldRunForcedFollowUp && activeSession) {
+      void pollMailbox(true).finally(() => {
+        forcedPollWaiters.forEach((resolve) => resolve());
+      });
+      return;
     }
+
+    forcedPollWaiters.forEach((resolve) => resolve());
+
+    schedulePoll();
   })();
 
   return pollInFlight;
@@ -318,24 +380,41 @@ function discardMailbox(): ResultAsync<void, MailboxError> {
 }
 
 function openMessage(messageId: string): ResultAsync<void, MailboxError> {
-  if (!activeSession) {
+  const session = activeSession;
+
+  if (!session) {
     return errAsync({
       type: 'mailbox-missing-session',
       message: 'Create a mailbox first',
     });
   }
 
-  activeSession.selectedMessageId = messageId;
-  activeSession.unreadMessageIds = activeSession.unreadMessageIds.filter((id) => id !== messageId);
-  activeSession.messages = activeSession.messages.map((message) =>
-    message.id === messageId ? { ...message, seen: true } : message,
-  );
-  return getMailTmMessage(activeSession.token, messageId)
+  return getMailTmMessage(session.token, messageId)
     .andThen((message) => {
-      activeSession!.selectedMessage = message;
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
+      session.selectedMessageId = messageId;
+      session.selectedMessage = message;
+      session.unreadMessageIds = session.unreadMessageIds.filter((id) => id !== messageId);
+      session.messages = session.messages.map((summary) =>
+        summary.id === messageId ? { ...summary, seen: true } : summary,
+      );
+
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
       return writeSessionToStorage();
     })
-    .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)));
+    .andThen(() => {
+      if (!isCurrentSession(session)) {
+        return okAsync(undefined);
+      }
+
+      return updateSnapshot(toMailboxSnapshot(session));
+    });
 }
 
 function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
@@ -351,7 +430,10 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
     }
 
-    activeSession = session;
+    activeSession = {
+      ...session,
+      browserNotificationMessageIds: session.browserNotificationMessageIds ?? [],
+    };
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
       .andThen(() => {
@@ -439,15 +521,38 @@ export default defineBackground(() => {
         message.type === 'mailbox-ui-visibility' &&
         'visible' in message
       ) {
-        mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
-        if (!mailboxUiOpen) {
-          lastMailboxUiClosedAt = Date.now();
+        if (typeof message.instanceId !== 'string' || !message.instanceId) {
+          sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
+          return true;
         }
+
+        if (message.visible) {
+          openMailboxUiInstanceIds.add(message.instanceId);
+        } else {
+          openMailboxUiInstanceIds.delete(message.instanceId);
+        }
+
+        let clearedNotificationIds = false;
+        if (!isMailboxUiOpen()) {
+          lastMailboxUiClosedAt = Date.now();
+        } else if (activeSession?.browserNotificationMessageIds.length) {
+          activeSession.browserNotificationMessageIds = [];
+          clearedNotificationIds = true;
+        }
+
+        if (clearedNotificationIds) {
+          void writeSessionToStorage().orElse(() => okAsync(undefined));
+        }
+
         schedulePoll();
         currentSnapshot = {
           ...currentSnapshot,
           pollingActive: shouldPollActively(),
         };
+        void setBadge(
+          activeSession?.browserNotificationMessageIds.length ?? 0,
+          currentSnapshot.error,
+        );
         sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
         return true;
       }

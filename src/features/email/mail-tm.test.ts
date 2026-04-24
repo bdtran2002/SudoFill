@@ -5,6 +5,9 @@ vi.mock('@faker-js/faker', () => ({
     string: {
       alphanumeric: vi.fn(),
     },
+    helpers: {
+      arrayElement: vi.fn(),
+    },
   },
 }));
 
@@ -15,9 +18,11 @@ import {
   deleteMailTmAccount,
   getMailTmMessage,
   listMailTmMessages,
+  listAvailableMailTmDomains,
 } from './mail-tm';
 
 const alphanumericMock = faker.string.alphanumeric as unknown as ReturnType<typeof vi.fn>;
+const arrayElementMock = faker.helpers.arrayElement as unknown as ReturnType<typeof vi.fn>;
 
 const session = {
   address: 'test@example.com',
@@ -29,6 +34,7 @@ const session = {
   selectedMessage: null,
   unreadMessageIds: [],
   knownMessageIds: [],
+  browserNotificationMessageIds: [],
   lastCheckedAt: null,
   createdAt: '2025-01-01T00:00:00.000Z',
 };
@@ -47,10 +53,12 @@ describe('mail-tm', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
     alphanumericMock.mockReset();
+    arrayElementMock.mockReset();
     alphanumericMock.mockImplementation((options?: number | { length?: number }) => {
       const length = typeof options === 'number' ? options : options?.length;
       return length === 20 ? 'abcdefghijklmnopqrst' : 'abcdefghijkl';
     });
+    arrayElementMock.mockImplementation((items: string[]) => items[0]);
   });
 
   it('creates a session from the first active public domain', async () => {
@@ -78,6 +86,7 @@ describe('mail-tm', () => {
         password: 'abcdefghijklmnopqrst',
         token: 'token-1',
         accountId: 'acct-1',
+        browserNotificationMessageIds: [],
         messages: [],
         selectedMessageId: null,
         selectedMessage: null,
@@ -100,6 +109,142 @@ describe('mail-tm', () => {
     });
   });
 
+  it('retries account creation once with fresh credentials', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    alphanumericMock
+      .mockReturnValueOnce('firstaddress')
+      .mockReturnValueOnce('firstpassword1234567')
+      .mockReturnValueOnce('secondaddress')
+      .mockReturnValueOnce('secondpassword12345');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 422 }));
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-2', address: 'secondaddress@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({ token: 'token-2' }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(false);
+    if (result.isOk()) {
+      expect(result.value).toMatchObject({
+        address: 'secondaddress@public.example',
+        password: 'secondpassword12345',
+        token: 'token-2',
+        accountId: 'acct-2',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      address: 'firstaddress@public.example',
+      password: 'firstpassword1234567',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
+      address: 'secondaddress@public.example',
+      password: 'secondpassword12345',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toEqual({
+      address: 'secondaddress@public.example',
+      password: 'secondpassword12345',
+    });
+  });
+
+  it('returns the retry error when account creation still fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 422 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toEqual({
+        type: 'mail-tm-request',
+        status: 503,
+        message: 'Mail.tm request failed with 503',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries token creation once with the same credentials', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-1', address: 'abcdefghijkl@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({ token: 'token-1' }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(false);
+    if (result.isOk()) {
+      expect(result.value).toMatchObject({
+        address: 'abcdefghijkl@public.example',
+        password: 'abcdefghijklmnopqrst',
+        token: 'token-1',
+        accountId: 'acct-1',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
+      address: 'abcdefghijkl@public.example',
+      password: 'abcdefghijklmnopqrst',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toEqual({
+      address: 'abcdefghijkl@public.example',
+      password: 'abcdefghijklmnopqrst',
+    });
+  });
+
+  it('returns the retry error when token creation still fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-1', address: 'abcdefghijkl@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 401 }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toEqual({
+        type: 'mail-tm-request',
+        status: 401,
+        message: 'Mail.tm request failed with 401',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it('returns no-domain error when no eligible domains exist', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockJsonResponse({
@@ -118,6 +263,26 @@ describe('mail-tm', () => {
         type: 'mail-tm-no-domain',
         message: 'No Mail.tm domains are currently available',
       });
+    }
+  });
+
+  it('lists all active public domains', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      mockJsonResponse({
+        'hydra:member': [
+          { domain: 'private.example', isActive: true, isPrivate: true },
+          { domain: 'inactive.example', isActive: false, isPrivate: false },
+          { domain: 'one.example', isActive: true, isPrivate: false },
+          { domain: 'two.example', isActive: true, isPrivate: false },
+        ],
+      }),
+    );
+
+    const result = await listAvailableMailTmDomains();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual(['one.example', 'two.example']);
     }
   });
 

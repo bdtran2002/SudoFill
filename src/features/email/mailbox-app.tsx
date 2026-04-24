@@ -12,72 +12,20 @@ import {
   X,
 } from 'lucide-react';
 
-import {
-  getAutofillErrorMessage,
-  getAutofillResponseMessage,
-  getInvalidAutofillResponseMessage,
-  isAutofillContentResponse,
-  normalizeAutofillTabError,
-} from '../autofill/popup-errors';
-import { generateAutofillProfile } from '../autofill/profile';
-import { getStoredAutofillSettings } from '../autofill/settings';
-import type { AutofillContentResponse } from '../autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
-import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import type { MailboxCommand, MailboxSnapshot } from './types';
+import {
+  copyTextToClipboard,
+  formatTimestamp,
+  MAILBOX_AUTOFILL_IDLE_MESSAGE,
+  MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE,
+  runMailboxAutofillFlow,
+  sendMailboxCommand,
+  toTransportFailureResponse,
+  useCopiedFlash,
+  useMailboxUiVisibilityReporting,
+} from './mailbox-shared';
 import { callWebExtensionApi } from '../../lib/webext-async';
-
-function toTransportFailureResponse(
-  error: unknown,
-  command: MailboxCommand,
-  snapshot: MailboxSnapshot,
-): MailboxResponse {
-  const message = error instanceof Error ? error.message : 'Mailbox request failed';
-  const diagnostics: MailboxDiagnostics = {
-    command: command.type,
-    phase: 'sendMessage',
-    errorType: 'transport',
-  };
-
-  return {
-    ok: false,
-    error: message,
-    diagnostics,
-    snapshot: {
-      ...snapshot,
-      status: snapshot.address ? 'active' : 'error',
-      error: message,
-      diagnostics,
-    },
-  };
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
-}
-
-async function sendMailboxCommand(command: MailboxCommand) {
-  return (await callWebExtensionApi<MailboxResponse>(
-    'runtime',
-    'sendMessage',
-    command,
-  )) as MailboxResponse;
-}
-
-function useCopiedFlash() {
-  const [copied, setCopied] = useState(false);
-
-  function flash() {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  return { copied, flash } as const;
-}
 
 type FirefoxSidebarActionApi = {
   open?: () => Promise<void> | void;
@@ -114,23 +62,50 @@ async function closeFirefoxSidebar(): Promise<void> {
   await sidebarAction.close();
 }
 
+async function openFullMailboxPage() {
+  const mailboxUrl = chrome.runtime.getURL('mailbox.html');
+  const [existingTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    url: mailboxUrl,
+  });
+
+  if (existingTab?.id !== undefined) {
+    await callWebExtensionApi('tabs', 'update', existingTab.id, { active: true });
+
+    if (existingTab.windowId !== undefined) {
+      await Promise.resolve(chrome.windows.update(existingTab.windowId, { focused: true }));
+    }
+
+    return;
+  }
+
+  await callWebExtensionApi('tabs', 'create', { url: mailboxUrl });
+}
+
 type AutofillStatus =
   | { tone: 'idle'; message: string }
   | { tone: 'success'; message: string }
   | { tone: 'error'; message: string };
 
-type SidebarActionStatus = { tone: 'idle'; message: '' } | { tone: 'error'; message: string };
+type SidebarActionStatus =
+  | { tone: 'idle'; message: ''; source: null }
+  | { tone: 'success'; message: string; source: 'mailbox' }
+  | { tone: 'error'; message: string; source: 'mailbox' | 'ui' };
 
 function MessagePanel({
   snapshot,
   onOpenLink,
+  pendingMessageId,
   isSidepanel,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
+  pendingMessageId: string | null;
   isSidepanel: boolean;
 }) {
-  if (!snapshot.selectedMessage) {
+  const isPendingDifferentMessage =
+    pendingMessageId !== null && pendingMessageId !== snapshot.selectedMessageId;
+
+  if (!snapshot.selectedMessage || isPendingDifferentMessage) {
     return (
       <section
         className={`flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center ${
@@ -139,7 +114,11 @@ function MessagePanel({
       >
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
-          <span className='text-sm'>Select a message to read it</span>
+          <span className='text-sm'>
+            {pendingMessageId || snapshot.selectedMessageId
+              ? 'Loading message…'
+              : 'Select a message to read it'}
+          </span>
         </div>
       </section>
     );
@@ -199,30 +178,56 @@ function MessagePanel({
 export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
+  const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
-  const sentVisibleRef = useRef(false);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
-    message: 'Generate a profile, then fill the page you already have open.',
+    message: MAILBOX_AUTOFILL_IDLE_MESSAGE,
   });
   const [sidebarActionStatus, setSidebarActionStatus] = useState<SidebarActionStatus>({
     tone: 'idle',
     message: '',
+    source: null,
   });
   const { copied, flash } = useCopiedFlash();
+  const snapshotRef = useRef(snapshot);
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
   const isPollingActive = snapshot.pollingActive;
+  const shouldShowPersistentMailboxError =
+    Boolean(snapshot.error) &&
+    !(
+      sidebarActionStatus.tone === 'error' &&
+      sidebarActionStatus.source === 'mailbox' &&
+      sidebarActionStatus.message === snapshot.error
+    );
 
   useEffect(() => {
-    if (sidebarActionStatus.tone !== 'error') {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (
+      snapshot.address &&
+      autofillStatus.tone === 'error' &&
+      autofillStatus.message === MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE
+    ) {
+      setAutofillStatus({ tone: 'idle', message: MAILBOX_AUTOFILL_IDLE_MESSAGE });
+    }
+  }, [autofillStatus, snapshot.address]);
+
+  useEffect(() => {
+    if (sidebarActionStatus.tone === 'idle') {
       return undefined;
     }
 
-    const timeout = window.setTimeout(() => {
-      setSidebarActionStatus({ tone: 'idle', message: '' });
-    }, 5000);
+    const timeout = window.setTimeout(
+      () => {
+        setSidebarActionStatus({ tone: 'idle', message: '', source: null });
+      },
+      sidebarActionStatus.tone === 'success' ? 2200 : 5000,
+    );
 
     return () => {
       window.clearTimeout(timeout);
@@ -240,30 +245,30 @@ export function MailboxApp() {
     };
   }, []);
 
-  useEffect(() => {
-    sentVisibleRef.current = isVisible;
+  useMailboxUiVisibilityReporting(isVisible);
 
-    void callWebExtensionApi('runtime', 'sendMessage', {
-      type: 'mailbox-ui-visibility',
-      visible: isVisible,
-    }).catch(() => undefined);
-  }, [isVisible]);
-
-  useEffect(() => {
-    return () => {
-      sentVisibleRef.current = false;
-
-      void callWebExtensionApi('runtime', 'sendMessage', {
-        type: 'mailbox-ui-visibility',
-        visible: false,
-      }).catch(() => undefined);
-    };
-  }, []);
-
-  function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
-    const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
+  function reportUiActionFailure(
+    action: 'open-sidebar' | 'close-sidebar' | 'open-full-page' | 'open-settings' | 'copy-address',
+    error: unknown,
+  ) {
+    const message =
+      action === 'open-sidebar'
+        ? 'Failed to open sidebar'
+        : action === 'close-sidebar'
+          ? 'Failed to close sidebar'
+          : action === 'open-full-page'
+            ? 'Failed to open full-page mailbox'
+            : action === 'copy-address'
+              ? 'Could not copy address to clipboard'
+              : 'Failed to open settings';
     console.error(message, error);
-    setSidebarActionStatus({ tone: 'error', message });
+    setSidebarActionStatus({ tone: 'error', message, source: 'ui' });
+  }
+
+  function clearUiActionError() {
+    setSidebarActionStatus((currentStatus) =>
+      currentStatus.source === 'ui' ? { tone: 'idle', message: '', source: null } : currentStatus,
+    );
   }
 
   useEffect(() => {
@@ -271,7 +276,7 @@ export function MailboxApp() {
 
     async function loadState() {
       const response = await sendMailboxCommand({ type: 'mailbox:get-state' }).catch((error) =>
-        toTransportFailureResponse(error, { type: 'mailbox:get-state' }, EMPTY_MAILBOX_SNAPSHOT),
+        toTransportFailureResponse(error, { type: 'mailbox:get-state' }, snapshotRef.current),
       );
       if (!disposed) setSnapshot(response.snapshot);
     }
@@ -285,94 +290,77 @@ export function MailboxApp() {
   }, [isVisible]);
 
   async function runCommand(command: MailboxCommand) {
+    if (command.type === 'mailbox:open-message') {
+      setPendingMessageId(command.messageId);
+    }
+
     setIsBusy(true);
     try {
       const response = await sendMailboxCommand(command).catch((error) =>
-        toTransportFailureResponse(error, command, snapshot),
+        toTransportFailureResponse(error, command, snapshotRef.current),
       );
       setSnapshot(response.snapshot);
+
+      if (!response.ok) {
+        setSidebarActionStatus({ tone: 'error', message: response.error, source: 'mailbox' });
+      } else if (response.snapshot.error) {
+        setSidebarActionStatus({
+          tone: 'error',
+          message: response.snapshot.error,
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:create') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Temporary mailbox created.',
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:refresh') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Mailbox refreshed.',
+          source: 'mailbox',
+        });
+      } else if (command.type === 'mailbox:discard') {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Mailbox discarded.',
+          source: 'mailbox',
+        });
+      } else {
+        setSidebarActionStatus((currentStatus) =>
+          currentStatus.source === 'mailbox'
+            ? { tone: 'idle', message: '', source: null }
+            : currentStatus,
+        );
+      }
     } finally {
+      if (command.type === 'mailbox:open-message') {
+        setPendingMessageId(null);
+      }
       setIsBusy(false);
     }
   }
 
   async function copyAddress() {
     if (!snapshot.address) return;
-    await navigator.clipboard.writeText(snapshot.address);
-    flash();
+
+    try {
+      await copyTextToClipboard(snapshot.address);
+      flash();
+      clearUiActionError();
+    } catch (error) {
+      reportUiActionFailure('copy-address', error);
+    }
   }
 
   async function autofillCurrentPage() {
     setIsBusy(true);
-    let activeTab: chrome.tabs.Tab | undefined;
 
     try {
-      if (!snapshot.address) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Create a temp mailbox first, then run autofill.',
-        });
-        return;
-      }
-
-      [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-        active: true,
-        currentWindow: true,
-      });
-
-      const tabError = normalizeAutofillTabError(activeTab);
-
-      if (tabError) {
-        setAutofillStatus({
-          tone: 'error',
-          message: tabError,
-        });
-        return;
-      }
-
-      const tabId = activeTab.id;
-
-      if (tabId === undefined) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Open a page first, then try autofill again.',
-        });
-        return;
-      }
-
-      const settings = await getStoredAutofillSettings();
-      const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const rawResponse = await callWebExtensionApi<unknown>('tabs', 'sendMessage', tabId, {
-        type: 'autofill:fill-profile',
-        profile,
-      });
-
-      if (!isAutofillContentResponse(rawResponse)) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getInvalidAutofillResponseMessage(),
-        });
-        return;
-      }
-
-      const response: AutofillContentResponse = rawResponse;
-
-      if (!response.ok) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getAutofillResponseMessage(response),
-        });
-        return;
-      }
-
-      setAutofillStatus({
-        tone: 'success',
-        message: getAutofillResponseMessage(response),
-      });
-    } catch (error) {
-      setAutofillStatus({
-        tone: 'error',
-        message: getAutofillErrorMessage(error, activeTab),
+      await runMailboxAutofillFlow({
+        snapshotAddress: snapshot.address,
+        setAutofillStatus,
       });
     } finally {
       setIsBusy(false);
@@ -381,6 +369,10 @@ export function MailboxApp() {
 
   async function openAutofillSettings() {
     await callWebExtensionApi('runtime', 'openOptionsPage');
+    clearUiActionError();
+    if (!isSidepanel) {
+      window.close();
+    }
   }
 
   return (
@@ -391,7 +383,7 @@ export function MailboxApp() {
     >
       <div
         className={`flex min-h-0 w-full flex-1 flex-col overflow-y-auto ${
-          isSidepanel ? 'sidepanel-scroll-region' : ''
+          isSidepanel ? 'sidepanel-scroll-region' : 'popup-scroll-region'
         }`}
       >
         <header className='animate-fade-in px-3 pt-4 pb-3 sm:px-4 sm:pt-5 sm:pb-4'>
@@ -403,9 +395,14 @@ export function MailboxApp() {
                   className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
-                    void openFirefoxSidebar().catch((error) =>
-                      reportSidebarActionFailure('open', error),
-                    );
+                    void openFirefoxSidebar()
+                      .then(() => {
+                        clearUiActionError();
+                        if (!isSidepanel) {
+                          window.close();
+                        }
+                      })
+                      .catch((error) => reportUiActionFailure('open-sidebar', error));
                   }}
                   type='button'
                 >
@@ -413,14 +410,19 @@ export function MailboxApp() {
                   Open sidebar
                 </button>
               )}
-              {snapshot.address && (
-                <span className='flex items-center gap-1 rounded-full border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-muted'>
-                  <RefreshCw
-                    className={`h-3 w-3 text-accent ${isPollingActive ? 'animate-spin' : ''}`}
-                  />
-                  {isPollingActive ? 'Polling' : 'Standby'}
-                </span>
-              )}
+              <button
+                className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                disabled={isBusy}
+                onClick={() => {
+                  void openFullMailboxPage()
+                    .then(() => clearUiActionError())
+                    .catch((error) => reportUiActionFailure('open-full-page', error));
+                }}
+                type='button'
+              >
+                <ExternalLink className='h-3 w-3' />
+                Full page
+              </button>
               {snapshot.unreadCount > 0 && (
                 <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
                   <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
@@ -433,9 +435,9 @@ export function MailboxApp() {
                   className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={isBusy}
                   onClick={() => {
-                    void closeFirefoxSidebar().catch((error) =>
-                      reportSidebarActionFailure('close', error),
-                    );
+                    void closeFirefoxSidebar()
+                      .then(() => clearUiActionError())
+                      .catch((error) => reportUiActionFailure('close-sidebar', error));
                   }}
                   type='button'
                 >
@@ -482,7 +484,7 @@ export function MailboxApp() {
                     type='button'
                   >
                     <RefreshCw
-                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                     />
                     Refresh
                   </button>
@@ -545,6 +547,18 @@ export function MailboxApp() {
             </div>
           </div>
         )}
+        {sidebarActionStatus.tone === 'success' && (
+          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
+            <div
+              aria-atomic='true'
+              aria-live='polite'
+              className='rounded-lg border border-accent/25 bg-accent-bg px-4 py-3 text-xs text-accent'
+              role='status'
+            >
+              <p>{sidebarActionStatus.message}</p>
+            </div>
+          </div>
+        )}
 
         <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '90ms' }}>
           <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
@@ -574,7 +588,11 @@ export function MailboxApp() {
                 <button
                   className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
                   disabled={isBusy}
-                  onClick={() => void openAutofillSettings()}
+                  onClick={() =>
+                    void openAutofillSettings().catch((error) =>
+                      reportUiActionFailure('open-settings', error),
+                    )
+                  }
                   type='button'
                 >
                   <SlidersHorizontal className='h-3.5 w-3.5' />
@@ -599,7 +617,7 @@ export function MailboxApp() {
           </div>
         </div>
 
-        {snapshot.error && (
+        {shouldShowPersistentMailboxError && snapshot.error && (
           <div className='animate-fade-in px-3 pb-4 sm:px-4'>
             <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
               <p>{snapshot.error}</p>
@@ -634,10 +652,12 @@ export function MailboxApp() {
                       <button
                         key={message.id}
                         className={`group flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors ${
+                          pendingMessageId === message.id ||
                           snapshot.selectedMessageId === message.id
                             ? 'bg-accent-bg'
                             : 'hover:bg-surface-hover'
                         }`}
+                        disabled={isBusy}
                         onClick={() =>
                           void runCommand({ type: 'mailbox:open-message', messageId: message.id })
                         }
@@ -677,6 +697,7 @@ export function MailboxApp() {
                   <MessagePanel
                     isSidepanel={isSidepanel}
                     onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+                    pendingMessageId={pendingMessageId}
                     snapshot={snapshot}
                   />
                 </div>

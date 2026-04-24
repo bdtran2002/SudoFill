@@ -74,3 +74,7 @@ export const AUTOFILL_SEX_OPTIONS = [
   { value: 'male', label: 'Male' },
   { value: 'nonbinary', label: 'Non-binary' },
 ] as const;
+
+export function getStateName(stateCode: string) {
+  return US_STATE_OPTIONS.find((state) => state.code === stateCode)?.name ?? '';
+}

@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source not '../firefox-addon';
 
 @theme {
   --color-void: #111010;
@@ -78,9 +79,18 @@ html.sidepanel {
     radial-gradient(circle at top right, rgba(110, 168, 254, 0.06), transparent 30%), #111010;
 }
 
+html.mailbox-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(239, 75, 75, 0.04), transparent 24%),
+    linear-gradient(180deg, rgba(28, 25, 25, 0.32), rgba(17, 16, 16, 0.98)), #111010;
+}
+
 html.sidepanel,
 html.sidepanel body,
-html.sidepanel #root {
+html.sidepanel #root,
+html.mailbox-page body,
+html.mailbox-page #root {
   min-height: 100%;
   background-color: #111010;
   color-scheme: dark;
@@ -93,7 +103,9 @@ html.popup body {
 
 html.popup #root,
 html.sidepanel body,
-html.sidepanel #root {
+html.sidepanel #root,
+html.mailbox-page body,
+html.mailbox-page #root {
   width: 100%;
 }
 
@@ -119,6 +131,16 @@ html.sidepanel .sidepanel-scroll-region::-webkit-scrollbar {
   display: none;
 }
 
+html.popup .popup-scroll-region {
+  overscroll-behavior-y: none;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.popup .popup-scroll-region::-webkit-scrollbar {
+  display: none;
+}
+
 html.popup body,
 html.popup #root {
   height: 100%;
@@ -127,7 +149,7 @@ html.popup #root {
 }
 
 /* grain texture */
-#root::before {
+html:not(.mailbox-page) #root::before {
   content: '';
   position: fixed;
   inset: 0;

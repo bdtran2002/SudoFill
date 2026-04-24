@@ -46,6 +46,7 @@ export interface ActiveMailboxSession {
   password: string;
   token: string;
   accountId: string;
+  browserNotificationMessageIds: string[];
   messages: MailboxMessageSummary[];
   selectedMessageId: string | null;
   selectedMessage: MailboxMessageDetail | null;

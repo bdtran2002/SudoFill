@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Copy,
@@ -184,10 +184,15 @@ export function MailboxApp() {
     message: '',
   });
   const { copied, flash } = useCopiedFlash();
+  const snapshotRef = useRef(snapshot);
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
   const isPollingActive = snapshot.pollingActive;
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   useEffect(() => {
     if (sidebarActionStatus.tone !== 'error') {
@@ -239,7 +244,7 @@ export function MailboxApp() {
 
     async function loadState() {
       const response = await sendMailboxCommand({ type: 'mailbox:get-state' }).catch((error) =>
-        toTransportFailureResponse(error, { type: 'mailbox:get-state' }, EMPTY_MAILBOX_SNAPSHOT),
+        toTransportFailureResponse(error, { type: 'mailbox:get-state' }, snapshotRef.current),
       );
       if (!disposed) setSnapshot(response.snapshot);
     }
@@ -260,7 +265,7 @@ export function MailboxApp() {
     setIsBusy(true);
     try {
       const response = await sendMailboxCommand(command).catch((error) =>
-        toTransportFailureResponse(error, command, snapshot),
+        toTransportFailureResponse(error, command, snapshotRef.current),
       );
       setSnapshot(response.snapshot);
     } finally {

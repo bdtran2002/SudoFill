@@ -334,15 +334,14 @@ function openMessage(messageId: string): ResultAsync<void, MailboxError> {
     });
   }
 
-  activeSession.selectedMessageId = messageId;
-  activeSession.selectedMessage = null;
-  activeSession.unreadMessageIds = activeSession.unreadMessageIds.filter((id) => id !== messageId);
-  activeSession.messages = activeSession.messages.map((message) =>
-    message.id === messageId ? { ...message, seen: true } : message,
-  );
   return getMailTmMessage(activeSession.token, messageId)
     .andThen((message) => {
+      activeSession!.selectedMessageId = messageId;
       activeSession!.selectedMessage = message;
+      activeSession!.unreadMessageIds = activeSession!.unreadMessageIds.filter((id) => id !== messageId);
+      activeSession!.messages = activeSession!.messages.map((summary) =>
+        summary.id === messageId ? { ...summary, seen: true } : summary,
+      );
       return writeSessionToStorage();
     })
     .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)));

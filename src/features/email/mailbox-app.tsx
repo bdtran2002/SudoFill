@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   Copy,
@@ -12,72 +12,17 @@ import {
   X,
 } from 'lucide-react';
 
-import {
-  getAutofillErrorMessage,
-  getAutofillResponseMessage,
-  getInvalidAutofillResponseMessage,
-  isAutofillContentResponse,
-  normalizeAutofillTabError,
-} from '../autofill/popup-errors';
-import { generateAutofillProfile } from '../autofill/profile';
-import { getStoredAutofillSettings } from '../autofill/settings';
-import type { AutofillContentResponse } from '../autofill/types';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
-import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import type { MailboxCommand, MailboxSnapshot } from './types';
+import {
+  formatTimestamp,
+  runMailboxAutofillFlow,
+  sendMailboxCommand,
+  toTransportFailureResponse,
+  useCopiedFlash,
+  useMailboxUiVisibilityReporting,
+} from './mailbox-shared';
 import { callWebExtensionApi } from '../../lib/webext-async';
-
-function toTransportFailureResponse(
-  error: unknown,
-  command: MailboxCommand,
-  snapshot: MailboxSnapshot,
-): MailboxResponse {
-  const message = error instanceof Error ? error.message : 'Mailbox request failed';
-  const diagnostics: MailboxDiagnostics = {
-    command: command.type,
-    phase: 'sendMessage',
-    errorType: 'transport',
-  };
-
-  return {
-    ok: false,
-    error: message,
-    diagnostics,
-    snapshot: {
-      ...snapshot,
-      status: snapshot.address ? 'active' : 'error',
-      error: message,
-      diagnostics,
-    },
-  };
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
-}
-
-async function sendMailboxCommand(command: MailboxCommand) {
-  return (await callWebExtensionApi<MailboxResponse>(
-    'runtime',
-    'sendMessage',
-    command,
-  )) as MailboxResponse;
-}
-
-function useCopiedFlash() {
-  const [copied, setCopied] = useState(false);
-
-  function flash() {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  return { copied, flash } as const;
-}
 
 type FirefoxSidebarActionApi = {
   open?: () => Promise<void> | void;
@@ -206,7 +151,6 @@ export function MailboxApp() {
   const [snapshot, setSnapshot] = useState<MailboxSnapshot>(EMPTY_MAILBOX_SNAPSHOT);
   const [isBusy, setIsBusy] = useState(false);
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
-  const sentVisibleRef = useRef(false);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
     message: 'Generate a profile, then fill the page you already have open.',
@@ -246,25 +190,7 @@ export function MailboxApp() {
     };
   }, []);
 
-  useEffect(() => {
-    sentVisibleRef.current = isVisible;
-
-    void callWebExtensionApi('runtime', 'sendMessage', {
-      type: 'mailbox-ui-visibility',
-      visible: isVisible,
-    }).catch(() => undefined);
-  }, [isVisible]);
-
-  useEffect(() => {
-    return () => {
-      sentVisibleRef.current = false;
-
-      void callWebExtensionApi('runtime', 'sendMessage', {
-        type: 'mailbox-ui-visibility',
-        visible: false,
-      }).catch(() => undefined);
-    };
-  }, []);
+  useMailboxUiVisibilityReporting(isVisible);
 
   function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
     const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
@@ -310,75 +236,16 @@ export function MailboxApp() {
 
   async function autofillCurrentPage() {
     setIsBusy(true);
-    let activeTab: chrome.tabs.Tab | undefined;
 
     try {
-      if (!snapshot.address) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Create a temp mailbox first, then run autofill.',
-        });
-        return;
-      }
-
-      [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-        active: true,
-        currentWindow: true,
-      });
-
-      const tabError = normalizeAutofillTabError(activeTab);
-
-      if (tabError) {
-        setAutofillStatus({
-          tone: 'error',
-          message: tabError,
-        });
-        return;
-      }
-
-      const tabId = activeTab.id;
-
-      if (tabId === undefined) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Open a page first, then try autofill again.',
-        });
-        return;
-      }
-
-      const settings = await getStoredAutofillSettings();
-      const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const rawResponse = await callWebExtensionApi<unknown>('tabs', 'sendMessage', tabId, {
-        type: 'autofill:fill-profile',
-        profile,
-      });
-
-      if (!isAutofillContentResponse(rawResponse)) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getInvalidAutofillResponseMessage(),
-        });
-        return;
-      }
-
-      const response: AutofillContentResponse = rawResponse;
-
-      if (!response.ok) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getAutofillResponseMessage(response),
-        });
-        return;
-      }
-
-      setAutofillStatus({
-        tone: 'success',
-        message: getAutofillResponseMessage(response),
+      await runMailboxAutofillFlow({
+        snapshotAddress: snapshot.address,
+        setAutofillStatus,
       });
     } catch (error) {
       setAutofillStatus({
         tone: 'error',
-        message: getAutofillErrorMessage(error, activeTab),
+        message: String(error),
       });
     } finally {
       setIsBusy(false);

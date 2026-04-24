@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Copy,
@@ -12,78 +12,20 @@ import {
   WandSparkles,
 } from 'lucide-react';
 
-import {
-  getAutofillErrorMessage,
-  getAutofillResponseMessage,
-  getInvalidAutofillResponseMessage,
-  isAutofillContentResponse,
-  normalizeAutofillTabError,
-} from '../autofill/popup-errors';
-import { generateAutofillProfile } from '../autofill/profile';
-import { getStoredAutofillSettings } from '../autofill/settings';
-import type { AutofillContentResponse } from '../autofill/types';
-import { callWebExtensionApi } from '../../lib/webext-async';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
-import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import type { MailboxCommand, MailboxSnapshot } from './types';
+import {
+  formatTimestamp,
+  runMailboxAutofillFlow,
+  sendMailboxCommand,
+  toTransportFailureResponse,
+  useCopiedFlash,
+  useMailboxUiVisibilityReporting,
+} from './mailbox-shared';
 
-type AutofillStatus =
-  | { tone: 'idle'; message: string }
-  | { tone: 'success'; message: string }
-  | { tone: 'error'; message: string };
+type AutofillStatus = { tone: 'idle' | 'success' | 'error'; message: string };
 
-type MailboxActionStatus =
-  | { tone: 'idle'; message: string }
-  | { tone: 'success'; message: string }
-  | { tone: 'error'; message: string };
-
-function toTransportFailureResponse(
-  error: unknown,
-  command: MailboxCommand,
-  snapshot: MailboxSnapshot,
-): MailboxResponse {
-  const message = error instanceof Error ? error.message : 'Mailbox request failed';
-  const diagnostics: MailboxDiagnostics = {
-    command: command.type,
-    phase: 'sendMessage',
-    errorType: 'transport',
-  };
-
-  return {
-    ok: false,
-    error: message,
-    diagnostics,
-    snapshot: {
-      ...snapshot,
-      status: snapshot.address ? 'active' : 'error',
-      error: message,
-      diagnostics,
-    },
-  };
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
-}
-
-async function sendMailboxCommand(command: MailboxCommand) {
-  return (await callWebExtensionApi<MailboxResponse>('runtime', 'sendMessage', command)) as MailboxResponse;
-}
-
-function useCopiedFlash() {
-  const [copied, setCopied] = useState(false);
-
-  function flash() {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  return { copied, flash } as const;
-}
+type MailboxActionStatus = { tone: 'idle' | 'success' | 'error'; message: string };
 
 function MessageDetail({
   snapshot,
@@ -176,7 +118,6 @@ export function MailboxPage() {
     message: 'Mailbox ready.',
   });
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const sentVisibleRef = useRef(false);
   const { copied, flash } = useCopiedFlash();
   const isPollingActive = snapshot.pollingActive;
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
@@ -193,25 +134,7 @@ export function MailboxPage() {
     };
   }, []);
 
-  useEffect(() => {
-    sentVisibleRef.current = isVisible;
-
-    void callWebExtensionApi('runtime', 'sendMessage', {
-      type: 'mailbox-ui-visibility',
-      visible: isVisible,
-    }).catch(() => undefined);
-  }, [isVisible]);
-
-  useEffect(() => {
-    return () => {
-      sentVisibleRef.current = false;
-
-      void callWebExtensionApi('runtime', 'sendMessage', {
-        type: 'mailbox-ui-visibility',
-        visible: false,
-      }).catch(() => undefined);
-    };
-  }, []);
+  useMailboxUiVisibilityReporting(isVisible);
 
   useEffect(() => {
     let disposed = false;
@@ -291,76 +214,16 @@ export function MailboxPage() {
 
   async function autofillCurrentPage() {
     setIsBusy(true);
-    let activeTab: chrome.tabs.Tab | undefined;
-
     try {
-      if (!snapshot.address) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Create a temp mailbox first, then run autofill.',
-        });
-        return;
-      }
-
-      [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-        active: true,
-        currentWindow: true,
+      await runMailboxAutofillFlow({
+        snapshotAddress: snapshot.address,
+        setAutofillStatus,
+        setActionStatus,
       });
-
-      const tabError = normalizeAutofillTabError(activeTab);
-
-      if (tabError) {
-        setAutofillStatus({ tone: 'error', message: tabError });
-        return;
-      }
-
-      const tabId = activeTab.id;
-      if (tabId === undefined) {
-        setAutofillStatus({
-          tone: 'error',
-          message: 'Open a page first, then try autofill again.',
-        });
-        return;
-      }
-
-      const settings = await getStoredAutofillSettings();
-      const profile = generateAutofillProfile(settings, { email: snapshot.address });
-      const rawResponse = await callWebExtensionApi<unknown>('tabs', 'sendMessage', tabId, {
-        type: 'autofill:fill-profile',
-        profile,
-      });
-
-      if (!isAutofillContentResponse(rawResponse)) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getInvalidAutofillResponseMessage(),
-        });
-        return;
-      }
-
-      const response: AutofillContentResponse = rawResponse;
-      if (!response.ok) {
-        setAutofillStatus({
-          tone: 'error',
-          message: getAutofillResponseMessage(response),
-        });
-        return;
-      }
-
-      setAutofillStatus({
-        tone: 'success',
-        message: getAutofillResponseMessage(response),
-      });
-      setActionStatus({ tone: 'success', message: 'Autofill sent to the active tab.' });
     } catch (error) {
-      setAutofillStatus({
-        tone: 'error',
-        message: getAutofillErrorMessage(error, activeTab),
-      });
-      setActionStatus({
-        tone: 'error',
-        message: getAutofillErrorMessage(error, activeTab),
-      });
+      const message = String(error);
+      setAutofillStatus({ tone: 'error', message });
+      setActionStatus({ tone: 'error', message });
     } finally {
       setIsBusy(false);
     }

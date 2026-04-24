@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react';
+import type { ChangeEventHandler, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings } from 'lucide-react';
 
@@ -22,8 +22,6 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
-  const [forwardingPreviewEnabled, setForwardingPreviewEnabled] = useState(false);
-  const [forwardingPreviewAddress, setForwardingPreviewAddress] = useState('');
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -71,38 +69,11 @@ function OptionsApp() {
   const canSave = useMemo(() => isAutofillAgeRangeValid(settings), [settings]);
   const ageHasError = !canSave && Boolean(settings.ageMin || settings.ageMax);
 
-  async function saveSettings() {
+  async function persistSettings(next: AutofillSettings, successHint: string, errorHint: string, idleDelay: number) {
     if (saveState === 'saving') {
       return;
     }
 
-    if (!canSave) {
-      setSaveState('error');
-      setHint('Check the age range before saving.');
-      return;
-    }
-
-    clearStatusTimeout();
-    setSaveState('saving');
-    setHint('');
-    try {
-      await setStoredAutofillSettings(settings);
-      setSaveState('saved');
-      setHint('Saved to browser storage.');
-      scheduleIdleStatus(1800);
-    } catch {
-      setSaveState('error');
-      setHint('Could not save settings.');
-    }
-  }
-
-  async function resetSettings() {
-    if (saveState === 'saving') {
-      return;
-    }
-
-    const next = DEFAULT_AUTOFILL_SETTINGS;
-    setSettings(next);
     clearStatusTimeout();
     setSaveState('saving');
     setHint('');
@@ -110,12 +81,27 @@ function OptionsApp() {
     try {
       await setStoredAutofillSettings(next);
       setSaveState('saved');
-      setHint('Reset to defaults.');
-      scheduleIdleStatus(1200);
+      setHint(successHint);
+      scheduleIdleStatus(idleDelay);
     } catch {
       setSaveState('error');
-      setHint('Could not reset settings.');
+      setHint(errorHint);
     }
+  }
+
+  async function saveSettings() {
+    if (!canSave) {
+      setSaveState('error');
+      setHint('Check the age range before saving.');
+      return;
+    }
+
+    await persistSettings(settings, 'Saved to browser storage.', 'Could not save settings.', 1800);
+  }
+
+  async function resetSettings() {
+    setSettings(DEFAULT_AUTOFILL_SETTINGS);
+    await persistSettings(DEFAULT_AUTOFILL_SETTINGS, 'Reset to defaults.', 'Could not reset settings.', 1200);
   }
 
   return (
@@ -129,7 +115,7 @@ function OptionsApp() {
               </div>
               <div>
                 <p className='text-lg font-semibold tracking-tight text-ink'>SudoFill Settings</p>
-                <p className='text-xs text-ink-muted'>Adjust autofill defaults and preview future controls</p>
+                <p className='text-xs text-ink-muted'>Adjust autofill defaults for the popup autofill action</p>
               </div>
             </div>
             <nav className='flex items-center gap-1 rounded-lg border border-border-dim bg-surface-raised p-1'>
@@ -284,65 +270,6 @@ function OptionsApp() {
           </div>
         </section>
 
-        <section
-          className='animate-fade-in mt-5 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]'
-          style={{ animationDelay: '120ms' }}
-        >
-          <div className='border-b border-border-dim bg-[linear-gradient(135deg,rgba(110,168,254,0.08),transparent_55%)] px-4 py-3 sm:px-5'>
-            <div className='flex items-start justify-between gap-3'>
-              <div>
-                <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
-                  Optional settings
-                </p>
-                <p className='mt-1 text-sm leading-relaxed text-ink-secondary'>
-                  Preview an eventual inbox-forwarding option without changing current mailbox
-                  behavior.
-                </p>
-              </div>
-              <span className='inline-flex items-center gap-1 rounded-full border border-unread/20 bg-unread-bg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-unread'>
-                <Mail className='h-3 w-3' />
-                Preview only
-              </span>
-            </div>
-          </div>
-
-          <div className='divide-y divide-border-dim'>
-            <SettingSection
-              description='Optional showcase for forwarding every temp-mail message to a destination inbox later. This toggle does not enable anything yet.'
-              title='Email forwarding'
-            >
-              <ToggleField
-                ariaLabel='Enable forwarding preview'
-                checked={forwardingPreviewEnabled}
-                disabledLabel='Preview off'
-                enabledLabel='Preview on'
-                onChange={setForwardingPreviewEnabled}
-              />
-            </SettingSection>
-
-            <SettingSection
-              description='Destination inbox for a future forwarding feature. This field is UI-only right now and is not saved or used by the extension.'
-              title='Forward to'
-            >
-              <LabeledInput
-                autoComplete='email'
-                disabled={!forwardingPreviewEnabled}
-                label='Destination email'
-                onChange={(event) => setForwardingPreviewAddress(event.target.value)}
-                placeholder='name@example.com'
-                type='email'
-                value={forwardingPreviewAddress}
-              />
-            </SettingSection>
-          </div>
-
-          <div className='border-t border-border-dim bg-surface-raised px-4 py-3 sm:px-5'>
-            <p className='text-sm text-ink-secondary'>
-              Showcase only. These optional controls do not forward mail, are not persisted, and are
-              here purely to preview the settings UX.
-            </p>
-          </div>
-        </section>
       </div>
     </main>
   );
@@ -391,30 +318,6 @@ function SelectField({
       </select>
       <ChevronDown className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted' />
     </div>
-  );
-}
-
-function LabeledInput({
-  label,
-  invalid,
-  ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label: string; invalid?: boolean }) {
-  return (
-    <label className='block'>
-      <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-        {label}
-      </span>
-      <input
-        className={`w-full rounded-lg border bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:ring-2 ${
-          invalid
-            ? 'border-danger-border focus:border-danger focus:ring-danger/20'
-            : 'border-border focus:border-accent/50 focus:ring-accent/20'
-        }`}
-        max={99}
-        min={18}
-        {...props}
-      />
-    </label>
   );
 }
 

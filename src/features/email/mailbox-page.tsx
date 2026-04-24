@@ -189,7 +189,7 @@ export function MailboxPage() {
         setActionStatus({ tone: 'success', message: 'Mailbox discarded.' });
       }
 
-      if (command.type === 'mailbox:open-message') {
+      if (command.type === 'mailbox:open-message' && response.ok) {
         setMobileDetailOpen(true);
       }
     } finally {

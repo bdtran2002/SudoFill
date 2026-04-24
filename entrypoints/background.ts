@@ -34,7 +34,7 @@ let activeSession: ActiveMailboxSession | null = null;
 let currentSnapshot: MailboxSnapshot = EMPTY_MAILBOX_SNAPSHOT;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
-let mailboxUiOpen = false;
+const openMailboxUiInstanceIds = new Set<string>();
 let lastMailboxUiClosedAt = 0;
 
 type ActionLikeApi = {
@@ -53,7 +53,12 @@ type FirefoxBrowserApi = {
 type MailboxUiVisibilityMessage = {
   type: 'mailbox-ui-visibility';
   visible: boolean;
+  instanceId: string;
 };
+
+function isMailboxUiOpen() {
+  return openMailboxUiInstanceIds.size > 0;
+}
 
 function getFirefoxBrowserApi(): FirefoxBrowserApi | undefined {
   return (
@@ -169,14 +174,11 @@ function clearPollTimer() {
 }
 
 function shouldPollActively() {
-  return (
-    Boolean(activeSession) &&
-    (mailboxUiOpen || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS)
-  );
+  return Boolean(activeSession) && (isMailboxUiOpen() || Date.now() - lastMailboxUiClosedAt < UI_ACTIVE_WINDOW_MS);
 }
 
 function getNextPollDelayMs() {
-  return mailboxUiOpen ? UI_OPEN_POLL_INTERVAL_MS : UI_CLOSED_POLL_INTERVAL_MS;
+  return isMailboxUiOpen() ? UI_OPEN_POLL_INTERVAL_MS : UI_CLOSED_POLL_INTERVAL_MS;
 }
 
 function schedulePoll() {
@@ -231,7 +233,7 @@ function syncMessages(
   for (const message of nextMessages) {
     if (!session.knownMessageIds.includes(message.id)) {
       unreadMessageIds.add(message.id);
-      if (!mailboxUiOpen) {
+      if (!isMailboxUiOpen()) {
         browserNotificationMessageIds.add(message.id);
       }
     }
@@ -242,7 +244,7 @@ function syncMessages(
   session.unreadMessageIds = [...unreadMessageIds].filter((messageId) =>
     nextMessageIds.has(messageId),
   );
-  session.browserNotificationMessageIds = mailboxUiOpen
+  session.browserNotificationMessageIds = isMailboxUiOpen()
     ? []
     : [...browserNotificationMessageIds].filter((messageId) => nextMessageIds.has(messageId));
   session.lastCheckedAt = new Date().toISOString();
@@ -449,8 +451,18 @@ export default defineBackground(() => {
         message.type === 'mailbox-ui-visibility' &&
         'visible' in message
       ) {
-        mailboxUiOpen = Boolean((message as { visible?: boolean }).visible);
-        if (!mailboxUiOpen) {
+        if (typeof message.instanceId !== 'string' || !message.instanceId) {
+          sendResponse({ ok: true, snapshot: currentSnapshot } as MailboxResponse);
+          return true;
+        }
+
+        if (message.visible) {
+          openMailboxUiInstanceIds.add(message.instanceId);
+        } else {
+          openMailboxUiInstanceIds.delete(message.instanceId);
+        }
+
+        if (!isMailboxUiOpen()) {
           lastMailboxUiClosedAt = Date.now();
         } else if (activeSession) {
           activeSession.browserNotificationMessageIds = [];

@@ -117,7 +117,3 @@ export function setStoredAutofillSettings(settings: AutofillSettings) {
     [AUTOFILL_SETTINGS_STORAGE_KEY]: normalizeAutofillSettings(settings),
   });
 }
-
-export function getStateName(stateCode: string) {
-  return US_STATE_OPTIONS.find((state) => state.code === stateCode)?.name ?? '';
-}

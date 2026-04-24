@@ -192,8 +192,18 @@ export function MailboxApp() {
 
   useMailboxUiVisibilityReporting(isVisible);
 
-  function reportSidebarActionFailure(action: 'open' | 'close', error: unknown) {
-    const message = action === 'open' ? 'Failed to open sidebar' : 'Failed to close sidebar';
+  function reportUiActionFailure(
+    action: 'open-sidebar' | 'close-sidebar' | 'open-full-page' | 'open-settings',
+    error: unknown,
+  ) {
+    const message =
+      action === 'open-sidebar'
+        ? 'Failed to open sidebar'
+        : action === 'close-sidebar'
+          ? 'Failed to close sidebar'
+          : action === 'open-full-page'
+            ? 'Failed to open full-page mailbox'
+            : 'Failed to open settings';
     console.error(message, error);
     setSidebarActionStatus({ tone: 'error', message });
   }
@@ -242,11 +252,6 @@ export function MailboxApp() {
         snapshotAddress: snapshot.address,
         setAutofillStatus,
       });
-    } catch (error) {
-      setAutofillStatus({
-        tone: 'error',
-        message: String(error),
-      });
     } finally {
       setIsBusy(false);
     }
@@ -280,7 +285,7 @@ export function MailboxApp() {
                   disabled={isBusy}
                   onClick={() => {
                     void openFirefoxSidebar().catch((error) =>
-                      reportSidebarActionFailure('open', error),
+                      reportUiActionFailure('open-sidebar', error),
                     );
                   }}
                   type='button'
@@ -293,7 +298,9 @@ export function MailboxApp() {
                 className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                 disabled={isBusy}
                 onClick={() => {
-                  void openFullMailboxPage();
+                  void openFullMailboxPage().catch((error) =>
+                    reportUiActionFailure('open-full-page', error),
+                  );
                 }}
                 type='button'
               >
@@ -321,7 +328,7 @@ export function MailboxApp() {
                   disabled={isBusy}
                   onClick={() => {
                     void closeFirefoxSidebar().catch((error) =>
-                      reportSidebarActionFailure('close', error),
+                      reportUiActionFailure('close-sidebar', error),
                     );
                   }}
                   type='button'
@@ -461,7 +468,11 @@ export function MailboxApp() {
                 <button
                   className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
                   disabled={isBusy}
-                  onClick={() => void openAutofillSettings()}
+                  onClick={() =>
+                    void openAutofillSettings().catch((error) =>
+                      reportUiActionFailure('open-settings', error),
+                    )
+                  }
                   type='button'
                 >
                   <SlidersHorizontal className='h-3.5 w-3.5' />

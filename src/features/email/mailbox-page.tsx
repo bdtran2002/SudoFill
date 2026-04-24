@@ -220,10 +220,6 @@ export function MailboxPage() {
         setAutofillStatus,
         setActionStatus,
       });
-    } catch (error) {
-      const message = String(error);
-      setAutofillStatus({ tone: 'error', message });
-      setActionStatus({ tone: 'error', message });
     } finally {
       setIsBusy(false);
     }

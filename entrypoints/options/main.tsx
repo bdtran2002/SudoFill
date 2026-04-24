@@ -100,8 +100,23 @@ function OptionsApp() {
   }
 
   async function resetSettings() {
+    const previousSettings = settings;
+
     setSettings(DEFAULT_AUTOFILL_SETTINGS);
-    await persistSettings(DEFAULT_AUTOFILL_SETTINGS, 'Reset to defaults.', 'Could not reset settings.', 1200);
+    clearStatusTimeout();
+    setSaveState('saving');
+    setHint('');
+
+    try {
+      await setStoredAutofillSettings(DEFAULT_AUTOFILL_SETTINGS);
+      setSaveState('saved');
+      setHint('Reset to defaults.');
+      scheduleIdleStatus(1200);
+    } catch {
+      setSettings(previousSettings);
+      setSaveState('error');
+      setHint('Could not reset settings.');
+    }
   }
 
   return (

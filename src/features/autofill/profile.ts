@@ -4,9 +4,9 @@ import { getAddressSampleForState } from './address-data';
 import {
   DEFAULT_AUTOFILL_COUNTRY_CODE,
   DEFAULT_AUTOFILL_COUNTRY_NAME,
+  getStateName,
   US_STATE_OPTIONS,
 } from './constants';
-import { getStateName } from './settings';
 import type { AutofillSettings, GeneratedProfile } from './types';
 
 interface GenerateAutofillProfileOptions {

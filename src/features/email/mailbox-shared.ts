@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   getAutofillErrorMessage,
@@ -11,7 +11,6 @@ import { generateAutofillProfile } from '../autofill/profile';
 import { getStoredAutofillSettings } from '../autofill/settings';
 import type { AutofillContentResponse } from '../autofill/types';
 import { callWebExtensionApi } from '../../lib/webext-async';
-import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
 
 export function toTransportFailureResponse(
@@ -54,20 +53,39 @@ export async function sendMailboxCommand(command: MailboxCommand) {
 
 export function useCopiedFlash() {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   function flash() {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
+
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    timeoutRef.current = window.setTimeout(() => {
+      setCopied(false);
+      timeoutRef.current = null;
+    }, 1500);
   }
 
   return { copied, flash } as const;
 }
 
 export function useMailboxUiVisibilityReporting(isVisible: boolean) {
+  const instanceIdRef = useRef(globalThis.crypto?.randomUUID?.() ?? `mailbox-ui-${Date.now()}-${Math.random()}`);
+
   useEffect(() => {
     void callWebExtensionApi('runtime', 'sendMessage', {
       type: 'mailbox-ui-visibility',
       visible: isVisible,
+      instanceId: instanceIdRef.current,
     }).catch(() => undefined);
   }, [isVisible]);
 
@@ -76,6 +94,7 @@ export function useMailboxUiVisibilityReporting(isVisible: boolean) {
       void callWebExtensionApi('runtime', 'sendMessage', {
         type: 'mailbox-ui-visibility',
         visible: false,
+        instanceId: instanceIdRef.current,
       }).catch(() => undefined);
     };
   }, []);
@@ -91,7 +110,7 @@ export async function runMailboxAutofillFlow({
   snapshotAddress: string | null;
   setAutofillStatus: AutofillStatusSetter;
   setActionStatus?: AutofillStatusSetter;
-}) {
+}): Promise<void> {
   let activeTab: chrome.tabs.Tab | undefined;
 
   try {
@@ -143,5 +162,3 @@ export async function runMailboxAutofillFlow({
     setActionStatus?.({ tone: 'error', message });
   }
 }
-
-export { EMPTY_MAILBOX_SNAPSHOT };

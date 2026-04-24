@@ -130,7 +130,7 @@ function OptionsApp() {
               </div>
               <div>
                 <p className='text-lg font-semibold tracking-tight text-ink'>SudoFill Settings</p>
-                <p className='text-xs text-ink-muted'>Adjust autofill defaults for the popup autofill action</p>
+                <p className='text-xs text-ink-muted'>Adjust autofill defaults used by the popup and sidebar</p>
               </div>
             </div>
             <nav className='flex items-center gap-1 rounded-lg border border-border-dim bg-surface-raised p-1'>
@@ -151,7 +151,7 @@ function OptionsApp() {
             </nav>
           </div>
           <p className='mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary'>
-            Tune the generated profile used by the popup autofill action. Keep it broad for
+            Tune the generated profile used by SudoFill autofill. Keep it broad for
             flexibility, or narrow it just enough for your workflow.
           </p>
         </header>

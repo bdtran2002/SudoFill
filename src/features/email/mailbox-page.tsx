@@ -9,14 +9,12 @@ import {
   RefreshCw,
   Settings,
   Trash2,
-  WandSparkles,
 } from 'lucide-react';
 
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   formatTimestamp,
-  runMailboxAutofillFlow,
   sendMailboxCommand,
   toTransportFailureResponse,
   useCopiedFlash,
@@ -111,7 +109,7 @@ export function MailboxPage() {
   const [isVisible, setIsVisible] = useState(() => document.visibilityState === 'visible');
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>({
     tone: 'idle',
-    message: 'Generate a profile, then fill the page you already have open.',
+    message: 'Open the popup or sidebar on the site you want to fill.',
   });
   const [actionStatus, setActionStatus] = useState<MailboxActionStatus>({
     tone: 'idle',
@@ -212,19 +210,6 @@ export function MailboxPage() {
     setActionStatus({ tone: 'success', message: 'Address copied to clipboard.' });
   }
 
-  async function autofillCurrentPage() {
-    setIsBusy(true);
-    try {
-      await runMailboxAutofillFlow({
-        snapshotAddress: snapshot.address,
-        setAutofillStatus,
-        setActionStatus,
-      });
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
   return (
     <main className='min-h-screen bg-void font-body text-ink antialiased'>
       <div className='mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-6'>
@@ -302,13 +287,11 @@ export function MailboxPage() {
                     {copied ? 'Copied' : 'Copy address'}
                   </button>
                   <button
-                    className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
-                    disabled={isBusy}
-                    onClick={() => void autofillCurrentPage()}
+                    className='inline-flex items-center justify-center gap-2 rounded-md border border-border-dim bg-surface-raised px-3 py-2 text-sm font-medium text-ink-muted opacity-80'
+                    disabled
                     type='button'
                   >
-                    <WandSparkles className='h-4 w-4' />
-                    Autofill page
+                    Autofill from popup
                   </button>
                   <button
                     className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
@@ -373,6 +356,9 @@ export function MailboxPage() {
                 }`}
               >
                 {autofillStatus.message}
+              </p>
+              <p className='mt-2 text-xs leading-relaxed text-ink-muted'>
+                The full-page inbox is for reading mail. Autofill works from the popup or sidebar on the site tab you want to fill.
               </p>
             </div>
           </aside>

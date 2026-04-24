@@ -109,6 +109,77 @@ describe('mail-tm', () => {
     });
   });
 
+  it('retries account creation once with fresh credentials', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    alphanumericMock
+      .mockReturnValueOnce('firstaddress')
+      .mockReturnValueOnce('firstpassword1234567')
+      .mockReturnValueOnce('secondaddress')
+      .mockReturnValueOnce('secondpassword12345');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 422 }));
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({ id: 'acct-2', address: 'secondaddress@public.example' }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({ token: 'token-2' }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(false);
+    if (result.isOk()) {
+      expect(result.value).toMatchObject({
+        address: 'secondaddress@public.example',
+        password: 'secondpassword12345',
+        token: 'token-2',
+        accountId: 'acct-2',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      address: 'firstaddress@public.example',
+      password: 'firstpassword1234567',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
+      address: 'secondaddress@public.example',
+      password: 'secondpassword12345',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toEqual({
+      address: 'secondaddress@public.example',
+      password: 'secondpassword12345',
+    });
+  });
+
+  it('returns the retry error when account creation still fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    fetchMock.mockResolvedValueOnce(
+      mockJsonResponse({
+        'hydra:member': [{ domain: 'public.example', isActive: true, isPrivate: false }],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 422 }));
+    fetchMock.mockResolvedValueOnce(mockJsonResponse({}, { status: 503 }));
+
+    const result = await createMailTmSession();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toEqual({
+        type: 'mail-tm-request',
+        status: 503,
+        message: 'Mail.tm request failed with 503',
+      });
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('returns no-domain error when no eligible domains exist', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockJsonResponse({

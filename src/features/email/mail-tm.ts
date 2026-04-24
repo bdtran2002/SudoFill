@@ -108,6 +108,14 @@ function createMailTmJsonRequest(body: unknown): RequestInit {
   };
 }
 
+function createMailTmCredentials(availableDomains: string[]) {
+  const domain = faker.helpers.arrayElement(availableDomains);
+  const address = createMailboxAddress(domain);
+  const password = createMailboxPassword();
+
+  return { address, password };
+}
+
 function createMailTmAuthHeaders(token: string): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,
@@ -169,16 +177,30 @@ function normalizeHtml(html: MailTmMessageDetailResponse['html']) {
  */
 export function createMailTmSession(): ResultAsync<ActiveMailboxSession, MailboxError> {
   return listAvailableMailTmDomains().andThen((availableDomains) => {
-    const domain = faker.helpers.arrayElement(availableDomains);
-    const address = createMailboxAddress(domain);
-    const password = createMailboxPassword();
-    const credentials = { address, password };
+    const createAccount = (credentials: { address: string; password: string }) =>
+      mailTmFetch<MailTmAccount>('/accounts', createMailTmJsonRequest(credentials));
 
-    return mailTmFetch<MailTmAccount>('/accounts', createMailTmJsonRequest(credentials)).andThen(
-      (account) =>
-        mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials)).map(
-          (tokenResponse) => createMailTmSessionSnapshot(account, password, tokenResponse.token),
-        ),
+    const createAccountWithRetry = (credentials: { address: string; password: string }) =>
+      createAccount(credentials)
+        .map((account) => ({ account, credentials }))
+        .orElse(() => {
+          const retryCredentials = createMailTmCredentials(availableDomains);
+          return createAccount(retryCredentials).map((account) => ({ account, credentials: retryCredentials }));
+        });
+
+    const createSessionFromAccount = ({
+      account,
+      credentials,
+    }: {
+      account: MailTmAccount;
+      credentials: { address: string; password: string };
+    }) =>
+      mailTmFetch<MailTmToken>('/token', createMailTmJsonRequest(credentials)).map((tokenResponse) =>
+        createMailTmSessionSnapshot(account, credentials.password, tokenResponse.token),
+      );
+
+    return createAccountWithRetry(createMailTmCredentials(availableDomains)).andThen(
+      createSessionFromAccount,
     );
   });
 }

@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  Live demo: <a href="https://bdtran2002.github.io/SudoFill/">bdtran2002.github.io/SudoFill</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/bdtran2002/SudoFill/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml"><img alt="Actionlint" src="https://github.com/bdtran2002/SudoFill/actions/workflows/actionlint.yml/badge.svg" /></a>
   <a href="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml"><img alt="Release" src="https://github.com/bdtran2002/SudoFill/actions/workflows/release.yml/badge.svg" /></a>
@@ -100,6 +104,14 @@ These settings are saved in browser storage. If you enable usage history, the sa
 - Autofill only targets normal `https://` pages
 - Verification popup matching is heuristic-based, so emails sent from unrelated delivery domains may not surface in-page
 - Password autofill is heuristic-based and only intended for signup or password-setup flows, so some edge-case forms may still need manual input
+
+## Demo site
+
+- Live demo: `https://bdtran2002.github.io/SudoFill/`
+- Source: `docs/index.html`
+- Deployment: `.github/workflows/pages.yml`
+
+The GitHub Pages site is a lightweight static demo page deployed from the repository's Pages workflow on pushes to `main`.
 
 ## Developer setup
 

@@ -86,7 +86,19 @@ function isLikelyVerificationCodeField(element: HTMLInputElement | HTMLTextAreaE
     'security token',
   ];
 
-  return strongPhrases.some((phrase) => descriptorText.includes(phrase) || nearbyText.includes(phrase));
+  const weakCodePhrase = 'code';
+  const hasStrongCue = strongPhrases.some((phrase) =>
+    descriptorText.includes(phrase) || nearbyText.includes(phrase),
+  );
+
+  if (hasStrongCue) return true;
+
+  return (
+    (descriptorText.includes(weakCodePhrase) || nearbyText.includes(weakCodePhrase)) &&
+    /\b(verification|security|one-time|one time|sign-in|signin|login|otp|2fa|mfa|auth|authentication)\b/.test(
+      `${descriptorText} ${nearbyText}`,
+    )
+  );
 }
 
 function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {

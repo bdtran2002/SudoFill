@@ -133,6 +133,33 @@ describe('autofill usage history', () => {
     ]);
   });
 
+  it('deduplicates duplicate autofill events that share site email and timestamp', async () => {
+    await setStoredAutofillUsageHistory([
+      {
+        ...baseEntry,
+        id: 'old-entry',
+      },
+    ]);
+
+    const duplicateEntry = {
+      ...baseEntry,
+      id: 'new-entry',
+    };
+
+    await appendAutofillUsageHistoryEntry(duplicateEntry);
+    await appendAutofillUsageHistoryEntry({
+      ...duplicateEntry,
+      id: 'new-entry-2',
+    });
+
+    await expect(getStoredAutofillUsageHistory()).resolves.toEqual([
+      {
+        ...baseEntry,
+        id: 'new-entry-2',
+      },
+    ]);
+  });
+
   it('clears stored history', async () => {
     await setStoredAutofillUsageHistory([baseEntry]);
     await clearStoredAutofillUsageHistory();

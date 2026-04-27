@@ -117,10 +117,14 @@ export async function appendAutofillUsageHistoryEntry(entry: AutofillUsageHistor
   }
 
   const existingEntries = await getStoredAutofillUsageHistory();
-  const nextEntries = [normalizedEntry, ...existingEntries.filter(({ id }) => id !== entry.id)].slice(
-    0,
-    MAX_AUTOFILL_USAGE_HISTORY_ENTRIES,
-  );
+  const nextEntries = [normalizedEntry, ...existingEntries.filter(({ id, email, siteUrl, createdAt }) => {
+    if (id === normalizedEntry.id) return false;
+    return !(
+      email === normalizedEntry.email &&
+      siteUrl === normalizedEntry.siteUrl &&
+      createdAt === normalizedEntry.createdAt
+    );
+  })].slice(0, MAX_AUTOFILL_USAGE_HISTORY_ENTRIES);
 
   await setStoredAutofillUsageHistory(nextEntries);
 }

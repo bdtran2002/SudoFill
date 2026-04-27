@@ -129,4 +129,17 @@ describe('verification code fill', () => {
 
     expect(fillVerificationCode('1234')).toBe(false);
   });
+
+  it('fills a realistic verification code field that relies on surrounding copy', () => {
+    document.body.innerHTML = `
+      <form>
+        <p>We sent a verification code to your email.</p>
+        <label for="code-box">Code</label>
+        <input id="code-box" type="text" inputmode="numeric" maxlength="6" />
+      </form>
+    `;
+
+    expect(fillVerificationCode('123456')).toBe(true);
+    expect((document.getElementById('code-box') as HTMLInputElement).value).toBe('123456');
+  });
 });

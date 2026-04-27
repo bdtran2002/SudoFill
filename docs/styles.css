@@ -33,14 +33,11 @@ body {
   min-height: 100vh;
   color: var(--text);
   font:
-    15px/1.45 'Figtree',
+    14px/1.4 'Figtree',
     'Segoe UI',
     system-ui,
     sans-serif;
-  background:
-    radial-gradient(circle at 12% 8%, rgba(239, 75, 75, 0.12), transparent 28%),
-    radial-gradient(circle at 88% 16%, rgba(110, 168, 254, 0.1), transparent 30%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  background: linear-gradient(180deg, #131111 0%, #111010 100%);
 }
 
 body::before {
@@ -48,12 +45,12 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.08;
+  opacity: 0.03;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(circle at center, black 15%, transparent 86%);
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 10%, transparent 82%);
 }
 
 body::after {
@@ -61,9 +58,7 @@ body::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 16%);
 }
 
 a {
@@ -80,30 +75,30 @@ button {
   width: min(1680px, calc(100vw - 24px));
   min-height: 100vh;
   margin: 0 auto;
-  padding: 12px 0 12px;
+  padding: 10px 0 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 0;
+  gap: 10px;
+  padding: 1px 1px 0;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   text-decoration: none;
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 14px;
@@ -122,21 +117,50 @@ button {
 .detail-view h2 {
   display: block;
   font-family: 'Fraunces', Georgia, 'Iowan Old Style', serif;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .brand-copy strong {
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1.05;
 }
 
 .brand-copy small {
   display: block;
   color: var(--muted);
-  font-size: 0.76rem;
-  margin-top: 3px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+.shell-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.shell-nav-link {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.shell-nav-link--active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.shell-nav-link--inactive {
+  color: var(--muted);
 }
 
 .header-status {
@@ -150,8 +174,8 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  padding: 11px 14px;
+  min-height: 40px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
@@ -199,8 +223,8 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 30px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 9px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
@@ -224,23 +248,23 @@ button {
   min-height: 0;
   display: grid;
   grid-template-columns: 240px minmax(320px, 410px) minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 .panel {
   min-height: 0;
   border: 1px solid var(--line);
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 20%), var(--panel);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow);
+  border-radius: 20px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
 .left-rail {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
   position: sticky;
   top: 16px;
   align-self: start;
@@ -287,7 +311,7 @@ button {
 
 .stack {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .action-button,
@@ -296,9 +320,9 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 14px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.035);
   color: var(--text);
@@ -330,10 +354,10 @@ button {
 
 .rail-note,
 .rail-card {
-  padding: 14px;
-  border-radius: var(--radius-lg);
+  padding: 12px;
+  border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .rail-pills {
@@ -391,7 +415,7 @@ button {
   min-height: 0;
   margin-top: 14px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   overflow: auto;
   padding-right: 2px;
 }
@@ -399,14 +423,14 @@ button {
 .message-row {
   display: flex;
   align-items: start;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  padding: 12px 12px 11px;
-  border-radius: 16px;
+  padding: 11px 11px 10px;
+  border-radius: 14px;
   border: 1px solid transparent;
   border-left-width: 2px;
   border-left-style: solid;
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.02);
   color: inherit;
   cursor: pointer;
   text-align: left;
@@ -432,14 +456,12 @@ button {
   border-color: rgba(239, 75, 75, 0.24);
   border-left-color: var(--accent);
   background: linear-gradient(135deg, rgba(239, 75, 75, 0.12), rgba(239, 75, 75, 0.04));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(239, 75, 75, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .message-dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   margin-top: 5px;
   background: rgba(160, 179, 198, 0.28);
@@ -456,7 +478,7 @@ button {
   min-width: 0;
   flex: 1;
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .message-topline {
@@ -477,14 +499,14 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.94rem;
+  font-size: 0.92rem;
 }
 
 .message-topline time,
 .detail-time {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
 }
 
 .message-from,
@@ -496,16 +518,16 @@ button {
 
 .message-from {
   -webkit-line-clamp: 1;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .message-snippet {
   -webkit-line-clamp: 1;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
 }
 
 .detail-column {
-  padding: 18px;
+  padding: 14px;
 }
 
 .detail-shell {
@@ -541,15 +563,15 @@ button {
 .detail-view {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  padding: 22px;
-  gap: 18px;
+  padding: 18px;
+  gap: 14px;
   overflow: hidden;
 }
 
 .detail-head {
   align-items: start;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 14px;
+  padding-bottom: 12px;
 }
 
 .detail-title-group {
@@ -560,7 +582,7 @@ button {
   display: none;
   align-items: center;
   gap: 6px;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -576,21 +598,21 @@ button {
 
 .detail-primary {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .detail-primary-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .verification-card,
 .verification-mini-action {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
   color: var(--text);
   cursor: pointer;
   transition:
@@ -603,14 +625,14 @@ button {
 .verification-card:hover,
 .verification-mini-action:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .verification-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px;
 }
 
 .verification-card--link {
@@ -625,8 +647,8 @@ button {
 }
 
 .verification-card-icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -655,8 +677,8 @@ button {
 .verification-card-hint,
 .verification-secondary-title {
   color: var(--muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -665,7 +687,7 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 600;
 }
 
@@ -688,7 +710,7 @@ button {
 .verification-card-action {
   flex: 0 0 auto;
   align-self: center;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 999px;
   border: 1px solid rgba(110, 168, 254, 0.24);
   background: rgba(255, 255, 255, 0.03);
@@ -698,17 +720,17 @@ button {
 }
 
 .verification-secondary-group {
-  padding: 14px;
-  border-radius: 18px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.015);
 }
 
 .verification-secondary-list {
-  margin-top: 10px;
+  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .verification-mini-action {
@@ -716,7 +738,7 @@ button {
   gap: 4px;
   align-content: start;
   text-align: left;
-  padding: 11px 12px;
+  padding: 10px 11px;
   min-width: 0;
 }
 
@@ -745,36 +767,36 @@ button {
 }
 
 .detail-title-group h2 {
-  font-size: clamp(1.7rem, 2.4vw, 2.4rem);
+  font-size: clamp(1.55rem, 2.1vw, 2.1rem);
 }
 
 .detail-from {
-  margin-top: 8px;
-  font-size: 0.94rem;
+  margin-top: 6px;
+  font-size: 0.88rem;
 }
 
 .detail-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .detail-body {
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 2px;
   color: #d9e4ef;
-  line-height: 1.8;
+  line-height: 1.65;
 }
 
 .detail-body p {
-  max-width: 60ch;
+  max-width: 64ch;
 }
 
 .detail-foot {
   align-items: center;
   flex-wrap: wrap;
   border-top: 1px solid var(--line);
-  padding-top: 14px;
+  padding-top: 12px;
 }
 
 .page-footer {
@@ -843,7 +865,7 @@ template {
   .left-rail,
   .inbox-column,
   .detail-column {
-    padding: 14px;
+    padding: 12px;
   }
 
   .stack {
@@ -858,7 +880,7 @@ template {
   .rail-card,
   .detail-view,
   .detail-empty {
-    border-radius: 20px;
+    border-radius: 16px;
   }
 
   .detail-column {
@@ -884,7 +906,7 @@ template {
   }
 
   .verification-card {
-    padding: 13px;
+    padding: 11px;
   }
 
   .detail-primary-grid {
@@ -898,7 +920,7 @@ template {
   }
 
   .message-row {
-    padding: 12px;
+    padding: 10px;
   }
 
   .message-topline {
@@ -908,7 +930,7 @@ template {
   }
 
   .detail-view {
-    padding: 18px;
+    padding: 16px;
   }
 }
 

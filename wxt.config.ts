@@ -18,7 +18,7 @@ function getFirefoxUpdateUrl() {
 export default defineConfig({
   modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons'],
   autoIcons: {
-    baseIconPath: 'assets/icon.png',
+    baseIconPath: 'assets/darkmode_ui.png',
   },
   manifest: ({ browser }) => {
     const isFirefox = browser === 'firefox';

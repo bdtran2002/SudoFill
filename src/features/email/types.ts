@@ -76,8 +76,9 @@ export type MailboxCommand =
   | { type: 'mailbox:refresh' }
   | { type: 'mailbox:discard' }
   | { type: 'mailbox:open-message'; messageId: string }
-  | { type: 'mailbox:open-link'; url: string }
-  | { type: 'verification:fill-code'; code: string };
+  | { type: 'mailbox:open-link'; url: string };
+
+export type VerificationContentCommand = { type: 'verification:fill-code'; code: string };
 
 export type MailboxResponse =
   | { ok: true; snapshot: MailboxSnapshot }

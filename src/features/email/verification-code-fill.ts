@@ -118,12 +118,14 @@ function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
   return null;
 }
 
-function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaElement) {
+type GroupedVerificationFillResult = 'filled' | 'not-applicable' | 'refused';
+
+function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaElement): HTMLInputElement[] {
   const group =
     target.closest('fieldset, [role="group"]') ??
     target.parentElement?.closest('div, label, section, form');
 
-  if (!group) return [] as Array<HTMLInputElement | HTMLTextAreaElement>;
+  if (!group) return [];
 
   return [...group.querySelectorAll('input, textarea')].filter(
     (element): element is HTMLInputElement => {
@@ -138,29 +140,30 @@ function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaEle
         (maxLength === 1 || element.size === 1 || element.getAttribute('inputmode') === 'numeric')
       );
     },
-  ) as Array<HTMLInputElement | HTMLTextAreaElement>;
+  );
 }
 
-function fillGroupedVerificationCode(code: string, target: HTMLInputElement | HTMLTextAreaElement) {
-  if (code.length < 2 || !(target instanceof HTMLInputElement)) return false;
+function fillGroupedVerificationCode(
+  code: string,
+  target: HTMLInputElement | HTMLTextAreaElement,
+): GroupedVerificationFillResult {
+  if (code.length < 2 || !(target instanceof HTMLInputElement)) return 'not-applicable';
 
-  const groupedInputs = getGroupedVerificationInputs(target).filter(
-    (element) => element instanceof HTMLInputElement,
-  ) as HTMLInputElement[];
+  const groupedInputs = getGroupedVerificationInputs(target);
 
   if (groupedInputs.length !== code.length || !groupedInputs.includes(target)) {
-    return false;
+    return 'not-applicable';
   }
 
   const existingValues = groupedInputs.map((input) => input.value.trim());
 
   if (existingValues.some((value) => value.length > 1)) {
-    return null;
+    return 'not-applicable';
   }
 
   for (const [index, value] of existingValues.entries()) {
     if (value && value !== code[index]) {
-      return null;
+      return 'refused';
     }
   }
 
@@ -176,7 +179,7 @@ function fillGroupedVerificationCode(code: string, target: HTMLInputElement | HT
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
-  return true;
+  return 'filled';
 }
 
 export function scoreVerificationCodeField(element: HTMLInputElement | HTMLTextAreaElement) {
@@ -184,8 +187,9 @@ export function scoreVerificationCodeField(element: HTMLInputElement | HTMLTextA
 
   let score = 0;
   const descriptorText = getNormalizedFieldDescriptorText(element);
+  const doc = element.ownerDocument ?? document;
 
-  if (element === document.activeElement) score += 40;
+  if (element === doc.activeElement) score += 40;
   if (descriptorText.includes('verification') || descriptorText.includes('security')) score += 30;
   if (descriptorText.includes('one-time') || descriptorText.includes('one time')) score += 30;
   if (
@@ -229,12 +233,12 @@ export function fillVerificationCode(code: string, doc: Document = document) {
   if (!valueSetter) return false;
 
   const groupedFillResult = fillGroupedVerificationCode(code, target);
-  if (groupedFillResult === true) {
+  if (groupedFillResult === 'filled') {
     target.focus();
     return true;
   }
 
-  if (groupedFillResult === null) {
+  if (groupedFillResult === 'refused') {
     return false;
   }
 

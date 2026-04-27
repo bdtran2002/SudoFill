@@ -95,7 +95,19 @@ export function findRelatedVerificationMessage(
   messages: MailboxMessageSummary[],
   getMessage: (messageId: string) => MailboxMessageDetail | null,
 ) {
-  for (const summary of messages) {
+  const sortedMessages = [...messages].sort((left, right) => {
+    const leftMessage = getMessage(left.id);
+    const rightMessage = getMessage(right.id);
+    const leftTime = Date.parse(leftMessage?.createdAt ?? left.createdAt ?? '');
+    const rightTime = Date.parse(rightMessage?.createdAt ?? right.createdAt ?? '');
+
+    if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+    if (Number.isNaN(leftTime)) return 1;
+    if (Number.isNaN(rightTime)) return -1;
+    return rightTime - leftTime;
+  });
+
+  for (const summary of sortedMessages) {
     const message = getMessage(summary.id);
     if (
       message &&

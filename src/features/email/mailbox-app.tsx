@@ -355,6 +355,8 @@ export function MailboxApp() {
             : currentStatus,
         );
       }
+
+      return response;
     } finally {
       if (command.type === 'mailbox:open-message') {
         setPendingMessageId(null);
@@ -363,15 +365,21 @@ export function MailboxApp() {
     }
   }, []);
 
-  async function openMessage(messageId: string, source: 'manual' | 'auto') {
+  const openMessage = useCallback(async (messageId: string, source: 'manual' | 'auto') => {
     if (source === 'manual') {
       manualMessageSelectionRef.current = true;
-    } else {
-      autoOpenedMessageIdRef.current = messageId;
     }
 
-    await runCommand({ type: 'mailbox:open-message', messageId });
-  }
+    const response = await runCommand({ type: 'mailbox:open-message', messageId });
+
+    if (source === 'auto') {
+      if (response.ok) {
+        autoOpenedMessageIdRef.current = messageId;
+      } else if (autoOpenedMessageIdRef.current === messageId) {
+        autoOpenedMessageIdRef.current = null;
+      }
+    }
+  }, [runCommand]);
 
   useEffect(() => {
     if (
@@ -392,9 +400,8 @@ export function MailboxApp() {
       return;
     }
 
-    autoOpenedMessageIdRef.current = latestMessage.id;
-    void runCommand({ type: 'mailbox:open-message', messageId: latestMessage.id });
-  }, [hasMailbox, pendingMessageId, runCommand, snapshot.messages, snapshot.selectedMessageId]);
+    void openMessage(latestMessage.id, 'auto');
+  }, [hasMailbox, openMessage, pendingMessageId, snapshot.messages, snapshot.selectedMessageId]);
 
   async function copyAddress() {
     if (!snapshot.address) return;
@@ -413,9 +420,9 @@ export function MailboxApp() {
     context?: { preferredUrl?: string; preferredHostname?: string },
   ) {
     try {
-      const didFill = await fillVerificationCodeOnPage(code, context);
+      const result = await fillVerificationCodeOnPage(code, context);
 
-      if (didFill) {
+      if (result.ok) {
         setSidebarActionStatus({
           tone: 'success',
           message: 'Verification code sent to the page.',
@@ -424,7 +431,10 @@ export function MailboxApp() {
       } else {
         setSidebarActionStatus({
           tone: 'error',
-          message: 'Could not fill a code field on the page.',
+          message:
+            result.reason === 'no-tab'
+              ? 'Open the matching page first, then try again.'
+              : 'Could not fill a code field on the page.',
           source: 'ui',
         });
       }

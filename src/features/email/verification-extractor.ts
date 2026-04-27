@@ -233,7 +233,7 @@ type RawCodeCandidate = {
 };
 
 function normalizeCandidateCode(value: string) {
-  return value.replace(/\s+/g, ' ').trim().replace(/ +/g, ' ');
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 function isLikelyCodeToken(value: string) {
@@ -296,8 +296,11 @@ function collectRawCodeCandidates(subject: string, text: string, html: string) {
   return [...candidates.values()].sort((left, right) => right.score - left.score);
 }
 
-export function extractMailboxLinks(...sources: Array<string | null | undefined>): MailboxLink[] {
-  const [subject = '', text = '', html = ''] = sources;
+export function extractMailboxLinks(
+  subject?: string | null,
+  text?: string | null,
+  html?: string | null,
+): MailboxLink[] {
   return collectRawLinkCandidates(subject ?? '', text ?? '', html ?? '')
     .map(toMailboxLink)
     .slice(0, MAX_LINK_CANDIDATES);
@@ -333,8 +336,7 @@ export function extractMailboxVerificationDetails({
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_LINK_CANDIDATES)
     .map((candidate) => {
-      const { score, ...rest } = candidate;
-      void score;
+      const { score: _score, ...rest } = candidate;
       return rest;
     });
   const bestLink = linkCandidates[0] ?? null;

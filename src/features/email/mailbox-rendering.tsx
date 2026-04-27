@@ -1,4 +1,4 @@
-import { createElement, useMemo, useState } from 'react';
+import { createElement, useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { BadgeCheck, Copy, ExternalLink, KeyRound } from 'lucide-react';
 
@@ -383,15 +383,14 @@ function ActionButton({
 }
 
 function CopyableCode({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, flash } = useCopiedFlash();
 
   async function handleCopy() {
     try {
       await copyTextToClipboard(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
+      flash();
     } catch {
-      setCopied(false);
+      // ignore clipboard errors
     }
   }
 
@@ -560,21 +559,19 @@ export function MailboxVerificationActions({
             Secondary actions
           </p>
 
-          {secondaryCodes.length > 0 && (
-            <div className='mt-3 flex flex-wrap gap-2'>
-              {secondaryCodes.map((code) => (
-                <ActionButton
-                  key={secondaryCodeKey(code)}
-                  icon={<KeyRound className='h-3.5 w-3.5' />}
-                  label={`${code.label}: ${code.code}`}
-                  onClick={() => {
-                    void copyTextToClipboard(code.code).catch(() => undefined);
-                  }}
-                  tone='default'
-                />
-              ))}
-            </div>
-          )}
+          <div className='mt-3 flex flex-wrap gap-2'>
+            {secondaryCodes.map((code) => (
+              <ActionButton
+                key={secondaryCodeKey(code)}
+                icon={<KeyRound className='h-3.5 w-3.5' />}
+                label={`${code.label}: ${code.code}`}
+                onClick={() => {
+                  void copyTextToClipboard(code.code).catch(() => undefined);
+                }}
+                tone='default'
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -248,8 +248,8 @@ export function MailboxPage() {
     context?: { preferredUrl?: string; preferredHostname?: string },
   ) {
     try {
-      const didFill = await fillVerificationCodeOnPage(code, context);
-      if (didFill) {
+      const result = await fillVerificationCodeOnPage(code, context);
+      if (result.ok) {
         setActionStatus({
           tone: 'success',
           message: 'Verification code sent to the page.',
@@ -258,7 +258,10 @@ export function MailboxPage() {
       } else {
         setActionStatus({
           tone: 'error',
-          message: 'Could not fill a code field on the page.',
+          message:
+            result.reason === 'no-tab'
+              ? 'Open the matching page first, then try again.'
+              : 'Could not fill a code field on the page.',
           source: 'ui',
         });
       }

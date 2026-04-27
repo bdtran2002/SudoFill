@@ -12,7 +12,17 @@ import { appendAutofillUsageHistoryEntry } from '../autofill/history';
 import { getStoredAutofillSettings } from '../autofill/settings';
 import type { AutofillContentResponse } from '../autofill/types';
 import { callWebExtensionApi } from '../../lib/webext-async';
-import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import type {
+  MailboxCommand,
+  MailboxDiagnostics,
+  MailboxResponse,
+  MailboxSnapshot,
+  VerificationContentCommand,
+} from './types';
+
+export type VerificationFillResult =
+  | { ok: true }
+  | { ok: false; reason: 'no-tab' | 'transport' | 'no-field' | 'malformed' };
 
 export function toTransportFailureResponse(
   error: unknown,
@@ -138,6 +148,7 @@ export async function getPageInteractionTabForContext({
   preferredUrl?: string;
   preferredHostname?: string;
 } = {}) {
+  const hasPreference = Boolean(preferredUrl || preferredHostname);
   const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
     active: true,
     currentWindow: true,
@@ -169,6 +180,10 @@ export async function getPageInteractionTabForContext({
     return currentWindowMatch;
   }
 
+  if (hasPreference) {
+    return undefined;
+  }
+
   const currentWindowCandidate = getMostRelevantPageTab(currentWindowTabs);
 
   if (currentWindowCandidate) {
@@ -183,6 +198,10 @@ export async function getPageInteractionTabForContext({
     return globalPreferredUrlMatch;
   }
 
+  if (hasPreference) {
+    return undefined;
+  }
+
   return getMostRelevantPageTab(allTabs);
 }
 
@@ -193,25 +212,34 @@ function isVerificationFillResponse(value: unknown): value is { ok: boolean } {
 export async function fillVerificationCodeOnPageForContext(
   code: string,
   context?: { preferredUrl?: string; preferredHostname?: string },
-) {
+): Promise<VerificationFillResult> {
   const targetTab = await getPageInteractionTabForContext(context);
 
   if (targetTab?.id == null) {
-    return false;
+    return { ok: false, reason: 'no-tab' };
   }
 
-  const response = await callWebExtensionApi<unknown>('tabs', 'sendMessage', targetTab.id, {
+  const command: VerificationContentCommand = {
     type: 'verification:fill-code',
     code,
-  });
+  };
+  const response = await callWebExtensionApi<unknown>('tabs', 'sendMessage', targetTab.id, command);
 
-  return isVerificationFillResponse(response) ? response.ok : false;
+  if (response === undefined) {
+    return { ok: false, reason: 'transport' };
+  }
+
+  if (isVerificationFillResponse(response)) {
+    return response.ok ? { ok: true } : { ok: false, reason: 'no-field' };
+  }
+
+  return { ok: false, reason: 'malformed' };
 }
 
 export async function fillVerificationCodeOnPage(
   code: string,
   context?: { preferredUrl?: string; preferredHostname?: string },
-) {
+): Promise<VerificationFillResult> {
   return fillVerificationCodeOnPageForContext(code, context);
 }
 
@@ -316,6 +344,11 @@ export async function runMailboxAutofillFlow({
       return;
     }
 
+    if (!activeTab) {
+      setAutofillStatus({ tone: 'error', message: 'Open a page first, then try autofill again.' });
+      return;
+    }
+
     const tabId = activeTab.id;
     if (tabId === undefined) {
       setAutofillStatus({ tone: 'error', message: 'Open a page first, then try autofill again.' });
@@ -344,24 +377,25 @@ export async function runMailboxAutofillFlow({
     setActionStatus?.({ tone: 'success', message: 'Autofill sent to the active tab.' });
 
     if (settings.saveUsageHistory) {
-      try {
-        const siteUrl = activeTab.url ?? activeTab.pendingUrl ?? '';
-        const siteHostname = (() => {
-          try {
-            return new URL(siteUrl).hostname;
-          } catch {
-            return '';
-          }
-        })();
+      const siteUrl = activeTab.url ?? activeTab.pendingUrl ?? '';
+      const siteHostname = (() => {
+        try {
+          return new URL(siteUrl).hostname;
+        } catch {
+          return '';
+        }
+      })();
 
+      try {
         if (siteUrl && siteHostname) {
           const saveNameDetails = settings.saveUsageHistoryDetails.name;
           const saveAgeDetails = settings.saveUsageHistoryDetails.age;
           const saveAddressDetails = settings.saveUsageHistoryDetails.address;
           const savePasswordDetails = settings.savePasswordToUsageHistory;
+          const historyEntryId = globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`;
 
           await appendAutofillUsageHistoryEntry({
-            id: globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`,
+            id: historyEntryId,
             createdAt: new Date().toISOString(),
             siteHostname,
             siteUrl,
@@ -379,8 +413,13 @@ export async function runMailboxAutofillFlow({
             postalCode: saveAddressDetails ? profile.postalCode : '',
           });
         }
-      } catch {
-        // Ignore history persistence issues so successful autofill stays successful.
+      } catch (error) {
+        console.warn('Failed to persist autofill usage history', {
+          error,
+          historyEntryId: 'unavailable',
+          siteHostname,
+          siteUrl,
+        });
       }
     }
   } catch (error) {

@@ -101,6 +101,25 @@ describe('verification code fill', () => {
     expect((document.getElementById('digit-4') as HTMLInputElement).value).toBe('4');
   });
 
+  it('falls back to single-field fill when grouped siblings already contain multi-character values', () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Verification code</legend>
+        <input id="otp-full" type="text" />
+        <div class="otp-grid">
+          <input id="digit-1" type="text" inputmode="numeric" value="12" />
+          <input id="digit-2" type="text" inputmode="numeric" />
+        </div>
+      </fieldset>
+    `;
+
+    const fullField = document.getElementById('otp-full') as HTMLInputElement;
+    fullField.focus();
+
+    expect(fillVerificationCode('123456')).toBe(true);
+    expect(fullField.value).toBe('123456');
+  });
+
   it('refuses mismatched partially filled segmented otp inputs', () => {
     document.body.innerHTML = `
       <fieldset>

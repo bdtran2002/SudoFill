@@ -235,8 +235,9 @@ export function getMailTmMessage(
     const summary = normalizeMessageSummary(message);
     const text = message.text?.trim() ?? '';
     const html = normalizeHtml(message.html);
+    const rawSubject = message.subject ?? '';
     const verification = extractMailboxVerificationDetails({
-      subject: summary.subject,
+      subject: rawSubject,
       text,
       html,
     });
@@ -246,7 +247,7 @@ export function getMailTmMessage(
       to: (message.to ?? []).map((recipient) => recipient.address).filter(Boolean) as string[],
       text,
       html,
-      links: extractMailboxLinks(summary.subject, text, html),
+      links: extractMailboxLinks(rawSubject, text, html),
       verification,
     };
   });

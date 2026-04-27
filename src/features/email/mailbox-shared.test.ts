@@ -42,7 +42,10 @@ describe('mailbox shared tab selection', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
 
-    await expect(fillVerificationCodeOnPage('123456')).resolves.toBe(false);
+    await expect(fillVerificationCodeOnPage('123456')).resolves.toEqual({
+      ok: false,
+      reason: 'no-tab',
+    });
   });
 
   it('prefers a matching page tab from the current mailbox link context', async () => {
@@ -60,7 +63,7 @@ describe('mailbox shared tab selection', () => {
         preferredUrl: 'https://example.com/verify',
         preferredHostname: 'example.com',
       }),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ ok: true });
 
     expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
   });
@@ -78,7 +81,7 @@ describe('mailbox shared tab selection', () => {
       fillVerificationCodeOnPageForContext('123456', {
         preferredHostname: 'example.com',
       }),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ ok: true });
 
     expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
   });
@@ -97,8 +100,37 @@ describe('mailbox shared tab selection', () => {
         preferredUrl: 'https://login.example.com/verify?token=abc',
         preferredHostname: 'example.com',
       }),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ ok: true });
 
     expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
+  });
+
+  it('does not fall back to unrelated tabs when a preferred host is provided', async () => {
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' }])
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
+        { id: 2, active: false, url: 'https://unrelated.test' },
+      ]);
+
+    await expect(
+      fillVerificationCodeOnPageForContext('123456', {
+        preferredHostname: 'example.com',
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'no-tab' });
+  });
+
+  it('surfaces transport failures separately from no-field failures', async () => {
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' }])
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
+        { id: 2, active: false, url: 'https://example.com/verify' },
+      ])
+      .mockResolvedValueOnce(undefined);
+
+    await expect(
+      fillVerificationCodeOnPageForContext('123456', { preferredHostname: 'example.com' }),
+    ).resolves.toEqual({ ok: false, reason: 'transport' });
   });
 });

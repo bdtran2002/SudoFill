@@ -34,6 +34,37 @@ function getFieldDescriptorText(element: HTMLInputElement | HTMLTextAreaElement)
     .trim();
 }
 
+function getNormalizedFieldDescriptorText(element: HTMLInputElement | HTMLTextAreaElement) {
+  return getFieldDescriptorText(element).toLowerCase();
+}
+
+function isLikelyVerificationCodeField(element: HTMLInputElement | HTMLTextAreaElement) {
+  const descriptorText = getNormalizedFieldDescriptorText(element);
+  const autocomplete = element.getAttribute('autocomplete')?.toLowerCase() ?? '';
+
+  if (autocomplete === 'one-time-code') return true;
+
+  const strongPhrases = [
+    'verification code',
+    'security code',
+    'one-time code',
+    'one time code',
+    'sign-in code',
+    'signin code',
+    'login code',
+    'passcode',
+    'otp',
+    '2fa code',
+    'mfa code',
+    'auth code',
+    'authentication code',
+    'verification token',
+    'security token',
+  ];
+
+  return strongPhrases.some((phrase) => descriptorText.includes(phrase));
+}
+
 function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
   let prototype = Object.getPrototypeOf(element);
 
@@ -51,14 +82,18 @@ function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
 
 export function scoreVerificationCodeField(
   element: HTMLInputElement | HTMLTextAreaElement,
-  codeCuePattern: RegExp,
 ) {
+  if (!isLikelyVerificationCodeField(element)) return 0;
+
   let score = 0;
-  const descriptorText = getFieldDescriptorText(element);
+  const descriptorText = getNormalizedFieldDescriptorText(element);
 
   if (element === document.activeElement) score += 40;
-  if (codeCuePattern.test(descriptorText)) score += 30;
-  if (element.getAttribute('autocomplete') === 'one-time-code') score += 50;
+  if (descriptorText.includes('verification') || descriptorText.includes('security')) score += 30;
+  if (descriptorText.includes('one-time') || descriptorText.includes('one time')) score += 30;
+  if (descriptorText.includes('sign-in') || descriptorText.includes('signin') || descriptorText.includes('login')) score += 20;
+  if (descriptorText.includes('otp') || descriptorText.includes('passcode')) score += 20;
+  if ((element.getAttribute('autocomplete') ?? '').toLowerCase() === 'one-time-code') score += 50;
   if (element instanceof HTMLInputElement && ['text', 'tel', 'number', 'search'].includes(element.type)) {
     score += 8;
   }
@@ -68,8 +103,6 @@ export function scoreVerificationCodeField(
 }
 
 export function fillVerificationCode(code: string, doc: Document = document) {
-  const codeCuePattern =
-    /(verification|security|sign[- ]?in|login|one[- ]?time|passcode|otp|auth|token|pin|code)/i;
   const activeElement = doc.activeElement;
   const candidates = [
     activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
@@ -83,11 +116,10 @@ export function fillVerificationCode(code: string, doc: Document = document) {
       .filter((element) => !element.readOnly && !element.disabled)
       .sort(
         (left, right) =>
-          scoreVerificationCodeField(right, codeCuePattern) -
-          scoreVerificationCodeField(left, codeCuePattern),
+          scoreVerificationCodeField(right) - scoreVerificationCodeField(left),
       )[0] ?? null;
 
-  if (!target) return false;
+  if (!target || scoreVerificationCodeField(target) <= 0) return false;
 
   const valueSetter = getValueSetter(target);
   if (!valueSetter) return false;

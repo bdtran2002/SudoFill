@@ -585,7 +585,7 @@ export function MailboxApp() {
                     type='button'
                   >
                     <RefreshCw
-                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-spin' : ''}`}
+                      className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                     />
                   </button>
                   <button

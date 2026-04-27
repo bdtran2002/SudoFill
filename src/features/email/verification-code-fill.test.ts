@@ -35,6 +35,29 @@ describe('verification code fill', () => {
     `;
 
     const input = document.getElementById('code-box') as HTMLInputElement;
-    expect(scoreVerificationCodeField(input, /code/i)).toBeGreaterThan(30);
+    expect(scoreVerificationCodeField(input)).toBeGreaterThan(30);
+  });
+
+  it('does not fill generic code fields without strong verification cues', () => {
+    document.body.innerHTML = `
+      <form>
+        <label>Email <input id="email" type="email" /></label>
+        <label>Code <input id="code" type="text" /></label>
+      </form>
+    `;
+
+    expect(fillVerificationCode('NBW-VOW')).toBe(false);
+    expect((document.getElementById('code') as HTMLInputElement).value).toBe('');
+    expect((document.getElementById('email') as HTMLInputElement).value).toBe('');
+  });
+
+  it('accepts autocomplete one-time-code fields even with minimal labels', () => {
+    document.body.innerHTML = `
+      <label for="code-box">Code</label>
+      <input id="code-box" type="text" autocomplete="one-time-code" />
+    `;
+
+    expect(fillVerificationCode('123456')).toBe(true);
+    expect((document.getElementById('code-box') as HTMLInputElement).value).toBe('123456');
   });
 });

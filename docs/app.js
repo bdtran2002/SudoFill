@@ -14,6 +14,8 @@
     polling: document.querySelector('[data-mailbox-polling]'),
     address: document.querySelector('[data-mailbox-address]'),
     disclaimer: document.querySelector('[data-mailbox-disclaimer]'),
+    lastChecked: document.querySelector('[data-mailbox-last-checked]'),
+    statusCopy: document.querySelector('[data-mailbox-status-copy]'),
     count: document.querySelector('[data-mailbox-count]'),
     messageList: document.querySelector('[data-message-list]'),
     detailEmpty: document.querySelector('[data-detail-empty]'),
@@ -37,6 +39,7 @@
     pollTimer: null,
     busy: false,
     statusText: 'Ready',
+    lastCheckedAt: null,
   };
 
   function loadSession() {
@@ -59,11 +62,20 @@
 
   function setBusy(busy) {
     state.busy = busy;
-    document.querySelectorAll('button[data-action]').forEach((button) => {
-      button.disabled = busy;
-    });
+    renderActionStates();
 
     elements.messageList?.setAttribute('aria-busy', String(busy));
+  }
+
+  function renderActionStates() {
+    const hasSession = Boolean(state.session?.token);
+
+    document.querySelectorAll('button[data-action]').forEach((button) => {
+      const action = button.dataset.action;
+      const requiresSession =
+        action === 'refresh' || action === 'copy-address' || action === 'discard';
+      button.disabled = state.busy || (requiresSession && !hasSession);
+    });
   }
 
   function setStatus(text) {
@@ -103,6 +115,18 @@
         : 'Web mailbox version. Create an inbox to start collecting verification mail.';
     }
 
+    if (elements.lastChecked) {
+      elements.lastChecked.textContent = state.lastCheckedAt
+        ? `Last checked ${formatTimestamp(state.lastCheckedAt)}`
+        : 'Not checked yet';
+    }
+
+    if (elements.statusCopy) {
+      elements.statusCopy.textContent = hasSession
+        ? state.statusText
+        : 'Create a temp mailbox to start collecting verification emails.';
+    }
+
     if (elements.footer) {
       elements.footer.textContent = hasSession
         ? `Web mailbox version · ${state.session.address}`
@@ -110,6 +134,7 @@
     }
 
     elements.shell?.setAttribute('data-mailbox-state', hasSession ? 'active' : 'empty');
+    renderActionStates();
   }
 
   async function api(path, init = {}, token = state.session?.token) {
@@ -579,6 +604,7 @@
       state.selectedMessageId = null;
       state.selectedMessage = null;
       state.unreadIds = new Set();
+      state.lastCheckedAt = null;
       saveSession();
       stopPolling();
       setStatus('Mailbox discarded.');
@@ -603,6 +629,7 @@
       state.unreadIds = new Set(
         summaries.filter((message) => !message.seen).map((message) => message.id),
       );
+      state.lastCheckedAt = new Date().toISOString();
 
       const nextSelectedId =
         state.selectedMessageId &&
@@ -628,6 +655,7 @@
         state.selectedMessage = null;
         state.selectedMessageId = null;
         state.unreadIds = new Set();
+        state.lastCheckedAt = null;
         saveSession();
         stopPolling();
         render();

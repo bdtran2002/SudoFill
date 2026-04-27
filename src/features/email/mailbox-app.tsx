@@ -17,6 +17,7 @@ import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   copyTextToClipboard,
   formatTimestamp,
+  fillVerificationCodeOnPage,
   MAILBOX_AUTOFILL_IDLE_MESSAGE,
   MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE,
   runMailboxAutofillFlow,
@@ -102,17 +103,19 @@ type AutofillStatus =
 
 type SidebarActionStatus =
   | { tone: 'idle'; message: ''; source: null }
-  | { tone: 'success'; message: string; source: 'mailbox' }
+  | { tone: 'success'; message: string; source: 'mailbox' | 'ui' }
   | { tone: 'error'; message: string; source: 'mailbox' | 'ui' };
 
 function MessagePanel({
   snapshot,
   onOpenLink,
+  onFillCode,
   pendingMessageId,
   inline = false,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
+  onFillCode: (code: string) => void;
   pendingMessageId: string | null;
   inline?: boolean;
 }) {
@@ -151,7 +154,7 @@ function MessagePanel({
       </div>
 
       <MailboxVerificationActions
-        onFillCode={(code) => void onFillCode(code)}
+        onFillCode={onFillCode}
         onOpenLink={onOpenLink}
         verification={message.verification}
       />
@@ -161,20 +164,6 @@ function MessagePanel({
       </div>
     </section>
   );
-}
-
-async function onFillCode(code: string) {
-  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-    active: true,
-    currentWindow: true,
-  });
-
-  if (!activeTab?.id) return;
-
-  await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
-    type: 'verification:fill-code',
-    code,
-  });
 }
 
 export function MailboxApp() {
@@ -412,6 +401,33 @@ export function MailboxApp() {
     }
   }
 
+  async function handleFillCode(code: string) {
+    try {
+      const didFill = await fillVerificationCodeOnPage(code);
+
+      if (didFill) {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Verification code sent to the page.',
+          source: 'ui',
+        });
+      } else {
+        setSidebarActionStatus({
+          tone: 'error',
+          message: 'Could not fill a code field on the page.',
+          source: 'ui',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fill verification code on page', error);
+      setSidebarActionStatus({
+        tone: 'error',
+        message: 'Could not fill a code field on the page.',
+        source: 'ui',
+      });
+    }
+  }
+
   async function autofillCurrentPage() {
     setIsBusy(true);
 
@@ -636,6 +652,7 @@ export function MailboxApp() {
                         {isActive && (
                           <MessagePanel
                             inline
+                            onFillCode={handleFillCode}
                             onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
                             pendingMessageId={pendingMessageId}
                             snapshot={snapshot}

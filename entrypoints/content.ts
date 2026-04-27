@@ -4,6 +4,7 @@ import type {
   GeneratedProfile,
 } from '../src/features/autofill/types';
 import { fillProfile } from '../src/features/autofill/content';
+import { fillVerificationCode } from '../src/features/email/verification-code-fill';
 import type { VerificationPopupPayload } from '../src/features/email/verification-popup';
 
 type VerificationPopupRequest = {
@@ -50,11 +51,11 @@ export default defineContentScript({
       (
         message: AutofillContentRequest | VerificationPopupRequest | VerificationFillCodeRequest,
         _sender,
-        sendResponse: (response: AutofillContentResponse | { ok: true }) => void,
+        sendResponse: (response: AutofillContentResponse | { ok: boolean }) => void,
       ) => {
         if (message.type === 'verification:fill-code') {
           const didFill = fillVerificationCode(message.code);
-          sendResponse({ ok: true, ...(didFill ? {} : {}) });
+          sendResponse({ ok: didFill });
           return true;
         }
 
@@ -283,57 +284,4 @@ async function showVerificationPopup(payload: VerificationPopupPayload) {
   }
 
   shadow.querySelector('.dismiss')!.addEventListener('click', () => rootHost.remove());
-}
-
-function fillVerificationCode(code: string) {
-  const codeCuePattern = /(verification|security|sign[- ]?in|login|one[- ]?time|passcode|otp|auth|token|pin|code)/i;
-  const activeElement = document.activeElement;
-  const candidates = [
-    activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement
-      ? activeElement
-      : null,
-    ...document.querySelectorAll('input, textarea'),
-  ].filter(Boolean) as Array<HTMLInputElement | HTMLTextAreaElement>;
-
-  const target = candidates
-    .filter((element) => !element.readOnly && !element.disabled)
-    .sort((left, right) => scoreVerificationCodeField(right, codeCuePattern) - scoreVerificationCodeField(left, codeCuePattern))[0] ?? null;
-  if (!target) return false;
-
-  const prototype = Object.getPrototypeOf(target) as HTMLInputElement;
-  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
-  if (!descriptor?.set) return false;
-
-  descriptor.set.call(target, code);
-  target.dispatchEvent(new Event('input', { bubbles: true }));
-  target.dispatchEvent(new Event('change', { bubbles: true }));
-  return true;
-}
-
-function scoreVerificationCodeField(
-  element: HTMLInputElement | HTMLTextAreaElement,
-  codeCuePattern: RegExp,
-) {
-  let score = 0;
-
-  const descriptorText = [
-    element.name,
-    element.id,
-    element.placeholder,
-    element.getAttribute('aria-label') ?? '',
-    element.getAttribute('autocomplete') ?? '',
-    element.getAttribute('inputmode') ?? '',
-  ]
-    .join(' ')
-    .trim();
-
-  if (element === document.activeElement) score += 40;
-  if (codeCuePattern.test(descriptorText)) score += 30;
-  if (element.getAttribute('autocomplete') === 'one-time-code') score += 50;
-  if (element instanceof HTMLInputElement && ['text', 'tel', 'number', 'search'].includes(element.type)) {
-    score += 8;
-  }
-  if (element.value.trim().length === 0) score += 6;
-
-  return score;
 }

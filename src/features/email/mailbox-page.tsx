@@ -5,6 +5,7 @@ import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   copyTextToClipboard,
+  fillVerificationCodeOnPage,
   formatTimestamp,
   sendMailboxCommand,
   toTransportFailureResponse,
@@ -24,11 +25,13 @@ function MessageDetail({
   snapshot,
   onBack,
   onOpenLink,
+  onFillCode,
   pendingMessageId,
 }: {
   snapshot: MailboxSnapshot;
   onBack: () => void;
   onOpenLink: (url: string) => void;
+  onFillCode: (code: string) => void;
   pendingMessageId: string | null;
 }) {
   const isPendingDifferentMessage =
@@ -74,7 +77,7 @@ function MessageDetail({
       </div>
 
       <MailboxVerificationActions
-        onFillCode={(code) => void fillCodeOnActiveTab(code)}
+        onFillCode={onFillCode}
         onOpenLink={onOpenLink}
         verification={message.verification}
       />
@@ -84,20 +87,6 @@ function MessageDetail({
       </div>
     </section>
   );
-}
-
-async function fillCodeOnActiveTab(code: string) {
-  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-    active: true,
-    currentWindow: true,
-  });
-
-  if (!activeTab?.id) return;
-
-  await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
-    type: 'verification:fill-code',
-    code,
-  });
 }
 
 export function MailboxPage() {
@@ -231,6 +220,31 @@ export function MailboxPage() {
       setActionStatus({
         tone: 'error',
         message: 'Could not copy address to clipboard.',
+        source: 'ui',
+      });
+    }
+  }
+
+  async function handleFillCode(code: string) {
+    try {
+      const didFill = await fillVerificationCodeOnPage(code);
+      if (didFill) {
+        setActionStatus({
+          tone: 'success',
+          message: 'Verification code sent to the page.',
+          source: 'ui',
+        });
+      } else {
+        setActionStatus({
+          tone: 'error',
+          message: 'Could not fill a code field on the page.',
+          source: 'ui',
+        });
+      }
+    } catch {
+      setActionStatus({
+        tone: 'error',
+        message: 'Could not fill a code field on the page.',
         source: 'ui',
       });
     }
@@ -477,6 +491,7 @@ export function MailboxPage() {
           <div className={mobileDetailOpen ? 'block' : 'hidden md:block'}>
             <MessageDetail
               onBack={() => setMobileDetailOpen(false)}
+              onFillCode={handleFillCode}
               onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
               pendingMessageId={pendingMessageId}
               snapshot={snapshot}

@@ -2,7 +2,7 @@ import { createElement, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { BadgeCheck, Copy, ExternalLink, KeyRound } from 'lucide-react';
 
-import { copyTextToClipboard } from './mailbox-shared';
+import { copyTextToClipboard, useCopiedFlash } from './mailbox-shared';
 import type { MailboxLink, MailboxMessageDetail, MailboxVerificationCode } from './types';
 
 const LINK_URL_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
@@ -384,21 +384,39 @@ function FillableCode({
   code: string;
   onFillCode: (code: string) => void;
 }) {
+  const { copied, flash } = useCopiedFlash();
+
+  async function handleCopy() {
+    await copyTextToClipboard(code);
+    flash();
+  }
+
   return (
-    <button
-      className='group flex w-full items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-bg px-3 py-3 text-left text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-      onClick={() => onFillCode(code)}
-      type='button'
-    >
-      <div className='min-w-0'>
-        <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/70'>Code</p>
-        <p className='mt-1 break-all font-mono text-lg font-semibold leading-tight'>{code}</p>
-      </div>
-      <span className='inline-flex shrink-0 items-center gap-1 rounded-md border border-accent/20 bg-surface px-2 py-1 text-xs font-medium text-accent transition-colors group-hover:border-accent/40'>
+    <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-stretch'>
+      <button
+        className='group flex w-full items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-bg px-3 py-3 text-left text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
+        onClick={() => void handleCopy()}
+        type='button'
+      >
+        <div className='min-w-0'>
+          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/70'>Code</p>
+          <p className='mt-1 break-all font-mono text-lg font-semibold leading-tight'>{code}</p>
+        </div>
+        <span className='inline-flex shrink-0 items-center gap-1 rounded-md border border-accent/20 bg-surface px-2 py-1 text-xs font-medium text-accent transition-colors group-hover:border-accent/40'>
+          <Copy className='h-3.5 w-3.5' />
+          {copied ? 'Copied' : 'Copy'}
+        </span>
+      </button>
+
+      <button
+        className='inline-flex items-center justify-center gap-1 rounded-lg border border-accent/20 bg-surface px-3 py-3 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
+        onClick={() => onFillCode(code)}
+        type='button'
+      >
         <KeyRound className='h-3.5 w-3.5' />
         Fill
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

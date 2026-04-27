@@ -60,6 +60,64 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   await navigator.clipboard.writeText(text);
 }
 
+function isFillablePageTab(tab: chrome.tabs.Tab | undefined) {
+  const url = tab?.url ?? tab?.pendingUrl ?? '';
+
+  return /^https?:\/\//i.test(url);
+}
+
+function getMostRelevantPageTab(tabs: chrome.tabs.Tab[]) {
+  return [...tabs]
+    .filter(isFillablePageTab)
+    .sort((left, right) => {
+      if (left.active && !right.active) return -1;
+      if (!left.active && right.active) return 1;
+      return (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0);
+    })[0];
+}
+
+export async function getPageInteractionTab() {
+  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    active: true,
+    currentWindow: true,
+  });
+
+  if (isFillablePageTab(activeTab)) {
+    return activeTab;
+  }
+
+  const currentWindowTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    currentWindow: true,
+  });
+  const currentWindowCandidate = getMostRelevantPageTab(currentWindowTabs);
+
+  if (currentWindowCandidate) {
+    return currentWindowCandidate;
+  }
+
+  const allTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {});
+  return getMostRelevantPageTab(allTabs);
+}
+
+function isVerificationFillResponse(value: unknown): value is { ok: boolean } {
+  return !!value && typeof value === 'object' && 'ok' in value && typeof value.ok === 'boolean';
+}
+
+export async function fillVerificationCodeOnPage(code: string) {
+  const targetTab = await getPageInteractionTab();
+
+  if (!targetTab?.id) {
+    return false;
+  }
+
+  const response = await callWebExtensionApi<unknown>('tabs', 'sendMessage', targetTab.id, {
+    type: 'verification:fill-code',
+    code,
+  });
+
+  return isVerificationFillResponse(response) ? response.ok : false;
+}
+
 export function useCopiedFlash() {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
@@ -139,10 +197,7 @@ export async function runMailboxAutofillFlow({
       return;
     }
 
-    [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-      active: true,
-      currentWindow: true,
-    });
+    activeTab = await getPageInteractionTab();
 
     const tabError = normalizeAutofillTabError(activeTab);
     if (tabError) {

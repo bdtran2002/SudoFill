@@ -33,7 +33,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   font:
-    15px/1.5 'Avenir Next',
+    15px/1.45 'Figtree',
     'Segoe UI',
     system-ui,
     sans-serif;
@@ -80,33 +80,33 @@ button {
   width: min(1680px, calc(100vw - 24px));
   min-height: 100vh;
   margin: 0 auto;
-  padding: 16px 0 14px;
+  padding: 12px 0 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 4px 6px 0;
+  gap: 12px;
+  padding: 2px 2px 0;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
 }
 
 .brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: 14px;
   color: #fff3f3;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -121,8 +121,8 @@ button {
 .detail-empty h2,
 .detail-view h2 {
   display: block;
-  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-  letter-spacing: -0.04em;
+  font-family: 'Fraunces', Georgia, 'Iowan Old Style', serif;
+  letter-spacing: -0.03em;
 }
 
 .brand-copy strong {
@@ -133,8 +133,10 @@ button {
 .brand-copy small {
   display: block;
   color: var(--muted);
-  font-size: 0.84rem;
-  margin-top: 2px;
+  font-size: 0.76rem;
+  margin-top: 3px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .header-status {
@@ -144,19 +146,66 @@ button {
   gap: 8px;
 }
 
+.shell-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+}
+
+.shell-banner::before {
+  content: 'Status';
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shell-banner[data-tone='error'] {
+  border-color: rgba(239, 75, 75, 0.24);
+  background: rgba(239, 75, 75, 0.08);
+  color: #ffd7d7;
+}
+
+.shell-banner[data-tone='error']::before {
+  background: rgba(239, 75, 75, 0.16);
+  color: #ffbdbd;
+}
+
+.shell-banner[data-tone='success'] {
+  border-color: rgba(110, 168, 254, 0.22);
+  background: rgba(110, 168, 254, 0.08);
+  color: #dbe9ff;
+}
+
+.shell-banner[data-tone='success']::before {
+  background: rgba(110, 168, 254, 0.18);
+  color: #bdd4ff;
+}
+
 .status-chip,
 .action-pill,
 .meta-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   letter-spacing: 0.01em;
 }
 
@@ -175,13 +224,13 @@ button {
   min-height: 0;
   display: grid;
   grid-template-columns: 240px minmax(320px, 410px) minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .panel {
   min-height: 0;
   border: 1px solid var(--line);
-  border-radius: var(--radius-xl);
+  border-radius: 24px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 20%), var(--panel);
   backdrop-filter: blur(18px);
   box-shadow: var(--shadow);
@@ -190,8 +239,8 @@ button {
 .left-rail {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+  gap: 14px;
+  padding: 16px;
   position: sticky;
   top: 16px;
   align-self: start;

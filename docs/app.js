@@ -12,6 +12,7 @@
 
   const elements = {
     shell: document.querySelector('[data-shell]'),
+    banner: document.querySelector('[data-mailbox-banner]'),
     availability: document.querySelector('[data-mailbox-availability]'),
     unread: document.querySelector('[data-mailbox-unread]'),
     polling: document.querySelector('[data-mailbox-polling]'),
@@ -45,6 +46,7 @@
     pollTimer: null,
     busy: false,
     statusText: 'Ready',
+    statusTone: 'neutral',
     lastCheckedAt: null,
     isMobileLayout: window.matchMedia(MOBILE_BREAKPOINT).matches,
     preferInboxView: false,
@@ -87,8 +89,9 @@
     });
   }
 
-  function setStatus(text) {
+  function setStatus(text, tone = 'neutral') {
     state.statusText = text;
+    state.statusTone = tone;
     renderStatus();
   }
 
@@ -113,6 +116,13 @@
 
     if (elements.availability) {
       elements.availability.textContent = state.statusText;
+    }
+
+    if (elements.banner) {
+      const isIdleReady = state.statusText === 'Ready' && state.statusTone === 'neutral';
+      elements.banner.hidden = isIdleReady;
+      elements.banner.dataset.tone = state.statusTone;
+      elements.banner.textContent = state.statusText;
     }
 
     if (elements.unread) {
@@ -655,9 +665,9 @@
 
     try {
       await navigator.clipboard.writeText(value);
-      setStatus(successMessage);
+      setStatus(successMessage, 'success');
     } catch {
-      setStatus('Clipboard access failed.');
+      setStatus('Clipboard access failed.', 'error');
     }
   }
 
@@ -696,7 +706,7 @@
           state.unreadIds = new Set();
           saveSession();
           await refreshInbox();
-          setStatus('Temporary mailbox created.');
+          setStatus('Temporary mailbox created.', 'success');
           startPolling();
           return;
         } catch (error) {
@@ -706,7 +716,7 @@
 
       throw lastError || new Error('Could not create mailbox.');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not create mailbox.');
+      setStatus(error instanceof Error ? error.message : 'Could not create mailbox.', 'error');
       render();
     } finally {
       setBusy(false);
@@ -741,7 +751,7 @@
       state.lastCheckedAt = null;
       saveSession();
       stopPolling();
-      setStatus('Mailbox discarded.');
+      setStatus('Mailbox discarded.', 'success');
       render();
     } finally {
       setBusy(false);
@@ -781,10 +791,10 @@
         render();
       }
 
-      setStatus('Mailbox refreshed.');
+      setStatus('Mailbox refreshed.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not refresh inbox.';
-      setStatus(message);
+      setStatus(message, 'error');
       if (/401|token|jwt|unauthorized/i.test(message)) {
         state.session = null;
         state.messages = [];
@@ -829,11 +839,11 @@
       render();
 
       if (!options.silent) {
-        setStatus('Message loaded.');
+        setStatus('Message loaded.', 'success');
       }
     } catch (error) {
       if (!options.silent) {
-        setStatus(error instanceof Error ? error.message : 'Could not load message.');
+        setStatus(error instanceof Error ? error.message : 'Could not load message.', 'error');
       }
     } finally {
       if (!options.silent) {
@@ -890,7 +900,7 @@
         : null;
       if (bestLink) {
         window.open(bestLink, '_blank', 'noopener,noreferrer');
-        setStatus('Opened verification link.');
+        setStatus('Opened verification link.', 'success');
       }
       return;
     }

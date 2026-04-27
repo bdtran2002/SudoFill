@@ -48,10 +48,19 @@
     statusText: 'Ready',
     statusTone: 'neutral',
     lastCheckedAt: null,
+    refreshInboxInFlight: null,
+    inboxEpoch: 0,
+    messageEpoch: 0,
     isMobileLayout: window.matchMedia(MOBILE_BREAKPOINT).matches,
     preferInboxView: false,
   };
   const mobileMedia = window.matchMedia(MOBILE_BREAKPOINT);
+
+  function invalidateAsyncState() {
+    state.inboxEpoch += 1;
+    state.messageEpoch += 1;
+    state.refreshInboxInFlight = null;
+  }
 
   function loadSession() {
     try {
@@ -693,10 +702,10 @@
             body: JSON.stringify(credentials),
           });
 
+          invalidateAsyncState();
           state.session = {
             accountId: account.id,
             address: account.address,
-            password: credentials.password,
             token: token.token,
             createdAt: new Date().toISOString(),
           };
@@ -743,6 +752,7 @@
         // Best effort, same as the extension path.
       }
 
+      invalidateAsyncState();
       state.session = null;
       state.messages = [];
       state.selectedMessageId = null;
@@ -764,55 +774,93 @@
       return;
     }
 
-    setStatus('Refreshing inbox…');
-
-    try {
-      const response = await api('/messages', {}, state.session.token);
-      const summaries = (response['hydra:member'] || []).map(normalizeMessageSummary);
-      state.messages = summaries;
-      state.unreadIds = new Set(
-        summaries.filter((message) => !message.seen).map((message) => message.id),
-      );
-      state.lastCheckedAt = new Date().toISOString();
-
-      const nextSelectedId =
-        state.selectedMessageId &&
-        summaries.some((message) => message.id === state.selectedMessageId)
-          ? state.selectedMessageId
-          : !state.preferInboxView
-            ? summaries[0]?.id || null
-            : null;
-
-      state.selectedMessageId = nextSelectedId;
-      if (nextSelectedId) {
-        await openMessage(nextSelectedId, { silent: true });
-      } else {
-        state.selectedMessage = null;
-        render();
-      }
-
-      setStatus('Mailbox refreshed.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not refresh inbox.';
-      setStatus(message, 'error');
-      if (/401|token|jwt|unauthorized/i.test(message)) {
-        state.session = null;
-        state.messages = [];
-        state.selectedMessage = null;
-        state.selectedMessageId = null;
-        state.unreadIds = new Set();
-        state.lastCheckedAt = null;
-        saveSession();
-        stopPolling();
-        render();
-      }
+    if (state.refreshInboxInFlight) {
+      return state.refreshInboxInFlight;
     }
+
+    const refreshEpoch = state.inboxEpoch + 1;
+    state.inboxEpoch = refreshEpoch;
+    const sessionToken = state.session.token;
+
+    let refreshPromise;
+    refreshPromise = (async () => {
+      setStatus('Refreshing inbox…');
+
+      try {
+        const response = await api('/messages', {}, sessionToken);
+        if (refreshEpoch !== state.inboxEpoch || sessionToken !== state.session?.token) {
+          return;
+        }
+
+        const summaries = (response['hydra:member'] || []).map(normalizeMessageSummary);
+        state.messages = summaries;
+        state.unreadIds = new Set(
+          summaries.filter((message) => !message.seen).map((message) => message.id),
+        );
+        state.lastCheckedAt = new Date().toISOString();
+
+        const nextSelectedId =
+          state.selectedMessageId &&
+          summaries.some((message) => message.id === state.selectedMessageId)
+            ? state.selectedMessageId
+            : !state.preferInboxView
+              ? summaries[0]?.id || null
+              : null;
+
+        state.selectedMessageId = nextSelectedId;
+        if (nextSelectedId) {
+          await openMessage(nextSelectedId, { silent: true, expectedInboxEpoch: refreshEpoch });
+          if (refreshEpoch !== state.inboxEpoch || sessionToken !== state.session?.token) {
+            return;
+          }
+        } else {
+          state.selectedMessage = null;
+          render();
+        }
+
+        setStatus('Mailbox refreshed.', 'success');
+      } catch (error) {
+        if (refreshEpoch !== state.inboxEpoch || sessionToken !== state.session?.token) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'Could not refresh inbox.';
+        setStatus(message, 'error');
+        if (/401|token|jwt|unauthorized/i.test(message)) {
+          invalidateAsyncState();
+          state.session = null;
+          state.messages = [];
+          state.selectedMessage = null;
+          state.selectedMessageId = null;
+          state.unreadIds = new Set();
+          state.lastCheckedAt = null;
+          saveSession();
+          stopPolling();
+          render();
+        }
+      } finally {
+        if (state.refreshInboxInFlight === refreshPromise) {
+          state.refreshInboxInFlight = null;
+        }
+      }
+    })();
+
+    state.refreshInboxInFlight = refreshPromise;
+    return refreshPromise;
   }
 
   async function openMessage(messageId, options = {}) {
     if (!state.session?.token) {
       return;
     }
+
+    if (options.expectedInboxEpoch != null && options.expectedInboxEpoch !== state.inboxEpoch) {
+      return;
+    }
+
+    const messageEpoch = state.messageEpoch + 1;
+    state.messageEpoch = messageEpoch;
+    const sessionToken = state.session.token;
 
     state.preferInboxView = false;
 
@@ -822,7 +870,15 @@
     }
 
     try {
-      const response = await api(`/messages/${messageId}`, {}, state.session.token);
+      const response = await api(`/messages/${messageId}`, {}, sessionToken);
+      if (
+        messageEpoch !== state.messageEpoch ||
+        sessionToken !== state.session?.token ||
+        (options.expectedInboxEpoch != null && options.expectedInboxEpoch !== state.inboxEpoch)
+      ) {
+        return;
+      }
+
       const summary = normalizeMessageSummary(response);
       state.selectedMessageId = messageId;
       state.selectedMessage = {
@@ -842,6 +898,14 @@
         setStatus('Message loaded.', 'success');
       }
     } catch (error) {
+      if (
+        messageEpoch !== state.messageEpoch ||
+        sessionToken !== state.session?.token ||
+        (options.expectedInboxEpoch != null && options.expectedInboxEpoch !== state.inboxEpoch)
+      ) {
+        return;
+      }
+
       if (!options.silent) {
         setStatus(error instanceof Error ? error.message : 'Could not load message.', 'error');
       }

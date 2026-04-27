@@ -33,7 +33,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   font:
-    14px/1.4 'Figtree',
+    14px/1.4 Figtree,
     'Segoe UI',
     system-ui,
     sans-serif;

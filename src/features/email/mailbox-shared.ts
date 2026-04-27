@@ -222,6 +222,20 @@ export function useMailboxUiVisibilityReporting(isVisible: boolean) {
       visible: isVisible,
       instanceId,
     }).catch(() => undefined);
+
+    if (!isVisible) {
+      return;
+    }
+
+    const heartbeat = window.setInterval(() => {
+      void callWebExtensionApi('runtime', 'sendMessage', {
+        type: 'mailbox-ui-visibility',
+        visible: true,
+        instanceId,
+      }).catch(() => undefined);
+    }, 10_000);
+
+    return () => window.clearInterval(heartbeat);
   }, [instanceId, isVisible]);
 
   useEffect(() => {

@@ -529,7 +529,11 @@ export function MailboxVerificationActions({
               {onFillCode ? (
                 <FillableCode
                   code={bestCode.code}
-                  fillContext={bestLink ? { preferredUrl: bestLink.url } : undefined}
+                  fillContext={
+                    bestLink
+                      ? { preferredUrl: bestLink.url, preferredHostname: normalizeHost(bestLink.url) }
+                      : undefined
+                  }
                   onFillCode={onFillCode}
                 />
               ) : (

@@ -75,7 +75,10 @@ describe('verification code fill', () => {
     `;
 
     expect(fillVerificationCode('1234')).toBe(true);
-    expect((document.getElementById('digit-1') as HTMLInputElement).value).toBe('1234');
+    expect((document.getElementById('digit-1') as HTMLInputElement).value).toBe('1');
+    expect((document.getElementById('digit-2') as HTMLInputElement).value).toBe('2');
+    expect((document.getElementById('digit-3') as HTMLInputElement).value).toBe('3');
+    expect((document.getElementById('digit-4') as HTMLInputElement).value).toBe('4');
   });
 
   it('does not qualify generic code fields without verification cues', () => {

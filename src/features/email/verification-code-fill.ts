@@ -104,6 +104,51 @@ function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
   return null;
 }
 
+function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaElement) {
+  const group =
+    target.closest('fieldset, [role="group"]') ?? target.parentElement?.closest('div, label, section, form');
+
+  if (!group) return [] as Array<HTMLInputElement | HTMLTextAreaElement>;
+
+  return [...group.querySelectorAll('input, textarea')].filter((element): element is HTMLInputElement => {
+    if (!(element instanceof HTMLInputElement)) return false;
+    if (element.readOnly || element.disabled) return false;
+    if (element === target) return true;
+
+    const type = element.type.toLowerCase();
+    const maxLength = element.maxLength;
+    return (
+      ['text', 'tel', 'number', 'search', 'password'].includes(type) &&
+      (maxLength === 1 || element.size === 1 || element.getAttribute('inputmode') === 'numeric')
+    );
+  }) as Array<HTMLInputElement | HTMLTextAreaElement>;
+}
+
+function fillGroupedVerificationCode(code: string, target: HTMLInputElement | HTMLTextAreaElement) {
+  if (code.length < 2 || !(target instanceof HTMLInputElement)) return false;
+
+  const groupedInputs = getGroupedVerificationInputs(target).filter(
+    (element) => element instanceof HTMLInputElement && element.value.trim().length === 0,
+  ) as HTMLInputElement[];
+
+  if (groupedInputs.length < code.length || !groupedInputs.includes(target)) {
+    return false;
+  }
+
+  const valueSetter = getValueSetter(target);
+  if (!valueSetter) return false;
+
+  groupedInputs.slice(0, code.length).forEach((input, index) => {
+    const setter = getValueSetter(input);
+    if (!setter) return;
+    setter.call(input, code[index]);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  return true;
+}
+
 export function scoreVerificationCodeField(
   element: HTMLInputElement | HTMLTextAreaElement,
 ) {
@@ -147,6 +192,11 @@ export function fillVerificationCode(code: string, doc: Document = document) {
 
   const valueSetter = getValueSetter(target);
   if (!valueSetter) return false;
+
+  if (fillGroupedVerificationCode(code, target)) {
+    target.focus();
+    return true;
+  }
 
   target.focus();
   valueSetter.call(target, code);

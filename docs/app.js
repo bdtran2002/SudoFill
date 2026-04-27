@@ -1,9 +1,10 @@
-/* global DOMParser, Headers, crypto, document, fetch, localStorage, navigator, window */
+/* global DOMParser, Headers, URL, crypto, document, fetch, localStorage, navigator, window */
 
 (() => {
   const API_BASE_URL = 'https://api.mail.tm';
   const STORAGE_KEY = 'sudofill.pages.mailbox.session';
   const POLL_INTERVAL_MS = 15000;
+  const MOBILE_BREAKPOINT = '(max-width: 840px)';
   const CODE_PATTERN =
     /\b(?:code|verification|otp|auth|pin|passcode)\D{0,24}([A-Z0-9-]{4,10}|\d{4,8})\b/i;
   const FALLBACK_CODE_PATTERN = /\b\d{4,8}\b/g;
@@ -22,6 +23,9 @@
     messageList: document.querySelector('[data-message-list]'),
     detailEmpty: document.querySelector('[data-detail-empty]'),
     detailView: document.querySelector('[data-detail-view]'),
+    detailBack: document.querySelector('[data-detail-back]'),
+    detailPrimary: document.querySelector('[data-detail-primary]'),
+    detailSecondary: document.querySelector('[data-detail-secondary]'),
     detailSubject: document.querySelector('[data-detail-subject]'),
     detailFrom: document.querySelector('[data-detail-from]'),
     detailTime: document.querySelector('[data-detail-time]'),
@@ -42,7 +46,10 @@
     busy: false,
     statusText: 'Ready',
     lastCheckedAt: null,
+    isMobileLayout: window.matchMedia(MOBILE_BREAKPOINT).matches,
+    preferInboxView: false,
   };
+  const mobileMedia = window.matchMedia(MOBILE_BREAKPOINT);
 
   function loadSession() {
     try {
@@ -83,6 +90,20 @@
   function setStatus(text) {
     state.statusText = text;
     renderStatus();
+  }
+
+  function renderLayout() {
+    if (!elements.shell) {
+      return;
+    }
+
+    const mobileView = state.isMobileLayout
+      ? state.selectedMessage
+        ? 'detail'
+        : 'inbox'
+      : 'desktop';
+
+    elements.shell.setAttribute('data-mailbox-mobile-view', mobileView);
   }
 
   function renderStatus() {
@@ -136,7 +157,177 @@
     }
 
     elements.shell?.setAttribute('data-mailbox-state', hasSession ? 'active' : 'empty');
+    renderLayout();
     renderActionStates();
+  }
+
+  function getHostname(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function createTextBlock(className, text) {
+    const node = document.createElement('span');
+    node.className = className;
+    node.textContent = text;
+    return node;
+  }
+
+  function createVerificationLinkCard(url) {
+    const button = document.createElement('button');
+    button.className = 'verification-card verification-card--link';
+    button.type = 'button';
+    button.addEventListener('click', () => window.open(url, '_blank', 'noopener,noreferrer'));
+
+    const icon = document.createElement('span');
+    icon.className = 'verification-card-icon';
+    icon.textContent = '↗';
+
+    const body = document.createElement('span');
+    body.className = 'verification-card-body';
+    body.append(
+      createTextBlock('verification-card-kicker', 'Open link'),
+      createTextBlock('verification-card-title', url),
+    );
+
+    const host = getHostname(url);
+    if (host) {
+      body.append(createTextBlock('verification-card-hint', host));
+    }
+
+    button.append(icon, body);
+    return button;
+  }
+
+  function createVerificationCodeCard(code, label) {
+    const button = document.createElement('button');
+    button.className = 'verification-card verification-card--code';
+    button.type = 'button';
+    button.addEventListener('click', () => void copyToClipboard(code, 'Code copied.'));
+
+    const body = document.createElement('span');
+    body.className = 'verification-card-body';
+    body.append(
+      createTextBlock('verification-card-kicker', 'Copy code'),
+      createTextBlock('verification-card-title verification-card-title--code', code),
+    );
+
+    const labelNode = document.createElement('span');
+    labelNode.className = 'verification-card-hint';
+    labelNode.textContent = label || 'Verification code';
+
+    const action = document.createElement('span');
+    action.className = 'verification-card-action';
+    action.textContent = 'Copy';
+
+    const meta = document.createElement('span');
+    meta.className = 'verification-card-meta';
+    meta.append(labelNode, action);
+
+    button.append(body, meta);
+    return button;
+  }
+
+  function createVerificationMiniAction({ label, detail, onClick, tone = 'default' }) {
+    const button = document.createElement('button');
+    button.className = `verification-mini-action verification-mini-action--${tone}`;
+    button.type = 'button';
+    button.addEventListener('click', () => onClick());
+
+    const text = document.createElement('span');
+    text.className = 'verification-mini-action-label';
+    text.textContent = label;
+
+    button.append(text);
+
+    if (detail) {
+      const hint = document.createElement('span');
+      hint.className = 'verification-mini-action-hint';
+      hint.textContent = detail;
+      button.append(hint);
+    }
+
+    return button;
+  }
+
+  function renderVerificationActions(detail, verification) {
+    if (elements.detailPrimary) {
+      elements.detailPrimary.innerHTML = '';
+    }
+    if (elements.detailSecondary) {
+      elements.detailSecondary.innerHTML = '';
+    }
+
+    const primaryGrid = document.createElement('div');
+    primaryGrid.className = 'detail-primary-grid';
+
+    if (verification.bestLink) {
+      primaryGrid.append(createVerificationLinkCard(verification.bestLink));
+    }
+
+    if (verification.bestCode) {
+      primaryGrid.append(
+        createVerificationCodeCard(verification.bestCode, 'Primary verification code'),
+      );
+    }
+
+    if (elements.detailPrimary && primaryGrid.childNodes.length > 0) {
+      elements.detailPrimary.append(primaryGrid);
+    }
+
+    const extraLinks = verification.links.filter((link) => link !== verification.bestLink);
+    const extraCodes = verification.codes.filter((code) => code !== verification.bestCode);
+
+    if ((extraLinks.length || extraCodes.length) && elements.detailSecondary) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'verification-secondary-group';
+
+      const title = document.createElement('p');
+      title.className = 'verification-secondary-title';
+      title.textContent = 'More actions';
+      wrapper.append(title);
+
+      if (extraLinks.length) {
+        const links = document.createElement('div');
+        links.className = 'verification-secondary-list';
+
+        extraLinks.forEach((link, index) => {
+          links.append(
+            createVerificationMiniAction({
+              label: 'Open extra link',
+              detail: getHostname(link) || `Link ${index + 2}`,
+              tone: 'link',
+              onClick: () => window.open(link, '_blank', 'noopener,noreferrer'),
+            }),
+          );
+        });
+
+        wrapper.append(links);
+      }
+
+      if (extraCodes.length) {
+        const codes = document.createElement('div');
+        codes.className = 'verification-secondary-list';
+
+        extraCodes.forEach((code, index) => {
+          codes.append(
+            createVerificationMiniAction({
+              label: code,
+              detail: `Extra code ${index + 1}`,
+              tone: 'code',
+              onClick: () => void copyToClipboard(code, 'Code copied.'),
+            }),
+          );
+        });
+
+        wrapper.append(codes);
+      }
+
+      elements.detailSecondary.append(wrapper);
+    }
   }
 
   async function api(path, init = {}, token = state.session?.token) {
@@ -264,19 +455,6 @@
     return html || '';
   }
 
-  function extractPlainText(detail) {
-    if (detail.text?.trim()) {
-      return detail.text.trim();
-    }
-
-    if (!detail.html) {
-      return '';
-    }
-
-    const documentFragment = new DOMParser().parseFromString(detail.html, 'text/html');
-    return documentFragment.body.textContent?.replace(/\s+/g, ' ').trim() || '';
-  }
-
   function detectVerificationContent(detail) {
     const searchableText = [detail.subject, detail.text, detail.html].filter(Boolean).join('\n');
     const links = unique(
@@ -318,7 +496,7 @@
       return;
     }
 
-    const selectedId = state.selectedMessageId || state.messages[0].id;
+    const selectedId = state.selectedMessageId;
 
     for (const message of state.messages) {
       const fragment = elements.messageTemplate.content.cloneNode(true);
@@ -328,12 +506,16 @@
       const from = fragment.querySelector('[data-message-from]');
       const snippet = fragment.querySelector('[data-message-snippet]');
       const dot = fragment.querySelector('.message-dot');
+      const isSelected = message.id === selectedId;
+      const isUnread = !message.seen || state.unreadIds.has(message.id);
 
       button.dataset.messageId = message.id;
-      button.classList.toggle('is-active', message.id === selectedId);
-      button.setAttribute('aria-current', message.id === selectedId ? 'true' : 'false');
+      button.classList.toggle('is-selected', isSelected);
+      button.classList.toggle('is-active', isSelected);
+      button.classList.toggle('is-unread', isUnread);
+      button.setAttribute('aria-current', isSelected ? 'true' : 'false');
 
-      if (!message.seen || state.unreadIds.has(message.id)) {
+      if (isUnread) {
         dot.classList.add('is-unread');
       }
 
@@ -360,44 +542,8 @@
     elements.detailSubject.textContent = detail.subject;
     elements.detailFrom.textContent = detail.from;
     elements.detailTime.textContent = formatTimestamp(detail.createdAt);
-    elements.detailActions.innerHTML = '';
+    renderVerificationActions(detail, verification);
     elements.detailMeta.innerHTML = '';
-
-    const actionDefinitions = [];
-    if (verification.bestLink) {
-      actionDefinitions.push({
-        label: 'Open link',
-        action: () => window.open(verification.bestLink, '_blank', 'noopener,noreferrer'),
-      });
-      actionDefinitions.push({
-        label: 'Copy link',
-        action: () => copyToClipboard(verification.bestLink, 'Link copied.'),
-      });
-    }
-    if (verification.bestCode) {
-      actionDefinitions.push({
-        label: 'Copy code',
-        action: () => copyToClipboard(verification.bestCode, 'Code copied.'),
-      });
-    }
-
-    if (!actionDefinitions.length) {
-      actionDefinitions.push({
-        label: 'Copy message text',
-        action: () => copyToClipboard(extractPlainText(detail), 'Message text copied.'),
-      });
-    }
-
-    for (const definition of actionDefinitions) {
-      const button = document.createElement('button');
-      button.className = 'detail-button';
-      button.type = 'button';
-      button.textContent = definition.label;
-      button.addEventListener('click', () => {
-        void definition.action();
-      });
-      elements.detailActions.append(button);
-    }
 
     renderDetailBody(detail);
 
@@ -421,20 +567,6 @@
 
   function renderDetailBody(detail) {
     elements.detailBody.innerHTML = '';
-
-    const verification = detectVerificationContent(detail);
-    if (verification.bestCode || verification.bestLink) {
-      const intro = document.createElement('p');
-      const hints = [];
-      if (verification.bestCode) {
-        hints.push(`Best code: ${verification.bestCode}`);
-      }
-      if (verification.bestLink) {
-        hints.push('Verification link detected');
-      }
-      intro.textContent = hints.join(' · ');
-      elements.detailBody.append(intro);
-    }
 
     if (detail.html?.trim()) {
       const documentFragment = new DOMParser().parseFromString(detail.html, 'text/html');
@@ -505,6 +637,17 @@
     renderDetail();
   }
 
+  function backToInbox() {
+    if (!state.selectedMessageId && !state.selectedMessage) {
+      return;
+    }
+
+    state.selectedMessageId = null;
+    state.selectedMessage = null;
+    state.preferInboxView = true;
+    render();
+  }
+
   async function copyToClipboard(value, successMessage) {
     if (!value) {
       return;
@@ -521,6 +664,7 @@
   async function createMailbox() {
     setBusy(true);
     setStatus('Creating inbox…');
+    state.preferInboxView = false;
 
     try {
       const domains = await listDomains();
@@ -625,7 +769,9 @@
         state.selectedMessageId &&
         summaries.some((message) => message.id === state.selectedMessageId)
           ? state.selectedMessageId
-          : summaries[0]?.id || null;
+          : !state.preferInboxView
+            ? summaries[0]?.id || null
+            : null;
 
       state.selectedMessageId = nextSelectedId;
       if (nextSelectedId) {
@@ -657,6 +803,8 @@
     if (!state.session?.token) {
       return;
     }
+
+    state.preferInboxView = false;
 
     if (!options.silent) {
       setStatus('Loading message…');
@@ -768,6 +916,19 @@
       void handleAction(button.dataset.action);
     });
   });
+
+  elements.detailBack?.addEventListener('click', backToInbox);
+
+  const handleMobileMediaChange = () => {
+    state.isMobileLayout = mobileMedia.matches;
+    renderLayout();
+  };
+
+  if (typeof mobileMedia.addEventListener === 'function') {
+    mobileMedia.addEventListener('change', handleMobileMediaChange);
+  } else if (typeof mobileMedia.addListener === 'function') {
+    mobileMedia.addListener(handleMobileMediaChange);
+  }
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {

@@ -11,6 +11,11 @@ export const DEFAULT_AUTOFILL_SETTINGS: AutofillSettings = {
   generateAddress: true,
   showVerificationAssistPopup: false,
   saveUsageHistory: false,
+  saveUsageHistoryDetails: {
+    name: false,
+    age: false,
+    address: false,
+  },
   state: DEFAULT_AUTOFILL_STATE,
   sex: '',
   ageMin: '',

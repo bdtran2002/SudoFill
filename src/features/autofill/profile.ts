@@ -56,6 +56,18 @@ function resolveBirthdate(settings: AutofillSettings) {
   });
 }
 
+function getAgeAtFill(birthDate: Date) {
+  const now = new Date();
+  let age = now.getFullYear() - birthDate.getFullYear();
+  const monthDelta = now.getMonth() - birthDate.getMonth();
+
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+
+  return age;
+}
+
 export function generateAutofillProfile(
   settings: AutofillSettings,
   options: GenerateAutofillProfileOptions = {},
@@ -66,6 +78,7 @@ export function generateAutofillProfile(
   const lastName = faker.person.lastName(binarySex);
   const birthDate = resolveBirthdate(settings);
   const birthDateParts = getDateParts(birthDate);
+  const ageAtFill = getAgeAtFill(birthDate);
   const state = settings.generateAddress ? pickStateCode(settings.state) : '';
   const stateName = settings.generateAddress && state ? getStateName(state) : '';
   const addressLine1 = settings.generateAddress ? faker.location.streetAddress() : '';
@@ -98,6 +111,7 @@ export function generateAutofillProfile(
     birthDay: birthDateParts.day,
     birthMonth: birthDateParts.month,
     birthYear: birthDateParts.year,
+    ageAtFill,
     addressLine1,
     addressLine2: settings.generateAddress ? faker.location.secondaryAddress() : '',
     city,

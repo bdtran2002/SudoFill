@@ -189,6 +189,10 @@ export async function runMailboxAutofillFlow({
         })();
 
         if (siteUrl && siteHostname) {
+          const saveNameDetails = settings.saveUsageHistoryDetails.name;
+          const saveAgeDetails = settings.saveUsageHistoryDetails.age;
+          const saveAddressDetails = settings.saveUsageHistoryDetails.address;
+
           await appendAutofillUsageHistoryEntry({
             id: globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`,
             createdAt: new Date().toISOString(),
@@ -196,14 +200,15 @@ export async function runMailboxAutofillFlow({
             siteUrl,
             email: profile.email,
             username: response.inferredUsername ?? profile.email,
-            fullName: profile.fullName,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            addressLine1: profile.addressLine1,
-            addressLine2: profile.addressLine2,
-            city: profile.city,
-            state: profile.state,
-            postalCode: profile.postalCode,
+            fullName: saveNameDetails ? profile.fullName : '',
+            firstName: saveNameDetails ? profile.firstName : '',
+            lastName: saveNameDetails ? profile.lastName : '',
+            age: saveAgeDetails ? profile.ageAtFill : 0,
+            addressLine1: saveAddressDetails ? profile.addressLine1 : '',
+            addressLine2: saveAddressDetails ? profile.addressLine2 : '',
+            city: saveAddressDetails ? profile.city : '',
+            state: saveAddressDetails ? profile.state : '',
+            postalCode: saveAddressDetails ? profile.postalCode : '',
           });
         }
       } catch {

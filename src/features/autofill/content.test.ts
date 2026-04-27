@@ -16,6 +16,7 @@ const profile = {
   birthDay: '15',
   birthMonth: '01',
   birthYear: '1990',
+  ageAtFill: 35,
   addressLine1: '123 Main St',
   addressLine2: 'Apt 4',
   city: 'Austin',

@@ -61,10 +61,31 @@ describe('normalizeAutofillSettings', () => {
       normalizeAutofillSettings({
         showVerificationAssistPopup: true,
         saveUsageHistory: true,
+        saveUsageHistoryDetails: {
+          name: true,
+          age: true,
+          address: true,
+        },
       }),
     ).toMatchObject({
       showVerificationAssistPopup: true,
       saveUsageHistory: true,
+      saveUsageHistoryDetails: {
+        name: true,
+        age: true,
+        address: true,
+      },
+    });
+  });
+
+  it('defaults nested usage history toggles to off', () => {
+    expect(normalizeAutofillSettings({ saveUsageHistory: true })).toMatchObject({
+      saveUsageHistory: true,
+      saveUsageHistoryDetails: {
+        name: false,
+        age: false,
+        address: false,
+      },
     });
   });
 });

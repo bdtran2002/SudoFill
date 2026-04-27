@@ -15,22 +15,25 @@ function isAutofillUsageHistoryEntry(value: unknown): value is AutofillUsageHist
 
   const entry = value as Record<string, unknown>;
 
-  return [
-    'id',
-    'createdAt',
-    'siteHostname',
-    'siteUrl',
-    'email',
-    'username',
-    'fullName',
-    'firstName',
-    'lastName',
-    'addressLine1',
-    'addressLine2',
-    'city',
-    'state',
-    'postalCode',
-  ].every((key) => typeof entry[key] === 'string');
+  return (
+    [
+      'id',
+      'createdAt',
+      'siteHostname',
+      'siteUrl',
+      'email',
+      'username',
+      'fullName',
+      'firstName',
+      'lastName',
+      'addressLine1',
+      'addressLine2',
+      'city',
+      'state',
+      'postalCode',
+    ].every((key) => typeof entry[key] === 'string') &&
+    typeof entry.age === 'number'
+  );
 }
 
 export function normalizeUsageHistoryEntry(
@@ -60,6 +63,7 @@ export function normalizeUsageHistoryEntry(
     fullName: normalizeString(value.fullName),
     firstName: normalizeString(value.firstName),
     lastName: normalizeString(value.lastName),
+    age: typeof value.age === 'number' && Number.isFinite(value.age) ? value.age : 0,
     addressLine1: normalizeString(value.addressLine1),
     addressLine2: normalizeString(value.addressLine2),
     city: normalizeString(value.city),
@@ -119,4 +123,15 @@ export async function appendAutofillUsageHistoryEntry(entry: AutofillUsageHistor
   );
 
   await setStoredAutofillUsageHistory(nextEntries);
+}
+
+export async function deleteAutofillUsageHistoryEntryById(id: string) {
+  const normalizedId = normalizeString(id);
+
+  if (!normalizedId) {
+    return;
+  }
+
+  const existingEntries = await getStoredAutofillUsageHistory();
+  await setStoredAutofillUsageHistory(existingEntries.filter((entry) => entry.id !== normalizedId));
 }

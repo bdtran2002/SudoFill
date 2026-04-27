@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   appendAutofillUsageHistoryEntry,
   clearStoredAutofillUsageHistory,
+  deleteAutofillUsageHistoryEntryById,
   getStoredAutofillUsageHistory,
   normalizeAutofillUsageHistory,
   normalizeUsageHistoryEntry,
@@ -42,6 +43,7 @@ const baseEntry = {
   fullName: 'Ada Lovelace',
   firstName: 'Ada',
   lastName: 'Lovelace',
+  age: 33,
   addressLine1: '123 Main St',
   addressLine2: 'Apt 4',
   city: 'Austin',
@@ -60,6 +62,24 @@ describe('autofill usage history', () => {
     expect(normalizeUsageHistoryEntry({ ...baseEntry, username: '  ' })).toEqual({
       ...baseEntry,
       username: baseEntry.email,
+    });
+  });
+
+  it('normalizes missing optional history fields', () => {
+    expect(
+      normalizeUsageHistoryEntry({
+        ...baseEntry,
+        fullName: undefined,
+        firstName: undefined,
+        lastName: undefined,
+        age: undefined,
+      }),
+    ).toEqual({
+      ...baseEntry,
+      fullName: '',
+      firstName: '',
+      lastName: '',
+      age: 0,
     });
   });
 
@@ -118,5 +138,28 @@ describe('autofill usage history', () => {
     await clearStoredAutofillUsageHistory();
 
     await expect(getStoredAutofillUsageHistory()).resolves.toEqual([]);
+  });
+
+  it('deletes a history entry by id', async () => {
+    await setStoredAutofillUsageHistory([
+      baseEntry,
+      {
+        ...baseEntry,
+        id: 'entry-2',
+        siteHostname: 'app.example.com',
+        siteUrl: 'https://app.example.com/join',
+      },
+    ]);
+
+    await deleteAutofillUsageHistoryEntryById('entry-1');
+
+    await expect(getStoredAutofillUsageHistory()).resolves.toEqual([
+      {
+        ...baseEntry,
+        id: 'entry-2',
+        siteHostname: 'app.example.com',
+        siteUrl: 'https://app.example.com/join',
+      },
+    ]);
   });
 });

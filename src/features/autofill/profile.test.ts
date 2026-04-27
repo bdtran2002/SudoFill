@@ -80,4 +80,10 @@ describe('generateAutofillProfile', () => {
       `${profile.birthYear}-${profile.birthMonth}-${profile.birthDay}`,
     );
   });
+
+  it('captures a stable age at fill from the generated birthdate', () => {
+    const profile = generateAutofillProfile(DEFAULT_AUTOFILL_SETTINGS);
+
+    expect(profile.ageAtFill).toBe(getAge(profile.birthDateIso));
+  });
 });

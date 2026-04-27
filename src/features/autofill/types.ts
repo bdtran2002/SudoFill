@@ -4,6 +4,11 @@ export interface AutofillSettings {
   generateAddress: boolean;
   showVerificationAssistPopup: boolean;
   saveUsageHistory: boolean;
+  saveUsageHistoryDetails: {
+    name: boolean;
+    age: boolean;
+    address: boolean;
+  };
   state: string;
   sex: AutofillSex;
   ageMin: string;
@@ -22,6 +27,7 @@ export interface GeneratedProfile {
   birthDay: string;
   birthMonth: string;
   birthYear: string;
+  ageAtFill: number;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -58,6 +64,7 @@ export interface AutofillUsageHistoryEntry {
   fullName: string;
   firstName: string;
   lastName: string;
+  age: number;
   addressLine1: string;
   addressLine2: string;
   city: string;

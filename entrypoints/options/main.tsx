@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEventHandler, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings, Trash2 } from 'lucide-react';
 
 import '../../src/styles.css';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../src/features/autofill/constants';
 import {
   clearStoredAutofillUsageHistory,
+  deleteAutofillUsageHistoryEntryById,
   getStoredAutofillUsageHistory,
 } from '../../src/features/autofill/history';
 import {
@@ -18,7 +19,7 @@ import {
   isAutofillAgeRangeValid,
   setStoredAutofillSettings,
 } from '../../src/features/autofill/settings';
-import type { AutofillSettings } from '../../src/features/autofill/types';
+import type { AutofillSettings, AutofillUsageHistoryEntry } from '../../src/features/autofill/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -26,7 +27,8 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
-  const [usageHistoryCount, setUsageHistoryCount] = useState(0);
+  const [usageHistory, setUsageHistory] = useState<AutofillUsageHistoryEntry[]>([]);
+  const [usageHistoryState, setUsageHistoryState] = useState<'idle' | 'loading' | 'error'>('idle');
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -65,26 +67,70 @@ function OptionsApp() {
         }
       });
 
-    void getStoredAutofillUsageHistory()
-      .then((entries) => {
-        if (mounted) {
-          setUsageHistoryCount(entries.length);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setUsageHistoryCount(0);
-        }
-      });
-
     return () => {
       mounted = false;
       clearStatusTimeout();
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    if (!settings.saveUsageHistory) {
+      setUsageHistory([]);
+      setUsageHistoryState('idle');
+      return () => {
+        mounted = false;
+      };
+    }
+
+    setUsageHistoryState('loading');
+
+    void getStoredAutofillUsageHistory()
+      .then((entries) => {
+        if (mounted) {
+          setUsageHistory(entries);
+          setUsageHistoryState('idle');
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setUsageHistory([]);
+          setUsageHistoryState('error');
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [settings.saveUsageHistory]);
+
   const canSave = useMemo(() => isAutofillAgeRangeValid(settings), [settings]);
   const ageHasError = !canSave && Boolean(settings.ageMin || settings.ageMax);
+  const hasSavedNameDetails = useMemo(
+    () => usageHistory.some((entry) => Boolean(entry.firstName || entry.lastName)),
+    [usageHistory],
+  );
+  const hasSavedAgeDetails = useMemo(
+    () => usageHistory.some((entry) => entry.age > 0),
+    [usageHistory],
+  );
+  const hasSavedAddressDetails = useMemo(
+    () =>
+      usageHistory.some((entry) =>
+        Boolean(
+          entry.addressLine1 ||
+            entry.addressLine2 ||
+            entry.city ||
+            entry.state ||
+            entry.postalCode,
+        ),
+      ),
+    [usageHistory],
+  );
+  const showNameColumn = settings.saveUsageHistoryDetails.name || hasSavedNameDetails;
+  const showAgeColumn = settings.saveUsageHistoryDetails.age || hasSavedAgeDetails;
+  const showAddressColumn = settings.saveUsageHistoryDetails.address || hasSavedAddressDetails;
 
   async function persistSettings(
     next: AutofillSettings,
@@ -148,13 +194,23 @@ function OptionsApp() {
 
     try {
       await clearStoredAutofillUsageHistory();
-      setUsageHistoryCount(0);
+      setUsageHistory([]);
       setSaveState('saved');
       setHint('Usage history cleared.');
       scheduleIdleStatus(1200);
     } catch {
       setSaveState('error');
       setHint('Could not clear usage history.');
+    }
+  }
+
+  async function deleteUsageHistoryEntry(id: string) {
+    try {
+      await deleteAutofillUsageHistoryEntryById(id);
+      setUsageHistory((current) => current.filter((entry) => entry.id !== id));
+    } catch {
+      setSaveState('error');
+      setHint('Could not delete that history entry.');
     }
   }
 
@@ -315,20 +371,69 @@ function OptionsApp() {
                     setSettings((current) => ({ ...current, saveUsageHistory: checked }))
                   }
                 />
+
+                {settings.saveUsageHistory ? (
+                  <div className='space-y-3 rounded-xl border border-border-dim bg-surface-raised/60 p-3'>
+                    <div className='space-y-1'>
+                      <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                        Extra details
+                      </p>
+                      <p className='text-sm leading-relaxed text-ink-secondary'>
+                        Choose which richer autofill fields to keep with each history entry.
+                      </p>
+                    </div>
+
+                    <div className='grid gap-2'>
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.name}
+                        description='Store first and last name.'
+                        title='Name details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              name: checked,
+                            },
+                          }))
+                        }
+                      />
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.age}
+                        description='Store the generated age.'
+                        title='Age details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              age: checked,
+                            },
+                          }))
+                        }
+                      />
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.address}
+                        description='Store the generated address fields.'
+                        title='Address details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              address: checked,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+
+                  </div>
+                ) : null}
+
                 <p className='text-sm leading-relaxed text-ink-secondary'>
                   History stays in browser storage on this device and is not encrypted.
                 </p>
-                <p className='text-sm text-ink-secondary'>
-                  Saved entries: <span className='font-medium text-ink'>{usageHistoryCount}</span>
-                </p>
-                <button
-                  className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
-                  disabled={usageHistoryCount === 0 || saveState === 'saving'}
-                  onClick={() => void clearUsageHistory()}
-                  type='button'
-                >
-                  Clear history
-                </button>
               </div>
             </SettingSection>
           </div>
@@ -365,6 +470,130 @@ function OptionsApp() {
             </div>
           </div>
         </section>
+
+        {settings.saveUsageHistory ? (
+          <section className='animate-fade-in mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]' style={{ animationDelay: '120ms' }}>
+            <div className='flex flex-wrap items-start justify-between gap-4 border-b border-border-dim bg-[linear-gradient(135deg,rgba(239,75,75,0.1),transparent_55%)] px-4 py-3 sm:px-5'>
+              <div>
+                <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
+                  Usage history
+                </p>
+                <p className='mt-1 text-sm leading-relaxed text-ink-secondary'>
+                  Review locally saved autofill entries and remove anything you no longer need.
+                </p>
+              </div>
+
+              <div className='flex items-center gap-2'>
+                <span className='rounded-full border border-border-dim bg-surface-raised px-3 py-1 text-xs font-medium text-ink-secondary'>
+                  {usageHistory.length} {usageHistory.length === 1 ? 'entry' : 'entries'}
+                </span>
+                <button
+                  className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={usageHistory.length === 0 || saveState === 'saving'}
+                  onClick={() => void clearUsageHistory()}
+                  type='button'
+                >
+                  Clear history
+                </button>
+              </div>
+            </div>
+
+            <div className='px-4 py-4 sm:px-5'>
+              {usageHistoryState === 'loading' ? (
+                <div className='rounded-lg border border-dashed border-border-dim bg-surface-raised/60 px-4 py-10 text-center text-sm text-ink-secondary'>
+                  Loading history…
+                </div>
+              ) : usageHistoryState === 'error' ? (
+                <div className='rounded-lg border border-dashed border-danger-border bg-danger/10 px-4 py-10 text-center text-sm text-danger'>
+                  Could not load usage history.
+                </div>
+              ) : usageHistory.length === 0 ? (
+                <div className='rounded-lg border border-dashed border-border-dim bg-surface-raised/60 px-4 py-10 text-center text-sm text-ink-secondary'>
+                  No saved history yet.
+                </div>
+              ) : (
+                <div className='overflow-x-auto rounded-xl border border-border-dim bg-surface-raised/70'>
+                  <table className='min-w-[980px] w-full border-separate border-spacing-0 text-left text-sm'>
+                    <thead className='bg-surface-raised/90 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted'>
+                      <tr>
+                        <th className='px-4 py-3'>Site</th>
+                        <th className='px-4 py-3'>Email</th>
+                        <th className='px-4 py-3'>Username</th>
+                        {showNameColumn ? <th className='px-4 py-3'>First name</th> : null}
+                        {showNameColumn ? <th className='px-4 py-3'>Last name</th> : null}
+                        {showAgeColumn ? <th className='px-4 py-3'>Age</th> : null}
+                        {showAddressColumn ? <th className='px-4 py-3'>Address</th> : null}
+                        <th className='px-4 py-3'>Saved</th>
+                        <th className='px-4 py-3 text-right'>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className='divide-y divide-border-dim'>
+                      {usageHistory.map((entry) => (
+                        <tr key={entry.id} className='align-top transition-colors hover:bg-surface-hover/60'>
+                          <td className='px-4 py-4'>
+                            <div className='space-y-1'>
+                              <p className='font-medium text-ink'>{entry.siteHostname}</p>
+                              <a
+                                className='block max-w-[260px] truncate text-xs text-ink-muted transition-colors hover:text-accent'
+                                href={entry.siteUrl}
+                                rel='noreferrer'
+                                target='_blank'
+                              >
+                                {entry.siteUrl}
+                              </a>
+                            </div>
+                          </td>
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            <span className='block max-w-[220px] truncate font-medium text-ink'>
+                              {entry.email}
+                            </span>
+                          </td>
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            <span className='block max-w-[180px] truncate'>
+                              {entry.username && entry.username !== entry.email ? entry.username : '—'}
+                            </span>
+                          </td>
+                          {showNameColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>{entry.firstName || '—'}</td>
+                          ) : null}
+                          {showNameColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>{entry.lastName || '—'}</td>
+                          ) : null}
+                          {showAgeColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.age > 0 ? entry.age : '—'}
+                            </td>
+                          ) : null}
+                          {showAddressColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              <span className='block min-w-[220px] whitespace-pre-line'>
+                                {formatHistoryAddress(entry) || '—'}
+                              </span>
+                            </td>
+                          ) : null}
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            {formatHistoryTimestamp(entry.createdAt)}
+                          </td>
+                          <td className='px-4 py-4 text-right'>
+                            <button
+                              className='inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                              disabled={saveState === 'saving'}
+                              onClick={() => void deleteUsageHistoryEntry(entry.id)}
+                              type='button'
+                            >
+                              <Trash2 className='h-3.5 w-3.5' />
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -532,6 +761,54 @@ function ToggleField({
       <span className='text-sm font-medium'>{checked ? enabledLabel : disabledLabel}</span>
     </button>
   );
+}
+
+function DetailToggleRow({
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className='flex items-start justify-between gap-4 rounded-lg border border-border-dim bg-surface px-3 py-3'>
+      <div className='space-y-0.5'>
+        <p className='text-sm font-medium text-ink'>{title}</p>
+        <p className='text-xs leading-relaxed text-ink-secondary'>{description}</p>
+      </div>
+      <ToggleField
+        ariaLabel={title}
+        checked={checked}
+        disabledLabel='Off'
+        enabledLabel='On'
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function formatHistoryAddress(entry: AutofillUsageHistoryEntry) {
+  const cityState = [entry.city, entry.state].filter(Boolean).join(', ');
+  const cityStatePostal = [cityState, entry.postalCode].filter(Boolean).join(' ');
+
+  return [entry.addressLine1, entry.addressLine2, cityStatePostal].filter(Boolean).join('\n');
+}
+
+function formatHistoryTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 createRoot(document.getElementById('root')!).render(<OptionsApp />);

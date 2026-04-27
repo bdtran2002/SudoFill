@@ -43,6 +43,7 @@ export interface AutofillContentResponse {
   ok: boolean;
   filledCount: number;
   fields: string[];
+  inferredUsername?: string;
   error?: string;
   reason?: AutofillFailureReason;
 }

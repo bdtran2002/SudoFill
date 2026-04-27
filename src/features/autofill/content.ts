@@ -231,6 +231,11 @@ export function hasExistingUserValue(element: FillableElement) {
   return element.value.trim().length > 0;
 }
 
+function isUsernameLikeField(element: FillableElement) {
+  const keyText = buildFieldKey(element);
+  return /(^|[^a-z])(user(name)?|login|handle|screen name|account name)([^a-z]|$)/.test(keyText);
+}
+
 export function isReadonlyElement(element: FillableElement) {
   return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
     ? element.readOnly
@@ -297,6 +302,29 @@ function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
 
   const match = resolveAutofillMatch(buildFieldKey(element), profile);
   return match?.values.some(Boolean) ? match : null;
+}
+
+function inferUsernameFromExistingValues(
+  doc: Document,
+  profile: GeneratedProfile,
+  targetRoot: HTMLElement | null,
+) {
+  const elements = getVisibleEditableFillableElements(doc).filter((element) =>
+    isElementInTargetScope(element, targetRoot),
+  );
+
+  for (const element of elements) {
+    if (!isUsernameLikeField(element)) continue;
+    if (!hasExistingUserValue(element)) continue;
+
+    const candidate = element.value.trim();
+    if (!candidate || candidate.toLowerCase() === profile.email.toLowerCase()) continue;
+    if (candidate.includes('@')) continue;
+
+    return candidate;
+  }
+
+  return profile.email;
 }
 
 function getScopeMatchSummary(elements: FillableElement[], profile: GeneratedProfile) {
@@ -642,6 +670,7 @@ export async function fillProfile(
   doc: Document = document,
 ): Promise<AutofillContentResponse> {
   const targetRoot = selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
+  const inferredUsername = inferUsernameFromExistingValues(doc, profile, targetRoot);
 
   const filledFields = new Set<string>();
   let filledCount = 0;
@@ -691,6 +720,7 @@ export async function fillProfile(
     ok: filledCount > 0,
     filledCount,
     fields: [...filledFields],
+    inferredUsername,
     error: filledCount > 0 ? undefined : 'No supported fields found on this page.',
     reason: filledCount > 0 ? undefined : 'no-fields',
   };

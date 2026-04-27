@@ -10,6 +10,10 @@ import {
   US_STATE_OPTIONS,
 } from '../../src/features/autofill/constants';
 import {
+  clearStoredAutofillUsageHistory,
+  getStoredAutofillUsageHistory,
+} from '../../src/features/autofill/history';
+import {
   getStoredAutofillSettings,
   isAutofillAgeRangeValid,
   setStoredAutofillSettings,
@@ -22,6 +26,7 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
+  const [usageHistoryCount, setUsageHistoryCount] = useState(0);
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -57,6 +62,18 @@ function OptionsApp() {
           setHint(
             `Error reading settings: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
+        }
+      });
+
+    void getStoredAutofillUsageHistory()
+      .then((entries) => {
+        if (mounted) {
+          setUsageHistoryCount(entries.length);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setUsageHistoryCount(0);
         }
       });
 
@@ -121,6 +138,23 @@ function OptionsApp() {
       setSettings(previousSettings);
       setSaveState('error');
       setHint('Could not reset settings.');
+    }
+  }
+
+  async function clearUsageHistory() {
+    clearStatusTimeout();
+    setSaveState('saving');
+    setHint('');
+
+    try {
+      await clearStoredAutofillUsageHistory();
+      setUsageHistoryCount(0);
+      setSaveState('saved');
+      setHint('Usage history cleared.');
+      scheduleIdleStatus(1200);
+    } catch {
+      setSaveState('error');
+      setHint('Could not clear usage history.');
     }
   }
 
@@ -256,6 +290,46 @@ function OptionsApp() {
                   </option>
                 ))}
               </SelectField>
+            </SettingSection>
+
+            <SettingSection
+              description='Show a popup when verification assistance is available for a page.'
+              title='Verification popup'
+            >
+              <ToggleField
+                checked={settings.showVerificationAssistPopup}
+                onChange={(checked) =>
+                  setSettings((current) => ({ ...current, showVerificationAssistPopup: checked }))
+                }
+              />
+            </SettingSection>
+
+            <SettingSection
+              description='Store local autofill usage history so you can review what was filled later.'
+              title='Save usage history'
+            >
+              <div className='space-y-3'>
+                <ToggleField
+                  checked={settings.saveUsageHistory}
+                  onChange={(checked) =>
+                    setSettings((current) => ({ ...current, saveUsageHistory: checked }))
+                  }
+                />
+                <p className='text-sm leading-relaxed text-ink-secondary'>
+                  History stays in browser storage on this device and is not encrypted.
+                </p>
+                <p className='text-sm text-ink-secondary'>
+                  Saved entries: <span className='font-medium text-ink'>{usageHistoryCount}</span>
+                </p>
+                <button
+                  className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={usageHistoryCount === 0 || saveState === 'saving'}
+                  onClick={() => void clearUsageHistory()}
+                  type='button'
+                >
+                  Clear history
+                </button>
+              </div>
             </SettingSection>
           </div>
 

@@ -8,6 +8,7 @@ import {
   normalizeAutofillTabError,
 } from '../autofill/popup-errors';
 import { generateAutofillProfile } from '../autofill/profile';
+import { appendAutofillUsageHistoryEntry } from '../autofill/history';
 import { getStoredAutofillSettings } from '../autofill/settings';
 import type { AutofillContentResponse } from '../autofill/types';
 import { callWebExtensionApi } from '../../lib/webext-async';
@@ -175,6 +176,40 @@ export async function runMailboxAutofillFlow({
 
     setAutofillStatus({ tone: 'success', message: getAutofillResponseMessage(response) });
     setActionStatus?.({ tone: 'success', message: 'Autofill sent to the active tab.' });
+
+    if (settings.saveUsageHistory) {
+      try {
+        const siteUrl = activeTab.url ?? activeTab.pendingUrl ?? '';
+        const siteHostname = (() => {
+          try {
+            return new URL(siteUrl).hostname;
+          } catch {
+            return '';
+          }
+        })();
+
+        if (siteUrl && siteHostname) {
+          await appendAutofillUsageHistoryEntry({
+            id: globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            siteHostname,
+            siteUrl,
+            email: profile.email,
+            username: response.inferredUsername ?? profile.email,
+            fullName: profile.fullName,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            addressLine1: profile.addressLine1,
+            addressLine2: profile.addressLine2,
+            city: profile.city,
+            state: profile.state,
+            postalCode: profile.postalCode,
+          });
+        }
+      } catch {
+        // Ignore history persistence issues so successful autofill stays successful.
+      }
+    }
   } catch (error) {
     const message = getAutofillErrorMessage(error, activeTab);
     setAutofillStatus({ tone: 'error', message });

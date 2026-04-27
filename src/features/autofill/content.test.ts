@@ -210,6 +210,65 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
   });
 
+  it('infers a manually entered username from a username-like field', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" value="ada" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBe('ada');
+    expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('defaults the inferred username to the email when no custom username exists', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBe('ada@example.com');
+  });
+
+  it('ignores prefilled usernames from a different form outside the target scope', async () => {
+    document.body.innerHTML = `
+      <form id="login" aria-label="Log in">
+        <label for="login-username">Username</label>
+        <input id="login-username" name="username" value="carryover-user" />
+      </form>
+      <form id="signup" aria-label="Create account">
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBe('ada@example.com');
+  });
+
   it("fills a Wendy's-style email-first sign-in step when the page title indicates auth intent", async () => {
     document.title = "Log In | Wendy's";
     document.body.innerHTML = `

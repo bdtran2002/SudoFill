@@ -1,15 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowLeft,
-  Copy,
-  ExternalLink,
-  Inbox,
-  Mail,
-  Plus,
-  RefreshCw,
-  Settings,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, Copy, Inbox, Mail, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
@@ -21,6 +11,7 @@ import {
   useCopiedFlash,
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
+import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
 
 type MailboxActionStatus = {
   tone: 'idle' | 'success' | 'error';
@@ -81,37 +72,14 @@ function MessageDetail({
         </span>
       </div>
 
-      {message.links.length > 0 && (
-        <div className='border-b border-border-dim px-5 py-4'>
-          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-            Verification links
-          </p>
-          <div className='mt-3 flex flex-wrap gap-2'>
-            {message.links.map((link) => (
-              <button
-                key={link.url}
-                className='group inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-                onClick={() => onOpenLink(link.url)}
-                type='button'
-              >
-                <ExternalLink className='h-3.5 w-3.5 opacity-50 transition-opacity group-hover:opacity-100' />
-                {link.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MailboxVerificationActions
+        fallbackLinks={message.links}
+        onOpenLink={onOpenLink}
+        verification={message.verification}
+      />
 
       <div className='flex-1 overflow-y-auto px-5 py-5 text-sm leading-7 text-ink-secondary'>
-        {message.text ? (
-          <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
-        ) : message.html ? (
-          <div className='rounded-md border border-border-dim bg-surface-raised px-4 py-3 text-sm text-ink-muted'>
-            HTML-only email. Use a verification link above if one was detected.
-          </div>
-        ) : (
-          <p className='text-ink-muted'>No readable body.</p>
-        )}
+        <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
   );

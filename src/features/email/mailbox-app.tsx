@@ -25,6 +25,7 @@ import {
   useCopiedFlash,
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
+import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
 import { callWebExtensionApi } from '../../lib/webext-async';
 
 type FirefoxSidebarActionApi = {
@@ -139,37 +140,14 @@ function MessagePanel({
         <p className='mt-1 break-words text-xs text-ink-muted'>{message.from}</p>
       </div>
 
-      {message.links.length > 0 && (
-        <div className='mt-4 space-y-2'>
-          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-            Verification links
-          </p>
-          <div className='flex flex-wrap gap-1.5'>
-            {message.links.map((link) => (
-              <button
-                key={link.url}
-                className='group flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-                onClick={() => onOpenLink(link.url)}
-                type='button'
-              >
-                <ExternalLink className='h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100' />
-                {link.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MailboxVerificationActions
+        fallbackLinks={message.links}
+        onOpenLink={onOpenLink}
+        verification={message.verification}
+      />
 
       <div className='mt-4 overflow-x-hidden text-sm leading-relaxed text-ink-secondary'>
-        {message.text ? (
-          <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
-        ) : message.html ? (
-          <div className='rounded-md border border-border-dim bg-surface-raised px-3 py-2 text-xs text-ink-muted'>
-            HTML-only email. Use a verification link above if one was detected.
-          </div>
-        ) : (
-          <p className='text-ink-muted'>No readable body.</p>
-        )}
+        <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
   );

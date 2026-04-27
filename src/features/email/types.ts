@@ -8,6 +8,7 @@ export interface MailboxLink {
 export interface MailboxVerificationCode {
   code: string;
   label: string;
+  autofillLabel?: string;
 }
 
 export interface MailboxVerificationDetails {
@@ -75,7 +76,8 @@ export type MailboxCommand =
   | { type: 'mailbox:refresh' }
   | { type: 'mailbox:discard' }
   | { type: 'mailbox:open-message'; messageId: string }
-  | { type: 'mailbox:open-link'; url: string };
+  | { type: 'mailbox:open-link'; url: string }
+  | { type: 'verification:fill-code'; code: string };
 
 export type MailboxResponse =
   | { ok: true; snapshot: MailboxSnapshot }

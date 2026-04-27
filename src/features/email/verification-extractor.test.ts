@@ -29,8 +29,28 @@ describe('verification extractor', () => {
       html: '<p>Security code: <strong>482913</strong></p>',
     });
 
-    expect(details.bestCode).toEqual({ code: '482913', label: 'Sign-in code' });
-    expect(details.codeCandidates).toEqual([{ code: '482913', label: 'Sign-in code' }]);
+    expect(details.bestCode).toEqual({
+      code: '482913',
+      label: 'Sign-in code',
+      autofillLabel: 'Fill into active page',
+    });
+    expect(details.codeCandidates).toEqual([
+      { code: '482913', label: 'Sign-in code', autofillLabel: 'Fill into active page' },
+    ]);
+  });
+
+  it('prefers the actual token over prose like below', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Confirm your account',
+      text: 'Your verification code is below: NBW-VOW\n\nIf asked, enter the code below.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: 'NBW-VOW',
+      label: 'Verification code',
+      autofillLabel: 'Fill into active page',
+    });
   });
 
   it('uses anchor text to detect magic links in html emails', () => {
@@ -67,5 +87,16 @@ describe('verification extractor', () => {
     });
 
     expect(details.bestLink?.url).toBe('https://example.com/confirm?token=abc');
+  });
+
+  it('keeps weak links out of recommended actions', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Update complete',
+      text: 'View details here: https://example.com/account. Support: https://example.com/help',
+      html: '',
+    });
+
+    expect(details.bestLink).toBeNull();
+    expect(details.linkCandidates).toHaveLength(0);
   });
 });

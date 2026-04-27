@@ -1,6 +1,6 @@
 import { createElement, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { BadgeCheck, Copy, ExternalLink, KeyRound, Link2 } from 'lucide-react';
+import { BadgeCheck, Copy, ExternalLink, KeyRound } from 'lucide-react';
 
 import { copyTextToClipboard } from './mailbox-shared';
 import type { MailboxLink, MailboxMessageDetail, MailboxVerificationCode } from './types';
@@ -377,6 +377,31 @@ function CopyableCode({ code }: { code: string }) {
   );
 }
 
+function FillableCode({
+  code,
+  onFillCode,
+}: {
+  code: string;
+  onFillCode: (code: string) => void;
+}) {
+  return (
+    <button
+      className='group flex w-full items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent-bg px-3 py-3 text-left text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
+      onClick={() => onFillCode(code)}
+      type='button'
+    >
+      <div className='min-w-0'>
+        <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/70'>Code</p>
+        <p className='mt-1 break-all font-mono text-lg font-semibold leading-tight'>{code}</p>
+      </div>
+      <span className='inline-flex shrink-0 items-center gap-1 rounded-md border border-accent/20 bg-surface px-2 py-1 text-xs font-medium text-accent transition-colors group-hover:border-accent/40'>
+        <KeyRound className='h-3.5 w-3.5' />
+        Fill
+      </span>
+    </button>
+  );
+}
+
 function LinkAction({
   link,
   onOpenLink,
@@ -403,33 +428,26 @@ function LinkAction({
   );
 }
 
-function secondaryLinkKey(link: MailboxLink) {
-  return `${link.url}::${link.label}`;
-}
-
 function secondaryCodeKey(code: MailboxVerificationCode) {
   return `${code.code}::${code.label}`;
 }
 
 export function MailboxVerificationActions({
   verification,
-  fallbackLinks,
   onOpenLink,
+  onFillCode,
 }: {
   verification: MailboxMessageDetail['verification'];
-  fallbackLinks: MailboxLink[];
   onOpenLink: (url: string) => void;
+  onFillCode?: (code: string) => void;
 }) {
-  const linkCandidates =
-    verification.linkCandidates.length > 0 ? verification.linkCandidates : fallbackLinks;
-  const bestLink = verification.bestLink ?? linkCandidates[0] ?? null;
+  const bestLink = verification.bestLink;
   const bestCode = verification.bestCode;
 
-  const secondaryLinks = linkCandidates.filter((link) => link.url !== bestLink?.url);
   const secondaryCodes = verification.codeCandidates.filter((code) => code.code !== bestCode?.code);
   const hasPrimaryAction = Boolean(bestLink || bestCode);
 
-  if (!bestLink && !bestCode && secondaryLinks.length === 0 && secondaryCodes.length === 0) {
+  if (!bestLink && !bestCode && secondaryCodes.length === 0) {
     return null;
   }
 
@@ -450,32 +468,22 @@ export function MailboxVerificationActions({
 
           {bestCode ? (
             <div className={bestLink ? '' : 'lg:col-span-2'}>
-              <CopyableCode code={bestCode.code} />
+              {onFillCode ? (
+                <FillableCode code={bestCode.code} onFillCode={onFillCode} />
+              ) : (
+                <CopyableCode code={bestCode.code} />
+              )}
               <p className='mt-2 text-xs text-ink-muted'>{bestCode.label}</p>
             </div>
           ) : null}
         </div>
       )}
 
-      {(secondaryLinks.length > 0 || secondaryCodes.length > 0) && (
+      {secondaryCodes.length > 0 && (
         <div className='mt-4 rounded-lg border border-border-dim bg-surface-raised px-3 py-3'>
           <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
             Secondary actions
           </p>
-
-          {secondaryLinks.length > 0 && (
-            <div className='mt-3 flex flex-wrap gap-2'>
-              {secondaryLinks.map((link) => (
-                <ActionButton
-                  key={secondaryLinkKey(link)}
-                  icon={<Link2 className='h-3.5 w-3.5' />}
-                  label={link.label}
-                  onClick={() => onOpenLink(link.url)}
-                  tone='default'
-                />
-              ))}
-            </div>
-          )}
 
           {secondaryCodes.length > 0 && (
             <div className='mt-3 flex flex-wrap gap-2'>

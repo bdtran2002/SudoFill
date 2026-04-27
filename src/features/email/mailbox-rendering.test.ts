@@ -53,16 +53,34 @@ describe('mailbox rendering', () => {
             { code: 'ABC123', label: 'Sign-in code' },
           ],
         },
-        fallbackLinks: [],
         onOpenLink: () => {},
+        onFillCode: () => {},
       }),
     );
 
     expect(markup).toContain('Recommended actions');
     expect(markup).toContain('Verify with this link');
     expect(markup).toContain('482913');
+    expect(markup).toContain('Fill');
     expect(markup).toContain('Secondary actions');
     expect(markup).toContain('ABC123');
+  });
+
+  it('hides recommended links when confidence is low', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MailboxVerificationActions, {
+        verification: {
+          bestLink: null,
+          linkCandidates: [{ label: 'example.com', url: 'https://example.com/account' }],
+          bestCode: null,
+          codeCandidates: [],
+        },
+        onOpenLink: () => {},
+      }),
+    );
+
+    expect(markup).not.toContain('Recommended actions');
+    expect(markup).not.toContain('example.com');
   });
 
   it('prefers html body rendering when available', () => {

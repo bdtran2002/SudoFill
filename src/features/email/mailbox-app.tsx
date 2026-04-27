@@ -109,23 +109,22 @@ function MessagePanel({
   snapshot,
   onOpenLink,
   pendingMessageId,
-  isSidepanel,
+  inline = false,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
   pendingMessageId: string | null;
-  isSidepanel: boolean;
+  inline?: boolean;
 }) {
   const isPendingDifferentMessage =
     pendingMessageId !== null && pendingMessageId !== snapshot.selectedMessageId;
+  const wrapperClassName = inline
+    ? 'animate-fade-in overflow-hidden rounded-b-xl border border-border-dim border-t-0 bg-surface-raised/55 px-4 py-4 shadow-[0_12px_24px_rgba(0,0,0,0.12)]'
+    : 'animate-fade-in flex flex-col border-t border-border-dim px-4 py-4';
 
   if (!snapshot.selectedMessage || isPendingDifferentMessage) {
     return (
-      <section
-        className={`flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center ${
-          isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
-        }`}
-      >
+      <section className={wrapperClassName}>
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
           <span className='text-sm'>
@@ -141,29 +140,41 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section
-      className={`animate-fade-in flex flex-col border-t border-border-dim px-4 py-4 ${
-        isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
-      }`}
-    >
+    <section className={wrapperClassName}>
       <div>
-        <h2 className='font-brand break-words text-lg font-semibold leading-snug text-ink'>
+        <h2 className={`font-brand break-words font-semibold leading-snug text-ink ${inline ? 'text-base' : 'text-lg'}`}>
           {message.subject}
         </h2>
-        <p className='mt-1 break-words text-xs text-ink-muted'>{message.from}</p>
+        <p className={`${inline ? 'mt-1 text-[11px]' : 'mt-1 text-xs'} break-words text-ink-muted`}>
+          {message.from}
+        </p>
       </div>
 
       <MailboxVerificationActions
-        fallbackLinks={message.links}
+        onFillCode={(code) => void onFillCode(code)}
         onOpenLink={onOpenLink}
         verification={message.verification}
       />
 
-      <div className='mt-4 overflow-x-hidden text-sm leading-relaxed text-ink-secondary'>
+      <div className={`${inline ? 'mt-3 text-[13px]' : 'mt-4 text-sm'} overflow-x-hidden leading-relaxed text-ink-secondary`}>
         <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
   );
+}
+
+async function onFillCode(code: string) {
+  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) return;
+
+  await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
+    type: 'verification:fill-code',
+    code,
+  });
 }
 
 export function MailboxApp() {
@@ -191,6 +202,7 @@ export function MailboxApp() {
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
   const isPollingActive = snapshot.pollingActive;
   const hasMailbox = Boolean(snapshot.address);
+  const activeInlineMessageId = pendingMessageId ?? snapshot.selectedMessageId;
   const shouldShowPersistentMailboxError =
     Boolean(snapshot.error) &&
     !(
@@ -577,61 +589,61 @@ export function MailboxApp() {
               </div>
 
               {snapshot.messages.length > 0 ? (
-                <div
-                  className={
-                    isSidepanel ? 'md:grid md:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]' : ''
-                  }
-                >
-                  <div className='divide-y divide-border-dim'>
-                    {snapshot.messages.map((message) => (
-                      <button
-                        key={message.id}
-                        className={`group flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                          pendingMessageId === message.id || snapshot.selectedMessageId === message.id
-                            ? 'bg-accent-bg'
-                            : 'hover:bg-surface-hover'
-                        }`}
-                        disabled={isBusy}
-                        onClick={() => void openMessage(message.id, 'manual')}
-                        type='button'
-                      >
-                        <div className='flex h-5 w-2 shrink-0 items-center'>
-                          {!message.seen && (
-                            <span className='inline-block h-2 w-2 animate-pulse-unread rounded-full bg-unread' />
-                          )}
-                        </div>
+                <div className='divide-y divide-border-dim'>
+                  {snapshot.messages.map((message) => {
+                    const isActive = activeInlineMessageId === message.id;
 
-                        <div className='min-w-0 flex-1'>
-                          <div className='flex items-baseline justify-between gap-2'>
-                            <p
-                              className={`truncate text-sm ${
-                                !message.seen
-                                  ? 'font-semibold text-ink'
-                                  : 'font-medium text-ink-secondary'
-                              }`}
-                            >
-                              {message.subject}
-                            </p>
-                            <span className='shrink-0 text-[10px] text-ink-muted'>
-                              {formatTimestamp(message.createdAt)}
-                            </span>
+                    return (
+                      <div key={message.id} className='border-b border-border-dim last:border-b-0'>
+                        <button
+                          className={`group flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                            isActive ? 'bg-accent-bg' : 'hover:bg-surface-hover'
+                          }`}
+                          disabled={isBusy}
+                          onClick={() => void openMessage(message.id, 'manual')}
+                          type='button'
+                        >
+                          <div className='flex h-5 w-2 shrink-0 items-center'>
+                            {!message.seen && (
+                              <span className='inline-block h-2 w-2 animate-pulse-unread rounded-full bg-unread' />
+                            )}
                           </div>
-                          <p className='mt-0.5 truncate text-xs text-ink-muted'>{message.from}</p>
-                          <p className='mt-0.5 line-clamp-1 text-xs text-ink-secondary'>
-                            {message.intro}
-                          </p>
-                        </div>
 
-                        <ArrowRight className='mt-1 h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition-opacity group-hover:opacity-60' />
-                      </button>
-                    ))}
-                  </div>
-                  <MessagePanel
-                    isSidepanel={isSidepanel}
-                    onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
-                    pendingMessageId={pendingMessageId}
-                    snapshot={snapshot}
-                  />
+                          <div className='min-w-0 flex-1'>
+                            <div className='flex items-baseline justify-between gap-2'>
+                              <p
+                                className={`truncate text-sm ${
+                                  !message.seen
+                                    ? 'font-semibold text-ink'
+                                    : 'font-medium text-ink-secondary'
+                                }`}
+                              >
+                                {message.subject}
+                              </p>
+                              <span className='shrink-0 text-[10px] text-ink-muted'>
+                                {formatTimestamp(message.createdAt)}
+                              </span>
+                            </div>
+                            <p className='mt-0.5 truncate text-xs text-ink-muted'>{message.from}</p>
+                            <p className='mt-0.5 line-clamp-1 text-xs text-ink-secondary'>
+                              {message.intro}
+                            </p>
+                          </div>
+
+                          <ArrowRight className='mt-1 h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition-opacity group-hover:opacity-60' />
+                        </button>
+
+                        {isActive && (
+                          <MessagePanel
+                            inline
+                            onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+                            pendingMessageId={pendingMessageId}
+                            snapshot={snapshot}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className='flex flex-col items-center gap-2 px-4 py-8 text-center text-ink-muted'>

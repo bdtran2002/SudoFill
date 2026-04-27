@@ -12,6 +12,7 @@ import {
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
 import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
+import { callWebExtensionApi } from '../../lib/webext-async';
 
 type MailboxActionStatus = {
   tone: 'idle' | 'success' | 'error';
@@ -73,7 +74,7 @@ function MessageDetail({
       </div>
 
       <MailboxVerificationActions
-        fallbackLinks={message.links}
+        onFillCode={(code) => void fillCodeOnActiveTab(code)}
         onOpenLink={onOpenLink}
         verification={message.verification}
       />
@@ -83,6 +84,20 @@ function MessageDetail({
       </div>
     </section>
   );
+}
+
+async function fillCodeOnActiveTab(code: string) {
+  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) return;
+
+  await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
+    type: 'verification:fill-code',
+    code,
+  });
 }
 
 export function MailboxPage() {
@@ -103,6 +118,7 @@ export function MailboxPage() {
     snapshot.error && actionStatus.source !== 'ui' ? 'error' : actionStatus.tone;
   const displayedStatusMessage =
     snapshot.error && actionStatus.source !== 'ui' ? snapshot.error : actionStatus.message;
+  const hasOpenMessage = Boolean(snapshot.selectedMessageId || pendingMessageId);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
 
@@ -277,7 +293,13 @@ export function MailboxPage() {
           </div>
         )}
 
-        <div className='grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 lg:grid-cols-[220px_minmax(320px,420px)_minmax(0,1fr)]'>
+        <div
+          className={`grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 ${
+            hasOpenMessage
+              ? 'lg:grid-cols-[220px_minmax(260px,320px)_minmax(0,1fr)]'
+              : 'lg:grid-cols-[220px_minmax(340px,420px)_minmax(0,1fr)]'
+          }`}
+        >
           <aside className='border-b border-border-dim px-4 py-4 lg:border-r lg:border-b-0'>
             <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
               Mailbox

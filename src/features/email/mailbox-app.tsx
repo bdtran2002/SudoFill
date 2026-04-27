@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Copy,
@@ -12,11 +12,14 @@ import {
   X,
 } from 'lucide-react';
 
+import { ConfirmDialog } from '../../components/confirm-dialog';
+import { GithubFooter } from '../../components/github-footer';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   copyTextToClipboard,
   formatTimestamp,
+  fillVerificationCodeOnPage,
   MAILBOX_AUTOFILL_IDLE_MESSAGE,
   MAILBOX_AUTOFILL_MISSING_MAILBOX_MESSAGE,
   runMailboxAutofillFlow,
@@ -25,6 +28,7 @@ import {
   useCopiedFlash,
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
+import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
 import { callWebExtensionApi } from '../../lib/webext-async';
 
 type FirefoxSidebarActionApi = {
@@ -62,6 +66,19 @@ async function closeFirefoxSidebar(): Promise<void> {
   await sidebarAction.close();
 }
 
+function getMostRecentMessage(messages: MailboxSnapshot['messages']) {
+  return messages.reduce<MailboxSnapshot['messages'][number] | null>((latest, message) => {
+    if (!latest) return message;
+
+    const latestTime = Date.parse(latest.createdAt);
+    const messageTime = Date.parse(message.createdAt);
+
+    if (Number.isNaN(latestTime)) return message;
+    if (Number.isNaN(messageTime)) return latest;
+    return messageTime >= latestTime ? message : latest;
+  }, null);
+}
+
 async function openFullMailboxPage() {
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const [existingTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
@@ -88,30 +105,31 @@ type AutofillStatus =
 
 type SidebarActionStatus =
   | { tone: 'idle'; message: ''; source: null }
-  | { tone: 'success'; message: string; source: 'mailbox' }
+  | { tone: 'success'; message: string; source: 'mailbox' | 'ui' }
   | { tone: 'error'; message: string; source: 'mailbox' | 'ui' };
 
 function MessagePanel({
   snapshot,
   onOpenLink,
+  onFillCode,
   pendingMessageId,
-  isSidepanel,
+  inline = false,
 }: {
   snapshot: MailboxSnapshot;
   onOpenLink: (url: string) => void;
+  onFillCode: (code: string) => void;
   pendingMessageId: string | null;
-  isSidepanel: boolean;
+  inline?: boolean;
 }) {
   const isPendingDifferentMessage =
     pendingMessageId !== null && pendingMessageId !== snapshot.selectedMessageId;
+  const wrapperClassName = inline
+    ? 'animate-fade-in overflow-hidden rounded-b-xl border border-border-dim border-t-0 bg-surface-raised/55 px-4 py-4 shadow-[0_12px_24px_rgba(0,0,0,0.12)]'
+    : 'animate-fade-in flex flex-col border-t border-border-dim px-4 py-4';
 
   if (!snapshot.selectedMessage || isPendingDifferentMessage) {
     return (
-      <section
-        className={`flex min-h-28 animate-fade-in items-center justify-center border-t border-border-dim px-4 py-5 text-center ${
-          isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
-        }`}
-      >
+      <section className={wrapperClassName}>
         <div className='flex flex-col items-center gap-2 text-ink-muted'>
           <Mail className='h-5 w-5' />
           <span className='text-sm'>
@@ -127,49 +145,28 @@ function MessagePanel({
   const message = snapshot.selectedMessage;
 
   return (
-    <section
-      className={`animate-fade-in flex flex-col border-t border-border-dim px-4 py-4 ${
-        isSidepanel ? 'md:min-h-full md:border-t-0 md:border-l' : ''
-      }`}
-    >
+    <section className={wrapperClassName}>
       <div>
-        <h2 className='font-brand break-words text-lg font-semibold leading-snug text-ink'>
+        <h2
+          className={`font-brand break-words font-semibold leading-snug text-ink ${inline ? 'text-base' : 'text-lg'}`}
+        >
           {message.subject}
         </h2>
-        <p className='mt-1 break-words text-xs text-ink-muted'>{message.from}</p>
+        <p className={`${inline ? 'mt-1 text-[11px]' : 'mt-1 text-xs'} break-words text-ink-muted`}>
+          {message.from}
+        </p>
       </div>
 
-      {message.links.length > 0 && (
-        <div className='mt-4 space-y-2'>
-          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-            Verification links
-          </p>
-          <div className='flex flex-wrap gap-1.5'>
-            {message.links.map((link) => (
-              <button
-                key={link.url}
-                className='group flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-                onClick={() => onOpenLink(link.url)}
-                type='button'
-              >
-                <ExternalLink className='h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100' />
-                {link.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MailboxVerificationActions
+        onFillCode={onFillCode}
+        onOpenLink={onOpenLink}
+        verification={message.verification}
+      />
 
-      <div className='mt-4 overflow-x-hidden text-sm leading-relaxed text-ink-secondary'>
-        {message.text ? (
-          <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
-        ) : message.html ? (
-          <div className='rounded-md border border-border-dim bg-surface-raised px-3 py-2 text-xs text-ink-muted'>
-            HTML-only email. Use a verification link above if one was detected.
-          </div>
-        ) : (
-          <p className='text-ink-muted'>No readable body.</p>
-        )}
+      <div
+        className={`${inline ? 'mt-3 text-[13px]' : 'mt-4 text-sm'} overflow-x-hidden leading-relaxed text-ink-secondary`}
+      >
+        <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
   );
@@ -189,12 +186,19 @@ export function MailboxApp() {
     message: '',
     source: null,
   });
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
+  const scrollRegionRef = useRef<HTMLDivElement | null>(null);
+  const previousAddressRef = useRef<string | null>(snapshot.address);
+  const manualMessageSelectionRef = useRef(false);
+  const autoOpenedMessageIdRef = useRef<string | null>(null);
   const isSidepanel = document.documentElement.classList.contains('sidepanel');
   const canOpenFirefoxSidebar = !isSidepanel && Boolean(getFirefoxSidebarAction()?.open);
   const canCloseFirefoxSidebar = isSidepanel && Boolean(getFirefoxSidebarAction()?.close);
   const isPollingActive = snapshot.pollingActive;
+  const hasMailbox = Boolean(snapshot.address);
+  const activeInlineMessageId = pendingMessageId ?? snapshot.selectedMessageId;
   const shouldShowPersistentMailboxError =
     Boolean(snapshot.error) &&
     !(
@@ -206,6 +210,23 @@ export function MailboxApp() {
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useEffect(() => {
+    const previousAddress = previousAddressRef.current;
+
+    if (!previousAddress && snapshot.address) {
+      window.requestAnimationFrame(() => {
+        scrollRegionRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      });
+    }
+
+    if (previousAddress !== snapshot.address) {
+      manualMessageSelectionRef.current = false;
+      autoOpenedMessageIdRef.current = null;
+    }
+
+    previousAddressRef.current = snapshot.address;
+  }, [snapshot.address]);
 
   useEffect(() => {
     if (
@@ -289,7 +310,7 @@ export function MailboxApp() {
     };
   }, [isVisible]);
 
-  async function runCommand(command: MailboxCommand) {
+  const runCommand = useCallback(async (command: MailboxCommand) => {
     if (command.type === 'mailbox:open-message') {
       setPendingMessageId(command.messageId);
     }
@@ -334,13 +355,56 @@ export function MailboxApp() {
             : currentStatus,
         );
       }
+
+      return response;
     } finally {
       if (command.type === 'mailbox:open-message') {
         setPendingMessageId(null);
       }
       setIsBusy(false);
     }
-  }
+  }, []);
+
+  const openMessage = useCallback(
+    async (messageId: string, source: 'manual' | 'auto') => {
+      if (source === 'manual') {
+        manualMessageSelectionRef.current = true;
+      }
+
+      const response = await runCommand({ type: 'mailbox:open-message', messageId });
+
+      if (source === 'auto') {
+        if (response.ok) {
+          autoOpenedMessageIdRef.current = messageId;
+        } else if (autoOpenedMessageIdRef.current === messageId) {
+          autoOpenedMessageIdRef.current = null;
+        }
+      }
+    },
+    [runCommand],
+  );
+
+  useEffect(() => {
+    if (
+      !hasMailbox ||
+      snapshot.messages.length === 0 ||
+      manualMessageSelectionRef.current ||
+      pendingMessageId
+    ) {
+      return;
+    }
+
+    const latestMessage = getMostRecentMessage(snapshot.messages);
+    if (!latestMessage || snapshot.selectedMessageId === latestMessage.id) {
+      return;
+    }
+
+    if (autoOpenedMessageIdRef.current === latestMessage.id) {
+      return;
+    }
+
+    void openMessage(latestMessage.id, 'auto');
+  }, [hasMailbox, openMessage, pendingMessageId, snapshot.messages, snapshot.selectedMessageId]);
 
   async function copyAddress() {
     if (!snapshot.address) return;
@@ -351,6 +415,39 @@ export function MailboxApp() {
       clearUiActionError();
     } catch (error) {
       reportUiActionFailure('copy-address', error);
+    }
+  }
+
+  async function handleFillCode(
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) {
+    try {
+      const result = await fillVerificationCodeOnPage(code, context);
+
+      if (result.ok) {
+        setSidebarActionStatus({
+          tone: 'success',
+          message: 'Verification code sent to the page.',
+          source: 'ui',
+        });
+      } else {
+        setSidebarActionStatus({
+          tone: 'error',
+          message:
+            result.reason === 'no-tab'
+              ? 'Open the matching page first, then try again.'
+              : 'Could not fill a code field on the page.',
+          source: 'ui',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fill verification code on page', error);
+      setSidebarActionStatus({
+        tone: 'error',
+        message: 'Could not fill a code field on the page.',
+        source: 'ui',
+      });
     }
   }
 
@@ -365,6 +462,19 @@ export function MailboxApp() {
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function openDiscardConfirm() {
+    setDiscardConfirmOpen(true);
+  }
+
+  function closeDiscardConfirm() {
+    setDiscardConfirmOpen(false);
+  }
+
+  async function confirmDiscardMailbox() {
+    setDiscardConfirmOpen(false);
+    await runCommand({ type: 'mailbox:discard' });
   }
 
   async function openAutofillSettings() {
@@ -382,6 +492,7 @@ export function MailboxApp() {
       }`}
     >
       <div
+        ref={scrollRegionRef}
         className={`flex min-h-0 w-full flex-1 flex-col overflow-y-auto ${
           isSidepanel ? 'sidepanel-scroll-region' : 'popup-scroll-region'
         }`}
@@ -410,19 +521,21 @@ export function MailboxApp() {
                   Open sidebar
                 </button>
               )}
-              <button
-                className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
-                disabled={isBusy}
-                onClick={() => {
-                  void openFullMailboxPage()
-                    .then(() => clearUiActionError())
-                    .catch((error) => reportUiActionFailure('open-full-page', error));
-                }}
-                type='button'
-              >
-                <ExternalLink className='h-3 w-3' />
-                Full page
-              </button>
+              {!hasMailbox && (
+                <button
+                  className='flex cursor-pointer items-center gap-1 rounded-md border border-border-dim bg-surface-raised px-2 py-1 text-[11px] font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={isBusy}
+                  onClick={() => {
+                    void openFullMailboxPage()
+                      .then(() => clearUiActionError())
+                      .catch((error) => reportUiActionFailure('open-full-page', error));
+                  }}
+                  type='button'
+                >
+                  <ExternalLink className='h-3 w-3' />
+                  Full page
+                </button>
+              )}
               {snapshot.unreadCount > 0 && (
                 <span className='flex items-center gap-1.5 rounded-full bg-unread-bg px-2.5 py-0.5 text-xs font-medium text-unread'>
                   <span className='inline-block h-1.5 w-1.5 animate-pulse-unread rounded-full bg-unread' />
@@ -454,19 +567,36 @@ export function MailboxApp() {
           )}
         </header>
 
-        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '60ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
-            {snapshot.address ? (
-              <div className='p-4'>
+        {hasMailbox ? (
+          <div
+            className='animate-fade-in space-y-3 px-3 pb-4 sm:px-4'
+            style={{ animationDelay: '60ms' }}
+          >
+            <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+              <div className='p-3'>
+                <button
+                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                  disabled={isBusy}
+                  onClick={() => void autofillCurrentPage()}
+                  type='button'
+                >
+                  <WandSparkles className='h-3.5 w-3.5' />
+                  Autofill page
+                </button>
+              </div>
+            </div>
+
+            <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+              <div className='p-3'>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-                  Your address
+                  Address
                 </p>
-                <div className='mt-2 flex flex-col gap-2 sm:flex-row sm:items-center'>
+                <div className='mt-2 flex items-center gap-2'>
                   <p className='min-w-0 flex-1 truncate text-sm font-semibold text-accent'>
                     {snapshot.address}
                   </p>
                   <button
-                    className='flex w-full cursor-pointer items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0'
+                    className='flex shrink-0 cursor-pointer items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void copyAddress()}
                     type='button'
@@ -475,10 +605,20 @@ export function MailboxApp() {
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
+              </div>
+            </div>
 
-                <div className='mt-3 flex flex-col gap-2 sm:flex-row'>
+            <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+              <div className='flex items-center justify-between gap-3 border-b border-border-dim px-3 py-2.5'>
+                <div className='flex min-w-0 items-center gap-2'>
+                  <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                    Inbox
+                  </p>
+                </div>
+                <div className='flex items-center gap-1'>
                   <button
-                    className='flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
+                    aria-label='Refresh inbox'
+                    className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
                     onClick={() => void runCommand({ type: 'mailbox:refresh' })}
                     type='button'
@@ -486,220 +626,82 @@ export function MailboxApp() {
                     <RefreshCw
                       className={`h-3.5 w-3.5 ${isBusy || isPollingActive ? 'animate-[spin_2s_linear_infinite]' : ''}`}
                     />
-                    Refresh
                   </button>
                   <button
-                    className='flex w-full cursor-pointer items-center justify-center gap-1 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
+                    aria-label='Open full-page mailbox'
+                    className='flex cursor-pointer items-center justify-center rounded-md border border-border-dim bg-surface-raised p-1.5 text-ink-muted transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
-                    onClick={() => void runCommand({ type: 'mailbox:discard' })}
+                    onClick={() => {
+                      void openFullMailboxPage()
+                        .then(() => clearUiActionError())
+                        .catch((error) => reportUiActionFailure('open-full-page', error));
+                    }}
                     type='button'
                   >
-                    <Trash2 className='h-3.5 w-3.5' />
-                    Discard
+                    <ExternalLink className='h-3.5 w-3.5' />
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className='p-4'>
-                <button
-                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
-                  disabled={isBusy || snapshot.status === 'creating'}
-                  onClick={() => void runCommand({ type: 'mailbox:create' })}
-                  type='button'
-                >
-                  <Plus className='h-4 w-4' />
-                  {snapshot.status === 'creating' ? 'Creating...' : 'Create temp email'}
-                </button>
-                <p className='mt-3 text-center text-xs leading-relaxed text-ink-muted'>
-                  Session-only. Polling continues while the browser is open.
-                </p>
-              </div>
-            )}
-
-            <div className='flex items-center justify-between border-t border-border-dim bg-surface-raised px-4 py-2 text-[10px] font-medium text-ink-muted'>
-              <span className='uppercase tracking-widest'>
-                {snapshot.status === 'idle'
-                  ? 'Idle'
-                  : snapshot.status === 'creating'
-                    ? 'Creating'
-                    : snapshot.status === 'error'
-                      ? 'Error'
-                      : 'Active'}
-              </span>
-              <span>
-                {snapshot.lastCheckedAt
-                  ? formatTimestamp(snapshot.lastCheckedAt)
-                  : 'Not checked yet'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {sidebarActionStatus.tone === 'error' && (
-          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
-            <div
-              aria-atomic='true'
-              aria-live='assertive'
-              className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'
-              role='alert'
-            >
-              <p>{sidebarActionStatus.message}</p>
-            </div>
-          </div>
-        )}
-        {sidebarActionStatus.tone === 'success' && (
-          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
-            <div
-              aria-atomic='true'
-              aria-live='polite'
-              className='rounded-lg border border-accent/25 bg-accent-bg px-4 py-3 text-xs text-accent'
-              role='status'
-            >
-              <p>{sidebarActionStatus.message}</p>
-            </div>
-          </div>
-        )}
-
-        <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '90ms' }}>
-          <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
-            <div className='p-4'>
-              <div className='flex items-start justify-between gap-3'>
-                <div>
-                  <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-                    Autofill
-                  </p>
-                  <p className='mt-2 text-sm leading-relaxed text-ink-secondary'>
-                    Use your saved ranges to generate a fake profile and fill common signup fields.
-                  </p>
-                </div>
-                <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
-              </div>
-
-              <div className='mt-4 flex flex-col gap-2 sm:flex-row'>
-                <button
-                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1'
-                  disabled={isBusy}
-                  onClick={() => void autofillCurrentPage()}
-                  type='button'
-                >
-                  <WandSparkles className='h-3.5 w-3.5' />
-                  Autofill page
-                </button>
-                <button
-                  className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
-                  disabled={isBusy}
-                  onClick={() =>
-                    void openAutofillSettings().catch((error) =>
-                      reportUiActionFailure('open-settings', error),
-                    )
-                  }
-                  type='button'
-                >
-                  <SlidersHorizontal className='h-3.5 w-3.5' />
-                  Settings
-                </button>
-              </div>
-            </div>
-
-            <div className='border-t border-border-dim bg-surface-raised px-4 py-2 text-[11px] text-ink-muted'>
-              <span
-                className={
-                  autofillStatus.tone === 'error'
-                    ? 'text-danger'
-                    : autofillStatus.tone === 'success'
-                      ? 'text-accent'
-                      : 'text-ink-muted'
-                }
-              >
-                {autofillStatus.message}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {shouldShowPersistentMailboxError && snapshot.error && (
-          <div className='animate-fade-in px-3 pb-4 sm:px-4'>
-            <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
-              <p>{snapshot.error}</p>
-              {snapshot.diagnostics && (
-                <p className='text-[10px] uppercase tracking-[0.16em] text-danger/80'>
-                  {snapshot.diagnostics.command ?? 'mailbox'}
-                  {snapshot.diagnostics.phase ? ` · ${snapshot.diagnostics.phase}` : ''}
-                  {snapshot.diagnostics.errorType ? ` · ${snapshot.diagnostics.errorType}` : ''}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {snapshot.address && (
-          <div className='animate-fade-in px-3 pb-5 sm:px-4' style={{ animationDelay: '120ms' }}>
-            <div className='w-full overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
-              <div className='border-b border-border-dim px-4 py-3'>
-                <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-                  Inbox
-                </p>
               </div>
 
               {snapshot.messages.length > 0 ? (
-                <div
-                  className={
-                    isSidepanel ? 'md:grid md:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]' : ''
-                  }
-                >
-                  <div className='divide-y divide-border-dim'>
-                    {snapshot.messages.map((message) => (
-                      <button
-                        key={message.id}
-                        className={`group flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left transition-colors ${
-                          pendingMessageId === message.id ||
-                          snapshot.selectedMessageId === message.id
-                            ? 'bg-accent-bg'
-                            : 'hover:bg-surface-hover'
-                        }`}
-                        disabled={isBusy}
-                        onClick={() =>
-                          void runCommand({ type: 'mailbox:open-message', messageId: message.id })
-                        }
-                        type='button'
-                      >
-                        <div className='flex h-5 w-2 shrink-0 items-center'>
-                          {!message.seen && (
-                            <span className='inline-block h-2 w-2 animate-pulse-unread rounded-full bg-unread' />
-                          )}
-                        </div>
+                <div className='divide-y divide-border-dim'>
+                  {snapshot.messages.map((message) => {
+                    const isActive = activeInlineMessageId === message.id;
 
-                        <div className='min-w-0 flex-1'>
-                          <div className='flex items-baseline justify-between gap-2'>
-                            <p
-                              className={`truncate text-sm ${
-                                !message.seen
-                                  ? 'font-semibold text-ink'
-                                  : 'font-medium text-ink-secondary'
-                              }`}
-                            >
-                              {message.subject}
-                            </p>
-                            <span className='shrink-0 text-[10px] text-ink-muted'>
-                              {formatTimestamp(message.createdAt)}
-                            </span>
+                    return (
+                      <div key={message.id} className='border-b border-border-dim last:border-b-0'>
+                        <button
+                          className={`group flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                            isActive ? 'bg-accent-bg' : 'hover:bg-surface-hover'
+                          }`}
+                          disabled={isBusy}
+                          onClick={() => void openMessage(message.id, 'manual')}
+                          type='button'
+                        >
+                          <div className='flex h-5 w-2 shrink-0 items-center'>
+                            {!message.seen && (
+                              <span className='inline-block h-2 w-2 animate-pulse-unread rounded-full bg-unread' />
+                            )}
                           </div>
-                          <p className='mt-0.5 truncate text-xs text-ink-muted'>{message.from}</p>
-                          <p className='mt-0.5 line-clamp-1 text-xs text-ink-secondary'>
-                            {message.intro}
-                          </p>
-                        </div>
 
-                        <ArrowRight className='mt-1 h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition-opacity group-hover:opacity-60' />
-                      </button>
-                    ))}
-                  </div>
-                  <MessagePanel
-                    isSidepanel={isSidepanel}
-                    onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
-                    pendingMessageId={pendingMessageId}
-                    snapshot={snapshot}
-                  />
+                          <div className='min-w-0 flex-1'>
+                            <div className='flex items-baseline justify-between gap-2'>
+                              <p
+                                className={`truncate text-sm ${
+                                  !message.seen
+                                    ? 'font-semibold text-ink'
+                                    : 'font-medium text-ink-secondary'
+                                }`}
+                              >
+                                {message.subject}
+                              </p>
+                              <span className='shrink-0 text-[10px] text-ink-muted'>
+                                {formatTimestamp(message.createdAt)}
+                              </span>
+                            </div>
+                            <p className='mt-0.5 truncate text-xs text-ink-muted'>{message.from}</p>
+                            <p className='mt-0.5 line-clamp-1 text-xs text-ink-secondary'>
+                              {message.intro}
+                            </p>
+                          </div>
+
+                          <ArrowRight className='mt-1 h-3.5 w-3.5 shrink-0 text-ink-muted opacity-0 transition-opacity group-hover:opacity-60' />
+                        </button>
+
+                        {isActive && (
+                          <MessagePanel
+                            inline
+                            onFillCode={handleFillCode}
+                            onOpenLink={(url) =>
+                              void runCommand({ type: 'mailbox:open-link', url })
+                            }
+                            pendingMessageId={pendingMessageId}
+                            snapshot={snapshot}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className='flex flex-col items-center gap-2 px-4 py-8 text-center text-ink-muted'>
@@ -709,9 +711,219 @@ export function MailboxApp() {
                 </div>
               )}
             </div>
+
+            <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+              <div className='space-y-3 p-3'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <div className='text-[11px] leading-relaxed text-ink-muted'>
+                    <p>{autofillStatus.message}</p>
+                    {sidebarActionStatus.tone !== 'idle' && (
+                      <p
+                        className={`mt-1 ${
+                          sidebarActionStatus.tone === 'error' ? 'text-danger' : 'text-accent'
+                        }`}
+                      >
+                        {sidebarActionStatus.message}
+                      </p>
+                    )}
+                    {shouldShowPersistentMailboxError && snapshot.error && (
+                      <p className='mt-1 text-danger'>{snapshot.error}</p>
+                    )}
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+                      disabled={isBusy}
+                      onClick={() =>
+                        void openAutofillSettings().catch((error) =>
+                          reportUiActionFailure('open-settings', error),
+                        )
+                      }
+                      type='button'
+                    >
+                      <SlidersHorizontal className='h-3 w-3' />
+                      Settings
+                    </button>
+                    <button
+                      className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                      disabled={isBusy}
+                      onClick={openDiscardConfirm}
+                      type='button'
+                    >
+                      <Trash2 className='h-3 w-3' />
+                      Discard email
+                    </button>
+                  </div>
+                </div>
+                <div className='flex items-center justify-between border-t border-border-dim pt-2 text-[10px] font-medium text-ink-muted'>
+                  <span className='uppercase tracking-widest'>
+                    {snapshot.status === 'idle'
+                      ? 'Idle'
+                      : snapshot.status === 'creating'
+                        ? 'Creating'
+                        : snapshot.status === 'error'
+                          ? 'Error'
+                          : 'Active'}
+                  </span>
+                  <span>
+                    {snapshot.lastCheckedAt
+                      ? formatTimestamp(snapshot.lastCheckedAt)
+                      : 'Not checked yet'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '60ms' }}>
+              <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+                <div className='p-4'>
+                  <button
+                    className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+                    disabled={isBusy || snapshot.status === 'creating'}
+                    onClick={() => void runCommand({ type: 'mailbox:create' })}
+                    type='button'
+                  >
+                    <Plus className='h-4 w-4' />
+                    {snapshot.status === 'creating' ? 'Creating...' : 'Create temp email'}
+                  </button>
+                  <p className='mt-3 text-center text-xs leading-relaxed text-ink-muted'>
+                    Session-only. Polling continues while the browser is open.
+                  </p>
+                </div>
+
+                <div className='flex items-center justify-between border-t border-border-dim bg-surface-raised px-4 py-2 text-[10px] font-medium text-ink-muted'>
+                  <span className='uppercase tracking-widest'>
+                    {snapshot.status === 'idle'
+                      ? 'Idle'
+                      : snapshot.status === 'creating'
+                        ? 'Creating'
+                        : snapshot.status === 'error'
+                          ? 'Error'
+                          : 'Active'}
+                  </span>
+                  <span>
+                    {snapshot.lastCheckedAt
+                      ? formatTimestamp(snapshot.lastCheckedAt)
+                      : 'Not checked yet'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {sidebarActionStatus.tone === 'error' && (
+              <div className='animate-fade-in px-3 pb-4 sm:px-4'>
+                <div
+                  aria-atomic='true'
+                  aria-live='assertive'
+                  className='rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'
+                  role='alert'
+                >
+                  <p>{sidebarActionStatus.message}</p>
+                </div>
+              </div>
+            )}
+            {sidebarActionStatus.tone === 'success' && (
+              <div className='animate-fade-in px-3 pb-4 sm:px-4'>
+                <div
+                  aria-atomic='true'
+                  aria-live='polite'
+                  className='rounded-lg border border-accent/25 bg-accent-bg px-4 py-3 text-xs text-accent'
+                  role='status'
+                >
+                  <p>{sidebarActionStatus.message}</p>
+                </div>
+              </div>
+            )}
+
+            <div className='animate-fade-in px-3 pb-4 sm:px-4' style={{ animationDelay: '90ms' }}>
+              <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
+                <div className='p-4'>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div>
+                      <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                        Autofill
+                      </p>
+                      <p className='mt-2 text-sm leading-relaxed text-ink-secondary'>
+                        Use your saved ranges to generate a fake profile and fill common signup
+                        fields.
+                      </p>
+                    </div>
+                    <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
+                  </div>
+
+                  <div className='mt-4 flex flex-col gap-2 sm:flex-row'>
+                    <button
+                      className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1'
+                      disabled={isBusy}
+                      onClick={() => void autofillCurrentPage()}
+                      type='button'
+                    >
+                      <WandSparkles className='h-3.5 w-3.5' />
+                      Autofill page
+                    </button>
+                    <button
+                      className='flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-1'
+                      disabled={isBusy}
+                      onClick={() =>
+                        void openAutofillSettings().catch((error) =>
+                          reportUiActionFailure('open-settings', error),
+                        )
+                      }
+                      type='button'
+                    >
+                      <SlidersHorizontal className='h-3.5 w-3.5' />
+                      Settings
+                    </button>
+                  </div>
+                </div>
+
+                <div className='border-t border-border-dim bg-surface-raised px-4 py-2 text-[11px] text-ink-muted'>
+                  <span
+                    className={
+                      autofillStatus.tone === 'error'
+                        ? 'text-danger'
+                        : autofillStatus.tone === 'success'
+                          ? 'text-accent'
+                          : 'text-ink-muted'
+                    }
+                  >
+                    {autofillStatus.message}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {shouldShowPersistentMailboxError && snapshot.error && (
+              <div className='animate-fade-in px-3 pb-4 sm:px-4'>
+                <div className='space-y-2 rounded-lg border border-danger-border bg-danger-bg px-4 py-3 text-xs text-danger'>
+                  <p>{snapshot.error}</p>
+                  {snapshot.diagnostics && (
+                    <p className='text-[10px] uppercase tracking-[0.16em] text-danger/80'>
+                      {snapshot.diagnostics.command ?? 'mailbox'}
+                      {snapshot.diagnostics.phase ? ` · ${snapshot.diagnostics.phase}` : ''}
+                      {snapshot.diagnostics.errorType ? ` · ${snapshot.diagnostics.errorType}` : ''}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
+        <GithubFooter className='px-3 pb-4 sm:px-4' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep mailbox'
+        confirmLabel='Discard'
+        confirmTone='danger'
+        description='This deletes the mailbox and all messages. They cannot be recovered.'
+        onCancel={closeDiscardConfirm}
+        onConfirm={() => void confirmDiscardMailbox()}
+        open={discardConfirmOpen}
+        title='Discard this email?'
+      />
     </main>
   );
 }

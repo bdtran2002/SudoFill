@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/icon.png" alt="SudoFill icon" width="160" height="160" />
+  <img src="./assets/darkmode_ui.png" alt="SudoFill icon" width="240" />
 </p>
 
 <h1 align="center">SudoFill</h1>
@@ -20,9 +20,10 @@ SudoFill is a browser extension for short-lived signups. It gives you a disposab
 ## Highlights
 
 - Disposable Mail.tm inboxes with create, refresh, discard, and copy actions
-- Built-in mailbox UI for reading messages and opening detected verification links
-- Autofill for common signup fields like name, birth date, address, and email
-- Shared autofill settings page for tuning profile defaults
+- Built-in mailbox UI for reading messages, rendering useful email content, and opening detected verification links
+- Autofill for common signup fields like name, birth date, address, email, and optional generated passwords
+- Domain-aware verification popup for matching pages, with link and code shortcuts
+- Shared autofill settings page for tuning profile defaults, verification helpers, and local history behavior
 - Full-page mailbox view for reviewing incoming mail more comfortably
 - Local-first settings: autofill preferences stay in browser storage
 
@@ -42,7 +43,7 @@ SudoFill is a browser extension for short-lived signups. It gives you a disposab
 3. Open the signup page you want to fill.
 4. Run autofill from the popup or side panel on that site tab.
 5. Wait for the verification email.
-6. Open the message and follow the detected verification link.
+6. Use the mailbox's recommended verification action, or the in-page popup when you are already on the matching site.
 
 ## What SudoFill can fill
 
@@ -73,26 +74,32 @@ You can tune:
 - generated address on or off
 - preferred US state
 - age range
-- whether generated profiles lean male or female when a form asks
+- whether generated profiles lean male, female, or nonbinary when a form asks
+- whether the verification assist popup appears on matching pages
+- whether local autofill usage history is saved
+- whether generated passwords are filled on signup-style password setup steps
 
-These settings are saved in browser storage.
+These settings are saved in browser storage. If you enable usage history, the saved entries stay local to the browser on that device and are not encrypted. Password autofill is default-off, and saved passwords are also local-only, not encrypted, and should be treated as unsafe.
 
 ## Privacy and behavior
 
 - SudoFill talks to `https://api.mail.tm/*` to create temporary inboxes and fetch messages.
 - Temporary mailbox session state is stored in browser session storage.
 - Autofill preferences are stored in synced browser storage.
+- Optional autofill usage history is stored in local browser storage and is not encrypted.
+- Optional saved passwords in usage history are also stored in local browser storage and are not encrypted.
 - Autofill only runs when you explicitly trigger it from the extension UI.
 - The extension does not download and execute remote code.
-- Verification links open in a new tab only when you choose them.
+- Verification links and codes are surfaced as recommendations from parsed email content.
 
 ## Limitations
 
-- Best for short-lived signups, not accounts you plan to keep long term
+- Best for short-lived signups, not accounts you plan to keep long-term
 - Sites that require phone or SMS verification are not supported
 - Very custom or multi-step forms may still need manual fixes
 - Autofill only targets normal `https://` pages
-- HTML-heavy emails may not fully render in the UI, but detected links can still be opened directly
+- Verification popup matching is heuristic-based, so emails sent from unrelated delivery domains may not surface in-page
+- Password autofill is heuristic-based and only intended for signup or password-setup flows, so some edge-case forms may still need manual input
 
 ## Developer setup
 

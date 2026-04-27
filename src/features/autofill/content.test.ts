@@ -11,11 +11,13 @@ const profile = {
   businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
+  password: 'P@ssw0rd123!',
   sex: 'female',
   birthDateIso: '1990-01-15',
   birthDay: '15',
   birthMonth: '01',
   birthYear: '1990',
+  ageAtFill: 35,
   addressLine1: '123 Main St',
   addressLine2: 'Apt 4',
   city: 'Austin',
@@ -156,6 +158,38 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
   });
 
+  it('fills password fields on signup forms when the profile includes a password', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#signup [name="password"]') as HTMLInputElement).value).toBe(
+      profile.password,
+    );
+  });
+
+  it('does not fill password fields on login forms', async () => {
+    document.body.innerHTML = `
+      <form id="login" aria-label="Log in">
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Sign in</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect((document.querySelector('#login [name="password"]') as HTMLInputElement).value).toBe('');
+  });
+
   it('fills an eBay-like business signup form while keeping username blocked', async () => {
     document.body.innerHTML = `
       <form id="ebay-business" aria-label="Business account signup">
@@ -208,6 +242,65 @@ describe('content autofill targeting', () => {
     expect(result.ok).toBe(true);
     expect((document.querySelector('#username') as HTMLInputElement).value).toBe('');
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('infers a manually entered username from a username-like field', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" value="ada" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBe('ada');
+    expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('leaves inferred username empty when no custom username exists', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBeUndefined();
+  });
+
+  it('ignores prefilled usernames from a different form outside the target scope', async () => {
+    document.body.innerHTML = `
+      <form id="login" aria-label="Log in">
+        <label for="login-username">Username</label>
+        <input id="login-username" name="username" value="carryover-user" />
+      </form>
+      <form id="signup" aria-label="Create account">
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBeUndefined();
   });
 
   it("fills a Wendy's-style email-first sign-in step when the page title indicates auth intent", async () => {
@@ -276,8 +369,115 @@ describe('content autofill targeting', () => {
       'ada@example.com',
     );
     expect((document.querySelector('#account [name="password"]') as HTMLInputElement).value).toBe(
+      profile.password,
+    );
+  });
+
+  it('does not autofill passwords into generic two-password widgets without signup intent', async () => {
+    document.body.innerHTML = `
+      <form id="widget" aria-label="Security widget">
+        <label>Email <input name="email" /></label>
+        <label>Key one <input type="password" name="password" /></label>
+        <label>Key two <input type="password" name="confirmPassword" /></label>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect((document.querySelector('#widget [name="email"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#widget [name="password"]') as HTMLInputElement).value).toBe(
       '',
     );
+  });
+
+  it('ignores weak username candidates and lets callers fall back to email', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" value="a!" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBeUndefined();
+  });
+
+  it('does not autofill password fields on account settings forms', async () => {
+    document.body.innerHTML = `
+      <form id="settings" aria-label="Account settings">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Current password <input type="password" name="currentPassword" /></label>
+        <label>New password <input type="password" name="newPassword" /></label>
+        <button type="submit">Save changes</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#settings [name="firstName"]') as HTMLInputElement).value).toBe(
+      'Ada',
+    );
+    expect((document.querySelector('#settings [name="lastName"]') as HTMLInputElement).value).toBe(
+      'Lovelace',
+    );
+    expect(
+      (document.querySelector('#settings [name="currentPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (document.querySelector('#settings [name="newPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+  });
+
+  it('fills password-only signup setup steps', async () => {
+    document.body.innerHTML = `
+      <form id="password-setup" aria-label="Set your password">
+        <label>Password <input type="password" name="password" /></label>
+        <label>Confirm password <input type="password" name="confirmPassword" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(
+      (document.querySelector('#password-setup [name="password"]') as HTMLInputElement).value,
+    ).toBe(profile.password);
+    expect(
+      (document.querySelector('#password-setup [name="confirmPassword"]') as HTMLInputElement)
+        .value,
+    ).toBe(profile.password);
+  });
+
+  it('does not autofill password reset flows', async () => {
+    document.body.innerHTML = `
+      <form id="password-reset" aria-label="Reset password">
+        <label>New password <input type="password" name="newPassword" /></label>
+        <label>Confirm password <input type="password" name="confirmPassword" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect(
+      (document.querySelector('#password-reset [name="newPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (document.querySelector('#password-reset [name="confirmPassword"]') as HTMLInputElement)
+        .value,
+    ).toBe('');
   });
 
   it('fills ungrouped fields when no form tags exist', async () => {

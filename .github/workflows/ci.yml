@@ -32,23 +32,5 @@ jobs:
       - name: Install dependencies
         run: bun ci
 
-      - name: Verify release version metadata
-        run: bun run release:check
-
-      - name: Run lint
-        run: bun run lint
-
-      - name: Check formatting
-        run: bun run format:check
-
-      - name: Run typecheck
-        run: bun run typecheck
-
-      - name: Run tests
-        run: bun run test
-
-      - name: Check Firefox bundle freshness
-        run: bun run firefox-addon:check
-
-      - name: Build Chrome bundle
-        run: bun run build:chrome
+      - name: Run CI checks
+        run: bun run ci:check

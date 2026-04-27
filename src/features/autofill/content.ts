@@ -7,6 +7,22 @@ const FILLABLE_SELECTOR = 'input, select, textarea';
 const SIGN_UP_CUES = ['sign up', 'signup', 'create account', 'register', 'join', 'get started'];
 const ACCOUNT_CUES = ['create profile', 'new customer', 'new account'];
 const LOGIN_CUES = ['sign in', 'signin', 'log in', 'login'];
+const PASSWORD_SETUP_CUES = [
+  'set your password',
+  'set password',
+  'create password',
+  'choose password',
+  'confirm password',
+];
+const PASSWORD_RESET_CUES = [
+  'reset password',
+  'forgot password',
+  'recover account',
+  'recovery code',
+  'reset your password',
+  'change password',
+  'update password',
+];
 const EMAIL_FIRST_AUTH_SUBMIT_CUES = ['next', 'continue'];
 const EMAIL_FIRST_AUTH_CONTEXT_CUES = [
   'stay logged in',
@@ -231,6 +247,11 @@ export function hasExistingUserValue(element: FillableElement) {
   return element.value.trim().length > 0;
 }
 
+function isUsernameLikeField(element: FillableElement) {
+  const keyText = buildFieldKey(element);
+  return /(^|[^a-z])(user(name)?|login|handle|screen name|account name)([^a-z]|$)/.test(keyText);
+}
+
 export function isReadonlyElement(element: FillableElement) {
   return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
     ? element.readOnly
@@ -285,7 +306,7 @@ function getElementContext(element: FillableElement) {
   };
 }
 
-function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
+function getFieldMatch(element: FillableElement, profile: GeneratedProfile, allowPassword = false) {
   if (element.disabled) return null;
   if (
     element instanceof HTMLInputElement &&
@@ -295,9 +316,38 @@ function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
   }
   if (hasExistingUserValue(element)) return null;
 
-  const match = resolveAutofillMatch(buildFieldKey(element), profile);
+  const match = resolveAutofillMatch(buildFieldKey(element), profile, { allowPassword });
   return match?.values.some(Boolean) ? match : null;
 }
+
+function inferUsernameFromExistingValues(
+  doc: Document,
+  profile: GeneratedProfile,
+  targetRoot: HTMLElement | null,
+) {
+  const elements = getVisibleEditableFillableElements(doc).filter((element) =>
+    isElementInTargetScope(element, targetRoot),
+  );
+
+  for (const element of elements) {
+    if (!isUsernameLikeField(element)) continue;
+    if (!hasExistingUserValue(element)) continue;
+
+    const candidate = element.value.trim();
+    if (!candidate || candidate.toLowerCase() === profile.email.toLowerCase()) continue;
+    if (candidate.includes('@')) continue;
+    if (!/^[\w.-]{3,}$/.test(candidate)) continue;
+
+    return candidate;
+  }
+
+  return undefined;
+}
+
+type TargetScopeSelection = {
+  targetRoot: HTMLElement | null;
+  targetAnalysis: ScopeAnalysis;
+};
 
 function getScopeMatchSummary(elements: FillableElement[], profile: GeneratedProfile) {
   const matchedFields = new Map<keyof GeneratedProfile, number>();
@@ -321,6 +371,7 @@ type ScopeAnalysis = {
   matchedFields: Map<keyof GeneratedProfile, number>;
   matchingFieldCount: number;
   hasPassword: boolean;
+  passwordFieldCount: number;
   hasSubmit: boolean;
   hasLowIntentCue: boolean;
   hasExplicitSignupCue: boolean;
@@ -328,6 +379,8 @@ type ScopeAnalysis = {
   identityFieldCount: number;
   emailFirstAuthFlow: boolean;
   strongSignupIntent: boolean;
+  hasPasswordSetupCue: boolean;
+  hasPasswordResetCue: boolean;
   richIdentityScope: boolean;
 };
 
@@ -414,6 +467,12 @@ function hasPasswordField(elements: FillableElement[]) {
   );
 }
 
+function countPasswordFields(elements: FillableElement[]) {
+  return elements.filter(
+    (element) => element instanceof HTMLInputElement && element.type === 'password',
+  ).length;
+}
+
 function hasSubmitControl(root: HTMLElement | null) {
   if (!root) return false;
 
@@ -492,6 +551,7 @@ function analyzeScope(
   const text = getScopeText(root);
   const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
   const hasPassword = hasPasswordField(elements);
+  const passwordFieldCount = countPasswordFields(elements);
   const hasSubmit = hasSubmitControl(root);
   const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
   const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
@@ -501,8 +561,13 @@ function analyzeScope(
   ).length;
   const authContextText = [text, getDocumentIntentText(doc)].filter(Boolean).join(' ');
   const submitText = getSubmitControlText(root);
+  const passwordContextText = [text, getDocumentIntentText(doc), submitText]
+    .filter(Boolean)
+    .join(' ');
   const hasAuthStepCue =
     hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) || hasCue(text, EMAIL_FIRST_AUTH_CONTEXT_CUES);
+  const hasPasswordSetupCue = hasCue(passwordContextText, PASSWORD_SETUP_CUES);
+  const hasPasswordResetCue = hasCue(passwordContextText, PASSWORD_RESET_CUES);
   const emailFirstAuthFlow =
     Boolean(root) &&
     !hasPassword &&
@@ -525,6 +590,7 @@ function analyzeScope(
     matchedFields,
     matchingFieldCount,
     hasPassword,
+    passwordFieldCount,
     hasSubmit,
     hasLowIntentCue,
     hasExplicitSignupCue,
@@ -532,6 +598,8 @@ function analyzeScope(
     identityFieldCount,
     emailFirstAuthFlow,
     strongSignupIntent,
+    hasPasswordSetupCue,
+    hasPasswordResetCue,
     richIdentityScope,
   } satisfies ScopeAnalysis;
 }
@@ -548,6 +616,9 @@ function scoreScope(analysis: ScopeAnalysis) {
     strongSignupIntent,
     richIdentityScope,
     hasPassword,
+    passwordFieldCount,
+    hasPasswordSetupCue,
+    hasPasswordResetCue,
   } = analysis;
   const uniqueFieldScore = [...matchedFields.values()].reduce((sum, value) => sum + value, 0);
   const totalMatchScore = matchingFieldCount * 2;
@@ -560,6 +631,9 @@ function scoreScope(analysis: ScopeAnalysis) {
   if (hasExplicitSignupCue && !hasLowIntentCue) score += 8;
   if (hasCue(text, LOGIN_CUES) && !emailFirstAuthFlow) score -= 8;
   if (analysis.hasNonSignupAccountCue) score -= 10;
+  if (hasPasswordSetupCue && !hasPasswordResetCue) score += 8;
+  if (passwordFieldCount >= 2 && !hasPasswordResetCue) score += 5;
+  if (hasPasswordResetCue) score -= 12;
   if (matchedFields.size < 2 && !emailFirstAuthFlow) score -= 8;
   if (hasLowIntentCue && !strongSignupIntent) score -= 14;
   if (hasPassword && identityFieldCount >= 2) score += 3;
@@ -573,6 +647,8 @@ function isEligibleScope(analysis: ScopeAnalysis) {
   // Password-bearing account flows need to stay eligible even when the page copy is sparse.
   const hasStrongSignupCue =
     analysis.strongSignupIntent ||
+    (analysis.hasPasswordSetupCue && !analysis.hasPasswordResetCue) ||
+    (analysis.passwordFieldCount >= 2 && !analysis.hasPasswordResetCue) ||
     analysis.hasPassword ||
     (analysis.matchingFieldCount >= 3 &&
       !analysis.hasNonSignupAccountCue &&
@@ -610,7 +686,7 @@ function selectTargetScope(
   visibleElements: FillableElement[],
   profile: GeneratedProfile,
   doc: Document,
-) {
+): TargetScopeSelection {
   const activeForm = getActiveForm(doc);
   const activeScopeRoot = getActiveScopeRoot(doc);
 
@@ -630,7 +706,25 @@ function selectTargetScope(
     .filter((candidate) => candidate.score > 0 && isEligibleScope(candidate.analysis))
     .sort((left, right) => right.score - left.score);
 
-  return scoredScopes[0]?.root ?? null;
+  const bestScope = scoredScopes[0];
+
+  if (bestScope) {
+    return {
+      targetRoot: bestScope.root,
+      targetAnalysis: bestScope.analysis,
+    };
+  }
+
+  const targetRoot = null;
+  return {
+    targetRoot,
+    targetAnalysis: analyzeScope(
+      targetRoot,
+      visibleElements.filter((element) => isElementInTargetScope(element, targetRoot)),
+      profile,
+      doc,
+    ),
+  };
 }
 
 async function yieldToNextTick() {
@@ -641,7 +735,22 @@ export async function fillProfile(
   profile: GeneratedProfile,
   doc: Document = document,
 ): Promise<AutofillContentResponse> {
-  const targetRoot = selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
+  const visibleElements = getVisibleEditableFillableElements(doc);
+  const { targetRoot, targetAnalysis } = selectTargetScope(visibleElements, profile, doc);
+  const inferredUsername = inferUsernameFromExistingValues(doc, profile, targetRoot);
+  const allowPasswordFill =
+    Boolean(profile.password) &&
+    !targetAnalysis.emailFirstAuthFlow &&
+    !targetAnalysis.hasNonSignupAccountCue &&
+    !targetAnalysis.hasPasswordResetCue &&
+    (targetAnalysis.strongSignupIntent ||
+      (targetAnalysis.hasPassword && targetAnalysis.identityFieldCount >= 2) ||
+      (targetAnalysis.hasPassword &&
+        targetAnalysis.hasPasswordSetupCue &&
+        !hasCue(targetAnalysis.text, LOGIN_CUES)) ||
+      (targetAnalysis.passwordFieldCount >= 2 &&
+        !hasCue(targetAnalysis.text, LOGIN_CUES) &&
+        (targetAnalysis.strongSignupIntent || targetAnalysis.hasPasswordSetupCue)));
 
   const filledFields = new Set<string>();
   let filledCount = 0;
@@ -659,7 +768,7 @@ export async function fillProfile(
     let didFillSelect = false;
 
     for (const element of prioritizedElements) {
-      const match = getFieldMatch(element, profile);
+      const match = getFieldMatch(element, profile, allowPasswordFill);
       if (!match) continue;
 
       const didFill = assignValue(
@@ -691,6 +800,7 @@ export async function fillProfile(
     ok: filledCount > 0,
     filledCount,
     fields: [...filledFields],
+    inferredUsername,
     error: filledCount > 0 ? undefined : 'No supported fields found on this page.',
     reason: filledCount > 0 ? undefined : 'no-fields',
   };
@@ -700,7 +810,7 @@ export function getTargetRootForTesting(
   profile: GeneratedProfile,
   doc: Document = document,
 ): HTMLElement | null {
-  return selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
+  return selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc).targetRoot;
 }
 
 export function getTargetFormForTesting(

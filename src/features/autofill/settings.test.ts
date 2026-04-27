@@ -8,6 +8,10 @@ describe('normalizeAutofillSettings', () => {
     expect(
       normalizeAutofillSettings({
         generateAddress: 'yes' as never,
+        enablePasswordAutofill: 'yes' as never,
+        savePasswordToUsageHistory: 'yes' as never,
+        showVerificationAssistPopup: 'yes' as never,
+        saveUsageHistory: 'yes' as never,
         state: 'ZZ',
         sex: 'robot' as never,
         ageMin: 'abc',
@@ -52,5 +56,73 @@ describe('normalizeAutofillSettings', () => {
 
   it('preserves an explicit any-state choice', () => {
     expect(normalizeAutofillSettings({ state: '' }).state).toBe('');
+  });
+
+  it('preserves explicit boolean settings when valid', () => {
+    expect(
+      normalizeAutofillSettings({
+        showVerificationAssistPopup: true,
+        enablePasswordAutofill: true,
+        savePasswordToUsageHistory: true,
+        saveUsageHistory: true,
+        saveUsageHistoryDetails: {
+          name: true,
+          age: true,
+          address: true,
+        },
+      }),
+    ).toMatchObject({
+      showVerificationAssistPopup: true,
+      enablePasswordAutofill: true,
+      savePasswordToUsageHistory: true,
+      saveUsageHistory: true,
+      saveUsageHistoryDetails: {
+        name: true,
+        age: true,
+        address: true,
+      },
+    });
+  });
+
+  it('defaults nested usage history toggles to off', () => {
+    expect(normalizeAutofillSettings({ saveUsageHistory: true })).toMatchObject({
+      saveUsageHistory: true,
+      saveUsageHistoryDetails: {
+        name: false,
+        age: false,
+        address: false,
+      },
+    });
+  });
+
+  it('falls back to the default usage history details shape for malformed values', () => {
+    expect(
+      normalizeAutofillSettings({
+        saveUsageHistory: true,
+        saveUsageHistoryDetails: 'yes' as never,
+      }).saveUsageHistoryDetails,
+    ).toEqual({
+      name: false,
+      age: false,
+      address: false,
+    });
+
+    expect(
+      normalizeAutofillSettings({
+        saveUsageHistory: true,
+        saveUsageHistoryDetails: [] as never,
+      }).saveUsageHistoryDetails,
+    ).toEqual({
+      name: false,
+      age: false,
+      address: false,
+    });
+  });
+
+  it('defaults password-related toggles to off', () => {
+    expect(normalizeAutofillSettings({})).toMatchObject({
+      enablePasswordAutofill: false,
+      savePasswordToUsageHistory: false,
+    });
   });
 });

@@ -404,6 +404,12 @@ describe('mail-tm', () => {
           { label: 'example.com', url: 'https://example.com' },
           { label: 'example.org', url: 'https://example.org' },
         ],
+        verification: {
+          bestLink: null,
+          linkCandidates: [],
+          bestCode: null,
+          codeCandidates: [],
+        },
       });
     }
 

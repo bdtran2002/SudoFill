@@ -1,0 +1,1 @@
+import{g as e,x as t}from"./settings-vVI40fKW.js";import{t as n}from"./mailbox-app-BLs4L-PF.js";var r=t(),i=e();(0,r.createRoot)(document.getElementById(`root`)).render((0,i.jsx)(n,{}));

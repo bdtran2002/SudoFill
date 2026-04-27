@@ -14,6 +14,12 @@ import {
 } from '../src/features/email/mail-tm';
 import { EMPTY_MAILBOX_SNAPSHOT, toMailboxSnapshot } from '../src/features/email/state';
 import { createCommandHandler } from '../src/features/email/command-router';
+import { getStoredAutofillSettings } from '../src/features/autofill/settings';
+import {
+  buildVerificationPopupPayload,
+  getHostnameFromUrl,
+  isVerificationPopupRelevant,
+} from '../src/features/email/verification-popup';
 import type {
   ActiveMailboxSession,
   MailboxCommand,
@@ -36,8 +42,9 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 let pendingForcedPoll = false;
 let pendingForcedPollWaiters: Array<() => void> = [];
-const openMailboxUiInstanceIds = new Set<string>();
+const openMailboxUiInstanceIds = new Map<string, number>();
 let lastMailboxUiClosedAt = 0;
+let lastVerificationPopupMessageId: string | null = null;
 
 type ActionLikeApi = {
   onClicked?: {
@@ -59,6 +66,14 @@ type MailboxUiVisibilityMessage = {
 };
 
 function isMailboxUiOpen() {
+  const now = Date.now();
+
+  for (const [instanceId, lastSeenAt] of openMailboxUiInstanceIds) {
+    if (now - lastSeenAt > UI_ACTIVE_WINDOW_MS) {
+      openMailboxUiInstanceIds.delete(instanceId);
+    }
+  }
+
   return openMailboxUiInstanceIds.size > 0;
 }
 
@@ -234,6 +249,12 @@ function syncMessages(
   session: ActiveMailboxSession,
   nextMessages: ActiveMailboxSession['messages'],
 ) {
+  const previousKnownMessageIds = new Set(session.knownMessageIds);
+
+  if (previousKnownMessageIds.size === 0 && session.messages.length > 0) {
+    session.messages.forEach((message) => previousKnownMessageIds.add(message.id));
+  }
+
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
   const browserNotificationMessageIds = new Set(session.browserNotificationMessageIds);
@@ -261,10 +282,100 @@ function syncMessages(
     session.selectedMessageId = null;
     session.selectedMessage = null;
   }
+
+  return nextMessages.filter((message) => !previousKnownMessageIds.has(message.id));
+}
+
+function isMailboxMessageDetail(
+  value: unknown,
+): value is NonNullable<ActiveMailboxSession['selectedMessage']> {
+  const verification = (value as { verification?: unknown } | null)?.verification;
+
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    verification !== null &&
+    typeof verification === 'object'
+  );
 }
 
 function isCurrentSession(session: ActiveMailboxSession) {
   return activeSession === session;
+}
+
+async function tryShowVerificationPopup(
+  session: ActiveMailboxSession,
+  newMessages: ActiveMailboxSession['messages'],
+) {
+  try {
+    const settings = await getStoredAutofillSettings();
+    if (!settings.showVerificationAssistPopup) return;
+
+    for (const summary of newMessages) {
+      if (summary.id === lastVerificationPopupMessageId) continue;
+
+      lastVerificationPopupMessageId = summary.id;
+
+      const message = await getMailTmMessage(session.token, summary.id).match(
+        (value) => value,
+        () => null,
+      );
+      if (!message) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+        active: true,
+        currentWindow: true,
+      });
+
+      if (activeTab?.id == null || !activeTab.url) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      const activeHostname = getHostnameFromUrl(activeTab.url);
+      if (!activeHostname) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      const payload = buildVerificationPopupPayload(message);
+      if (
+        !payload ||
+        lastVerificationPopupMessageId !== summary.id ||
+        !isVerificationPopupRelevant(activeHostname, message.verification, message.from)
+      ) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      try {
+        await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
+          type: 'verification:show-popup',
+          payload,
+        });
+      } catch {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      break;
+    }
+  } catch {
+    return;
+  }
 }
 
 function pollMailbox(force = false) {
@@ -298,7 +409,9 @@ function pollMailbox(force = false) {
           return okAsync(undefined);
         }
 
-        syncMessages(session, messages);
+        const newMessages = syncMessages(session, messages);
+
+        void tryShowVerificationPopup(session, newMessages);
 
         if (session.selectedMessageId && (!session.selectedMessage || force)) {
           return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {
@@ -430,9 +543,19 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
     }
 
+    if (session.selectedMessage && !isMailboxMessageDetail(session.selectedMessage)) {
+      session.selectedMessageId = null;
+      session.selectedMessage = null;
+    }
+
     activeSession = {
       ...session,
       browserNotificationMessageIds: session.browserNotificationMessageIds ?? [],
+      unreadMessageIds: session.unreadMessageIds ?? [],
+      messages: session.messages ?? [],
+      knownMessageIds: session.knownMessageIds?.length
+        ? session.knownMessageIds
+        : (session.messages ?? []).map((message) => message.id),
     };
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))
@@ -527,7 +650,7 @@ export default defineBackground(() => {
         }
 
         if (message.visible) {
-          openMailboxUiInstanceIds.add(message.instanceId);
+          openMailboxUiInstanceIds.set(message.instanceId, Date.now());
         } else {
           openMailboxUiInstanceIds.delete(message.instanceId);
         }

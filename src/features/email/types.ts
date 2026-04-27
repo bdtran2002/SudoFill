@@ -5,6 +5,19 @@ export interface MailboxLink {
   url: string;
 }
 
+export interface MailboxVerificationCode {
+  code: string;
+  label: string;
+  autofillLabel?: string;
+}
+
+export interface MailboxVerificationDetails {
+  bestLink: MailboxLink | null;
+  linkCandidates: MailboxLink[];
+  bestCode: MailboxVerificationCode | null;
+  codeCandidates: MailboxVerificationCode[];
+}
+
 export interface MailboxMessageSummary {
   id: string;
   from: string;
@@ -20,6 +33,7 @@ export interface MailboxMessageDetail extends MailboxMessageSummary {
   text: string;
   html: string;
   links: MailboxLink[];
+  verification: MailboxVerificationDetails;
 }
 
 export interface MailboxDiagnostics {
@@ -63,6 +77,8 @@ export type MailboxCommand =
   | { type: 'mailbox:discard' }
   | { type: 'mailbox:open-message'; messageId: string }
   | { type: 'mailbox:open-link'; url: string };
+
+export type VerificationContentCommand = { type: 'verification:fill-code'; code: string };
 
 export type MailboxResponse =
   | { ok: true; snapshot: MailboxSnapshot }

@@ -8,10 +8,21 @@ import {
   normalizeAutofillTabError,
 } from '../autofill/popup-errors';
 import { generateAutofillProfile } from '../autofill/profile';
+import { appendAutofillUsageHistoryEntry } from '../autofill/history';
 import { getStoredAutofillSettings } from '../autofill/settings';
 import type { AutofillContentResponse } from '../autofill/types';
 import { callWebExtensionApi } from '../../lib/webext-async';
-import type { MailboxCommand, MailboxDiagnostics, MailboxResponse, MailboxSnapshot } from './types';
+import type {
+  MailboxCommand,
+  MailboxDiagnostics,
+  MailboxResponse,
+  MailboxSnapshot,
+  VerificationContentCommand,
+} from './types';
+
+export type VerificationFillResult =
+  | { ok: true }
+  | { ok: false; reason: 'no-tab' | 'transport' | 'no-field' | 'malformed' };
 
 export function toTransportFailureResponse(
   error: unknown,
@@ -59,6 +70,179 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   await navigator.clipboard.writeText(text);
 }
 
+function isFillablePageTab(tab: chrome.tabs.Tab | undefined) {
+  const url = tab?.url ?? tab?.pendingUrl ?? '';
+
+  return /^https:\/\//i.test(url);
+}
+
+function getMostRelevantPageTab(tabs: chrome.tabs.Tab[]) {
+  return [...tabs].filter(isFillablePageTab).sort((left, right) => {
+    if (left.active && !right.active) return -1;
+    if (!left.active && right.active) return 1;
+    return (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0);
+  })[0];
+}
+
+function getTabHostname(tab: chrome.tabs.Tab | undefined) {
+  const url = tab?.url ?? tab?.pendingUrl ?? '';
+
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function isRelatedHostnameMatch(tabHostname: string, preferredHostname: string) {
+  return (
+    tabHostname === preferredHostname ||
+    tabHostname.endsWith(`.${preferredHostname}`) ||
+    preferredHostname.endsWith(`.${tabHostname}`)
+  );
+}
+
+function isMatchingInteractionTab(
+  tab: chrome.tabs.Tab | undefined,
+  preferredUrl: string | undefined,
+  preferredHostname: string | undefined,
+) {
+  if (!isFillablePageTab(tab)) {
+    return false;
+  }
+
+  const tabUrl = tab?.url ?? tab?.pendingUrl ?? '';
+  const tabHostname = getTabHostname(tab);
+
+  if (preferredUrl && tabUrl === preferredUrl) {
+    return true;
+  }
+
+  if (preferredHostname && isRelatedHostnameMatch(tabHostname, preferredHostname)) {
+    return true;
+  }
+
+  return false;
+}
+
+function findPreferredUrlMatch(tabs: chrome.tabs.Tab[], preferredUrl: string | undefined) {
+  if (!preferredUrl) {
+    return null;
+  }
+
+  return (
+    tabs.find(
+      (tab) => isFillablePageTab(tab) && (tab.url ?? tab.pendingUrl ?? '') === preferredUrl,
+    ) ?? null
+  );
+}
+
+export async function getPageInteractionTab() {
+  return getPageInteractionTabForContext();
+}
+
+export async function getPageInteractionTabForContext({
+  preferredUrl,
+  preferredHostname,
+}: {
+  preferredUrl?: string;
+  preferredHostname?: string;
+} = {}) {
+  const hasPreference = Boolean(preferredUrl || preferredHostname);
+  const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    active: true,
+    currentWindow: true,
+  });
+
+  const currentWindowTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    currentWindow: true,
+  });
+
+  const preferredUrlMatch = findPreferredUrlMatch(currentWindowTabs, preferredUrl);
+
+  if (preferredUrlMatch) {
+    return preferredUrlMatch;
+  }
+
+  if (isMatchingInteractionTab(activeTab, preferredUrl, preferredHostname)) {
+    return activeTab;
+  }
+
+  if (isFillablePageTab(activeTab) && !preferredHostname && !preferredUrl) {
+    return activeTab;
+  }
+
+  const currentWindowMatch = [...currentWindowTabs].find((tab) =>
+    isMatchingInteractionTab(tab, preferredUrl, preferredHostname),
+  );
+
+  if (currentWindowMatch) {
+    return currentWindowMatch;
+  }
+
+  if (hasPreference) {
+    return undefined;
+  }
+
+  const currentWindowCandidate = getMostRelevantPageTab(currentWindowTabs);
+
+  if (currentWindowCandidate) {
+    return currentWindowCandidate;
+  }
+
+  const allTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {});
+
+  const globalPreferredUrlMatch = findPreferredUrlMatch(allTabs, preferredUrl);
+
+  if (globalPreferredUrlMatch) {
+    return globalPreferredUrlMatch;
+  }
+
+  if (hasPreference) {
+    return undefined;
+  }
+
+  return getMostRelevantPageTab(allTabs);
+}
+
+function isVerificationFillResponse(value: unknown): value is { ok: boolean } {
+  return !!value && typeof value === 'object' && 'ok' in value && typeof value.ok === 'boolean';
+}
+
+export async function fillVerificationCodeOnPageForContext(
+  code: string,
+  context?: { preferredUrl?: string; preferredHostname?: string },
+): Promise<VerificationFillResult> {
+  const targetTab = await getPageInteractionTabForContext(context);
+
+  if (targetTab?.id == null) {
+    return { ok: false, reason: 'no-tab' };
+  }
+
+  const command: VerificationContentCommand = {
+    type: 'verification:fill-code',
+    code,
+  };
+  const response = await callWebExtensionApi<unknown>('tabs', 'sendMessage', targetTab.id, command);
+
+  if (response === undefined) {
+    return { ok: false, reason: 'transport' };
+  }
+
+  if (isVerificationFillResponse(response)) {
+    return response.ok ? { ok: true } : { ok: false, reason: 'no-field' };
+  }
+
+  return { ok: false, reason: 'malformed' };
+}
+
+export async function fillVerificationCodeOnPage(
+  code: string,
+  context?: { preferredUrl?: string; preferredHostname?: string },
+): Promise<VerificationFillResult> {
+  return fillVerificationCodeOnPageForContext(code, context);
+}
+
 export function useCopiedFlash() {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
@@ -98,6 +282,20 @@ export function useMailboxUiVisibilityReporting(isVisible: boolean) {
       visible: isVisible,
       instanceId,
     }).catch(() => undefined);
+
+    if (!isVisible) {
+      return;
+    }
+
+    const heartbeat = window.setInterval(() => {
+      void callWebExtensionApi('runtime', 'sendMessage', {
+        type: 'mailbox-ui-visibility',
+        visible: true,
+        instanceId,
+      }).catch(() => undefined);
+    }, 10_000);
+
+    return () => window.clearInterval(heartbeat);
   }, [instanceId, isVisible]);
 
   useEffect(() => {
@@ -138,14 +336,16 @@ export async function runMailboxAutofillFlow({
       return;
     }
 
-    [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-      active: true,
-      currentWindow: true,
-    });
+    activeTab = await getPageInteractionTab();
 
     const tabError = normalizeAutofillTabError(activeTab);
     if (tabError) {
       setAutofillStatus({ tone: 'error', message: tabError });
+      return;
+    }
+
+    if (!activeTab) {
+      setAutofillStatus({ tone: 'error', message: 'Open a page first, then try autofill again.' });
       return;
     }
 
@@ -175,6 +375,53 @@ export async function runMailboxAutofillFlow({
 
     setAutofillStatus({ tone: 'success', message: getAutofillResponseMessage(response) });
     setActionStatus?.({ tone: 'success', message: 'Autofill sent to the active tab.' });
+
+    if (settings.saveUsageHistory) {
+      const siteUrl = activeTab.url ?? activeTab.pendingUrl ?? '';
+      const siteHostname = (() => {
+        try {
+          return new URL(siteUrl).hostname;
+        } catch {
+          return '';
+        }
+      })();
+
+      try {
+        if (siteUrl && siteHostname) {
+          const saveNameDetails = settings.saveUsageHistoryDetails.name;
+          const saveAgeDetails = settings.saveUsageHistoryDetails.age;
+          const saveAddressDetails = settings.saveUsageHistoryDetails.address;
+          const savePasswordDetails = settings.savePasswordToUsageHistory;
+          const historyEntryId = globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`;
+
+          await appendAutofillUsageHistoryEntry({
+            id: historyEntryId,
+            createdAt: new Date().toISOString(),
+            siteHostname,
+            siteUrl,
+            email: profile.email,
+            username: response.inferredUsername ?? profile.email,
+            fullName: saveNameDetails ? profile.fullName : '',
+            firstName: saveNameDetails ? profile.firstName : '',
+            lastName: saveNameDetails ? profile.lastName : '',
+            password: savePasswordDetails ? profile.password : '',
+            age: saveAgeDetails ? profile.ageAtFill : 0,
+            addressLine1: saveAddressDetails ? profile.addressLine1 : '',
+            addressLine2: saveAddressDetails ? profile.addressLine2 : '',
+            city: saveAddressDetails ? profile.city : '',
+            state: saveAddressDetails ? profile.state : '',
+            postalCode: saveAddressDetails ? profile.postalCode : '',
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to persist autofill usage history', {
+          error,
+          historyEntryId: 'unavailable',
+          siteHostname,
+          siteUrl,
+        });
+      }
+    }
   } catch (error) {
     const message = getAutofillErrorMessage(error, activeTab);
     setAutofillStatus({ tone: 'error', message });

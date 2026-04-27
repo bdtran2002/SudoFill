@@ -18,6 +18,12 @@ const messageDetail = {
   text: '',
   html: '',
   links: [],
+  verification: {
+    bestLink: null,
+    linkCandidates: [],
+    bestCode: null,
+    codeCandidates: [],
+  },
 };
 
 describe('toMailboxSnapshot', () => {

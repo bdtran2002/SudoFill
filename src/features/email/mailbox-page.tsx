@@ -1,26 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowLeft,
-  Copy,
-  ExternalLink,
-  Inbox,
-  Mail,
-  Plus,
-  RefreshCw,
-  Settings,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, Copy, Inbox, Mail, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 
+import { ConfirmDialog } from '../../components/confirm-dialog';
+import { GithubFooter } from '../../components/github-footer';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
   copyTextToClipboard,
+  fillVerificationCodeOnPage,
   formatTimestamp,
   sendMailboxCommand,
   toTransportFailureResponse,
   useCopiedFlash,
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
+import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
 
 type MailboxActionStatus = {
   tone: 'idle' | 'success' | 'error';
@@ -32,11 +26,16 @@ function MessageDetail({
   snapshot,
   onBack,
   onOpenLink,
+  onFillCode,
   pendingMessageId,
 }: {
   snapshot: MailboxSnapshot;
   onBack: () => void;
   onOpenLink: (url: string) => void;
+  onFillCode: (
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) => void;
   pendingMessageId: string | null;
 }) {
   const isPendingDifferentMessage =
@@ -81,37 +80,14 @@ function MessageDetail({
         </span>
       </div>
 
-      {message.links.length > 0 && (
-        <div className='border-b border-border-dim px-5 py-4'>
-          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
-            Verification links
-          </p>
-          <div className='mt-3 flex flex-wrap gap-2'>
-            {message.links.map((link) => (
-              <button
-                key={link.url}
-                className='group inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-accent/20 bg-accent-bg px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-                onClick={() => onOpenLink(link.url)}
-                type='button'
-              >
-                <ExternalLink className='h-3.5 w-3.5 opacity-50 transition-opacity group-hover:opacity-100' />
-                {link.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <MailboxVerificationActions
+        onFillCode={onFillCode}
+        onOpenLink={onOpenLink}
+        verification={message.verification}
+      />
 
       <div className='flex-1 overflow-y-auto px-5 py-5 text-sm leading-7 text-ink-secondary'>
-        {message.text ? (
-          <pre className='whitespace-pre-wrap break-words font-body'>{message.text}</pre>
-        ) : message.html ? (
-          <div className='rounded-md border border-border-dim bg-surface-raised px-4 py-3 text-sm text-ink-muted'>
-            HTML-only email. Use a verification link above if one was detected.
-          </div>
-        ) : (
-          <p className='text-ink-muted'>No readable body.</p>
-        )}
+        <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
   );
@@ -128,6 +104,7 @@ export function MailboxPage() {
     source: null,
   });
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
   const isPollingActive = snapshot.pollingActive;
@@ -135,6 +112,7 @@ export function MailboxPage() {
     snapshot.error && actionStatus.source !== 'ui' ? 'error' : actionStatus.tone;
   const displayedStatusMessage =
     snapshot.error && actionStatus.source !== 'ui' ? snapshot.error : actionStatus.message;
+  const hasOpenMessage = Boolean(snapshot.selectedMessageId || pendingMessageId);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
 
@@ -234,6 +212,19 @@ export function MailboxPage() {
     }
   }
 
+  function openDiscardConfirm() {
+    setDiscardConfirmOpen(true);
+  }
+
+  function closeDiscardConfirm() {
+    setDiscardConfirmOpen(false);
+  }
+
+  async function confirmDiscardMailbox() {
+    setDiscardConfirmOpen(false);
+    await runCommand({ type: 'mailbox:discard' });
+  }
+
   async function copyAddress() {
     if (!snapshot.address) {
       return;
@@ -247,6 +238,37 @@ export function MailboxPage() {
       setActionStatus({
         tone: 'error',
         message: 'Could not copy address to clipboard.',
+        source: 'ui',
+      });
+    }
+  }
+
+  async function handleFillCode(
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) {
+    try {
+      const result = await fillVerificationCodeOnPage(code, context);
+      if (result.ok) {
+        setActionStatus({
+          tone: 'success',
+          message: 'Verification code sent to the page.',
+          source: 'ui',
+        });
+      } else {
+        setActionStatus({
+          tone: 'error',
+          message:
+            result.reason === 'no-tab'
+              ? 'Open the matching page first, then try again.'
+              : 'Could not fill a code field on the page.',
+          source: 'ui',
+        });
+      }
+    } catch {
+      setActionStatus({
+        tone: 'error',
+        message: 'Could not fill a code field on the page.',
         source: 'ui',
       });
     }
@@ -309,7 +331,13 @@ export function MailboxPage() {
           </div>
         )}
 
-        <div className='grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 lg:grid-cols-[220px_minmax(320px,420px)_minmax(0,1fr)]'>
+        <div
+          className={`grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border-dim bg-surface/96 ${
+            hasOpenMessage
+              ? 'lg:grid-cols-[220px_minmax(260px,320px)_minmax(0,1fr)]'
+              : 'lg:grid-cols-[220px_minmax(340px,420px)_minmax(0,1fr)]'
+          }`}
+        >
           <aside className='border-b border-border-dim px-4 py-4 lg:border-r lg:border-b-0'>
             <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
               Mailbox
@@ -353,7 +381,7 @@ export function MailboxPage() {
                   <button
                     className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
-                    onClick={() => void runCommand({ type: 'mailbox:discard' })}
+                    onClick={openDiscardConfirm}
                     type='button'
                   >
                     <Trash2 className='h-4 w-4' />
@@ -487,13 +515,27 @@ export function MailboxPage() {
           <div className={mobileDetailOpen ? 'block' : 'hidden md:block'}>
             <MessageDetail
               onBack={() => setMobileDetailOpen(false)}
+              onFillCode={handleFillCode}
               onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
               pendingMessageId={pendingMessageId}
               snapshot={snapshot}
             />
           </div>
         </div>
+
+        <GithubFooter className='mt-4 pb-4' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep mailbox'
+        confirmLabel='Discard'
+        confirmTone='danger'
+        description='This deletes the mailbox and all messages. They cannot be recovered.'
+        onCancel={closeDiscardConfirm}
+        onConfirm={() => void confirmDiscardMailbox()}
+        open={discardConfirmOpen}
+        title='Discard this email?'
+      />
     </main>
   );
 }

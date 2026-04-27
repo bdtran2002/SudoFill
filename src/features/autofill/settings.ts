@@ -63,6 +63,19 @@ function normalizeAgeRange(ageMinValue: unknown, ageMaxValue: unknown) {
   };
 }
 
+function normalizeUsageHistoryDetails(value: unknown) {
+  const details = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+  return {
+    name: normalizeBoolean(details.name, DEFAULT_AUTOFILL_SETTINGS.saveUsageHistoryDetails.name),
+    age: normalizeBoolean(details.age, DEFAULT_AUTOFILL_SETTINGS.saveUsageHistoryDetails.age),
+    address: normalizeBoolean(
+      details.address,
+      DEFAULT_AUTOFILL_SETTINGS.saveUsageHistoryDetails.address,
+    ),
+  };
+}
+
 export function normalizeAutofillSettings(
   value: Partial<AutofillSettings> | null | undefined,
 ): AutofillSettings {
@@ -73,6 +86,23 @@ export function normalizeAutofillSettings(
       value?.generateAddress,
       DEFAULT_AUTOFILL_SETTINGS.generateAddress,
     ),
+    enablePasswordAutofill: normalizeBoolean(
+      value?.enablePasswordAutofill,
+      DEFAULT_AUTOFILL_SETTINGS.enablePasswordAutofill,
+    ),
+    savePasswordToUsageHistory: normalizeBoolean(
+      value?.savePasswordToUsageHistory,
+      DEFAULT_AUTOFILL_SETTINGS.savePasswordToUsageHistory,
+    ),
+    showVerificationAssistPopup: normalizeBoolean(
+      value?.showVerificationAssistPopup,
+      DEFAULT_AUTOFILL_SETTINGS.showVerificationAssistPopup,
+    ),
+    saveUsageHistory: normalizeBoolean(
+      value?.saveUsageHistory,
+      DEFAULT_AUTOFILL_SETTINGS.saveUsageHistory,
+    ),
+    saveUsageHistoryDetails: normalizeUsageHistoryDetails(value?.saveUsageHistoryDetails),
     state: normalizeStateValue(value?.state),
     sex: normalizeSexValue(value?.sex),
     ageMin,

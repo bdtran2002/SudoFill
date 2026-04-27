@@ -1,20 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEventHandler, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings, Trash2 } from 'lucide-react';
 
 import '../../src/styles.css';
+import { ConfirmDialog } from '../../src/components/confirm-dialog';
+import { GithubFooter } from '../../src/components/github-footer';
 import {
   AUTOFILL_SEX_OPTIONS,
   DEFAULT_AUTOFILL_SETTINGS,
   US_STATE_OPTIONS,
 } from '../../src/features/autofill/constants';
 import {
+  clearStoredAutofillUsageHistory,
+  getStoredAutofillUsageHistory,
+  setStoredAutofillUsageHistory,
+} from '../../src/features/autofill/history';
+import {
   getStoredAutofillSettings,
   isAutofillAgeRangeValid,
   setStoredAutofillSettings,
 } from '../../src/features/autofill/settings';
-import type { AutofillSettings } from '../../src/features/autofill/types';
+import type {
+  AutofillSettings,
+  AutofillUsageHistoryEntry,
+} from '../../src/features/autofill/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -22,6 +32,11 @@ function OptionsApp() {
   const [settings, setSettings] = useState<AutofillSettings>(DEFAULT_AUTOFILL_SETTINGS);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [hint, setHint] = useState('');
+  const [usageHistory, setUsageHistory] = useState<AutofillUsageHistoryEntry[]>([]);
+  const [usageHistoryState, setUsageHistoryState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [passwordAutofillConfirmOpen, setPasswordAutofillConfirmOpen] = useState(false);
+  const [passwordHistoryConfirmOpen, setPasswordHistoryConfirmOpen] = useState(false);
+  const [clearHistoryConfirmOpen, setClearHistoryConfirmOpen] = useState(false);
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -66,8 +81,65 @@ function OptionsApp() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    if (!settings.saveUsageHistory) {
+      setUsageHistory([]);
+      setUsageHistoryState('idle');
+      return () => {
+        mounted = false;
+      };
+    }
+
+    setUsageHistoryState('loading');
+
+    void getStoredAutofillUsageHistory()
+      .then((entries) => {
+        if (mounted) {
+          setUsageHistory(entries);
+          setUsageHistoryState('idle');
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setUsageHistory([]);
+          setUsageHistoryState('error');
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [settings.saveUsageHistory]);
+
   const canSave = useMemo(() => isAutofillAgeRangeValid(settings), [settings]);
   const ageHasError = !canSave && Boolean(settings.ageMin || settings.ageMax);
+  const hasSavedNameDetails = useMemo(
+    () => usageHistory.some((entry) => Boolean(entry.firstName || entry.lastName)),
+    [usageHistory],
+  );
+  const hasSavedAgeDetails = useMemo(
+    () => usageHistory.some((entry) => entry.age > 0),
+    [usageHistory],
+  );
+  const hasSavedAddressDetails = useMemo(
+    () =>
+      usageHistory.some((entry) =>
+        Boolean(
+          entry.addressLine1 || entry.addressLine2 || entry.city || entry.state || entry.postalCode,
+        ),
+      ),
+    [usageHistory],
+  );
+  const hasSavedPasswordDetails = useMemo(
+    () => usageHistory.some((entry) => Boolean(entry.password)),
+    [usageHistory],
+  );
+  const showNameColumn = settings.saveUsageHistoryDetails.name || hasSavedNameDetails;
+  const showAgeColumn = settings.saveUsageHistoryDetails.age || hasSavedAgeDetails;
+  const showAddressColumn = settings.saveUsageHistoryDetails.address || hasSavedAddressDetails;
+  const showPasswordColumn = settings.savePasswordToUsageHistory || hasSavedPasswordDetails;
 
   async function persistSettings(
     next: AutofillSettings,
@@ -108,6 +180,8 @@ function OptionsApp() {
     const previousSettings = settings;
 
     setSettings(DEFAULT_AUTOFILL_SETTINGS);
+    setPasswordAutofillConfirmOpen(false);
+    setPasswordHistoryConfirmOpen(false);
     clearStatusTimeout();
     setSaveState('saving');
     setHint('');
@@ -122,6 +196,76 @@ function OptionsApp() {
       setSaveState('error');
       setHint('Could not reset settings.');
     }
+  }
+
+  async function clearUsageHistory() {
+    clearStatusTimeout();
+    setSaveState('saving');
+    setHint('');
+
+    try {
+      await clearStoredAutofillUsageHistory();
+      setUsageHistory([]);
+      setSaveState('saved');
+      setHint('Usage history cleared.');
+      scheduleIdleStatus(1200);
+    } catch {
+      setSaveState('error');
+      setHint('Could not clear usage history.');
+    }
+  }
+
+  async function deleteUsageHistoryEntry(id: string) {
+    clearStatusTimeout();
+    setHint('');
+
+    let previousEntries: AutofillUsageHistoryEntry[] = [];
+    let nextEntries: AutofillUsageHistoryEntry[] = [];
+
+    setUsageHistory((current) => {
+      previousEntries = current;
+      nextEntries = current.filter((entry) => entry.id !== id);
+      return nextEntries;
+    });
+    setSaveState('saving');
+
+    try {
+      await setStoredAutofillUsageHistory(nextEntries);
+      setSaveState('saved');
+      scheduleIdleStatus(1200);
+    } catch {
+      setUsageHistory(previousEntries);
+      setSaveState('error');
+      setHint('Could not delete that history entry.');
+    }
+  }
+
+  function handlePasswordAutofillToggle(next: boolean) {
+    if (next && !settings.enablePasswordAutofill) {
+      setPasswordAutofillConfirmOpen(true);
+      return;
+    }
+
+    setSettings((current) => ({ ...current, enablePasswordAutofill: next }));
+  }
+
+  function confirmPasswordAutofill() {
+    setPasswordAutofillConfirmOpen(false);
+    setSettings((current) => ({ ...current, enablePasswordAutofill: true }));
+  }
+
+  function handlePasswordHistoryToggle(next: boolean) {
+    if (next && !settings.savePasswordToUsageHistory) {
+      setPasswordHistoryConfirmOpen(true);
+      return;
+    }
+
+    setSettings((current) => ({ ...current, savePasswordToUsageHistory: next }));
+  }
+
+  function confirmPasswordHistorySave() {
+    setPasswordHistoryConfirmOpen(false);
+    setSettings((current) => ({ ...current, savePasswordToUsageHistory: true }));
   }
 
   return (
@@ -187,6 +331,21 @@ function OptionsApp() {
                   setSettings((current) => ({ ...current, generateAddress: checked }))
                 }
               />
+            </SettingSection>
+
+            <SettingSection
+              description='Fill password fields with a generated password.'
+              title='Password autofill'
+            >
+              <div className='space-y-3'>
+                <ToggleField
+                  checked={settings.enablePasswordAutofill}
+                  onChange={handlePasswordAutofillToggle}
+                />
+                <div className='rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs leading-relaxed text-danger'>
+                  Generated passwords stay local and are not encrypted.
+                </div>
+              </div>
             </SettingSection>
 
             <SettingSection
@@ -257,6 +416,112 @@ function OptionsApp() {
                 ))}
               </SelectField>
             </SettingSection>
+
+            <SettingSection
+              description='Show a popup when verification assistance is available for a page.'
+              title='Verification popup'
+            >
+              <ToggleField
+                checked={settings.showVerificationAssistPopup}
+                onChange={(checked) =>
+                  setSettings((current) => ({ ...current, showVerificationAssistPopup: checked }))
+                }
+              />
+            </SettingSection>
+
+            <SettingSection
+              description='Store local autofill usage history so you can review what was filled later.'
+              title='Save usage history'
+            >
+              <div className='space-y-3'>
+                <ToggleField
+                  checked={settings.saveUsageHistory}
+                  onChange={(checked) =>
+                    setSettings((current) => ({ ...current, saveUsageHistory: checked }))
+                  }
+                />
+
+                {settings.saveUsageHistory ? (
+                  <div className='space-y-3 rounded-xl border border-border-dim bg-surface-raised/60 p-3'>
+                    <div className='space-y-1'>
+                      <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted'>
+                        Extra details
+                      </p>
+                      <p className='text-sm leading-relaxed text-ink-secondary'>
+                        Choose which richer autofill fields to keep with each history entry.
+                      </p>
+                    </div>
+
+                    <div className='space-y-3 rounded-lg border border-border-dim bg-surface px-3 py-3'>
+                      <DetailToggleRow
+                        checked={settings.savePasswordToUsageHistory}
+                        description={
+                          settings.enablePasswordAutofill
+                            ? 'Store generated passwords in history entries.'
+                            : 'Turn on password autofill first.'
+                        }
+                        disabled={!settings.enablePasswordAutofill}
+                        title='Password history'
+                        onChange={handlePasswordHistoryToggle}
+                      />
+                      <div className='rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs leading-relaxed text-danger'>
+                        Saved passwords stay local and are not encrypted.
+                      </div>
+                    </div>
+
+                    <div className='grid gap-2'>
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.name}
+                        description='Store first and last name.'
+                        title='Name details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              name: checked,
+                            },
+                          }))
+                        }
+                      />
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.age}
+                        description='Store the generated age.'
+                        title='Age details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              age: checked,
+                            },
+                          }))
+                        }
+                      />
+                      <DetailToggleRow
+                        checked={settings.saveUsageHistoryDetails.address}
+                        description='Store the generated address fields.'
+                        title='Address details'
+                        onChange={(checked) =>
+                          setSettings((current) => ({
+                            ...current,
+                            saveUsageHistoryDetails: {
+                              ...current.saveUsageHistoryDetails,
+                              address: checked,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                <p className='text-sm leading-relaxed text-ink-secondary'>
+                  History stays in browser storage on this device and is not encrypted. Uninstalling
+                  the extension removes that local browser storage.
+                </p>
+              </div>
+            </SettingSection>
           </div>
 
           <div className='flex flex-col gap-3 border-t border-border-dim bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5'>
@@ -291,7 +556,189 @@ function OptionsApp() {
             </div>
           </div>
         </section>
+
+        {settings.saveUsageHistory ? (
+          <section
+            className='animate-fade-in mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]'
+            style={{ animationDelay: '120ms' }}
+          >
+            <div className='flex flex-wrap items-start justify-between gap-4 border-b border-border-dim bg-[linear-gradient(135deg,rgba(239,75,75,0.1),transparent_55%)] px-4 py-3 sm:px-5'>
+              <div>
+                <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
+                  Usage history
+                </p>
+                <p className='mt-1 text-sm leading-relaxed text-ink-secondary'>
+                  Review locally saved autofill entries and remove anything you no longer need.
+                </p>
+              </div>
+
+              <div className='flex items-center gap-2'>
+                <span className='rounded-full border border-border-dim bg-surface-raised px-3 py-1 text-xs font-medium text-ink-secondary'>
+                  {usageHistory.length} {usageHistory.length === 1 ? 'entry' : 'entries'}
+                </span>
+                <button
+                  className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
+                  disabled={usageHistory.length === 0 || saveState === 'saving'}
+                  onClick={() => setClearHistoryConfirmOpen(true)}
+                  type='button'
+                >
+                  Clear history
+                </button>
+              </div>
+            </div>
+
+            <div className='px-4 py-4 sm:px-5'>
+              {usageHistoryState === 'loading' ? (
+                <div className='rounded-lg border border-dashed border-border-dim bg-surface-raised/60 px-4 py-10 text-center text-sm text-ink-secondary'>
+                  Loading history…
+                </div>
+              ) : usageHistoryState === 'error' ? (
+                <div className='rounded-lg border border-dashed border-danger-border bg-danger/10 px-4 py-10 text-center text-sm text-danger'>
+                  Could not load usage history.
+                </div>
+              ) : usageHistory.length === 0 ? (
+                <div className='rounded-lg border border-dashed border-border-dim bg-surface-raised/60 px-4 py-10 text-center text-sm text-ink-secondary'>
+                  No saved history yet.
+                </div>
+              ) : (
+                <div className='overflow-x-auto rounded-xl border border-border-dim bg-surface-raised/70'>
+                  <table className='min-w-[1080px] w-full border-separate border-spacing-0 text-left text-sm'>
+                    <thead className='bg-surface-raised/90 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted'>
+                      <tr>
+                        <th className='px-4 py-3'>Site</th>
+                        <th className='px-4 py-3'>Email</th>
+                        <th className='px-4 py-3'>Username</th>
+                        {showNameColumn ? <th className='px-4 py-3'>First name</th> : null}
+                        {showNameColumn ? <th className='px-4 py-3'>Last name</th> : null}
+                        {showAgeColumn ? <th className='px-4 py-3'>Age</th> : null}
+                        {showAddressColumn ? <th className='px-4 py-3'>Address</th> : null}
+                        {showPasswordColumn ? <th className='px-4 py-3'>Password</th> : null}
+                        <th className='px-4 py-3'>Saved</th>
+                        <th className='px-4 py-3 text-right'>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className='divide-y divide-border-dim'>
+                      {usageHistory.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className='align-top transition-colors hover:bg-surface-hover/60'
+                        >
+                          <td className='px-4 py-4'>
+                            <div className='space-y-1'>
+                              <p className='font-medium text-ink'>{entry.siteHostname}</p>
+                              <a
+                                className='block max-w-[260px] truncate text-xs text-ink-muted transition-colors hover:text-accent'
+                                href={entry.siteUrl}
+                                rel='noreferrer'
+                                target='_blank'
+                              >
+                                {entry.siteUrl}
+                              </a>
+                            </div>
+                          </td>
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            <span className='block max-w-[220px] truncate font-medium text-ink'>
+                              {entry.email}
+                            </span>
+                          </td>
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            <span className='block max-w-[180px] truncate'>
+                              {entry.username && entry.username !== entry.email
+                                ? entry.username
+                                : '—'}
+                            </span>
+                          </td>
+                          {showNameColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.firstName || '—'}
+                            </td>
+                          ) : null}
+                          {showNameColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.lastName || '—'}
+                            </td>
+                          ) : null}
+                          {showAgeColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.age > 0 ? entry.age : '—'}
+                            </td>
+                          ) : null}
+                          {showAddressColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              <span className='block min-w-[220px] whitespace-pre-line'>
+                                {formatHistoryAddress(entry) || '—'}
+                              </span>
+                            </td>
+                          ) : null}
+                          {showPasswordColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              <span className='block max-w-[220px] truncate font-mono text-xs'>
+                                {entry.password || '—'}
+                              </span>
+                            </td>
+                          ) : null}
+                          <td className='px-4 py-4 text-ink-secondary'>
+                            {formatHistoryTimestamp(entry.createdAt)}
+                          </td>
+                          <td className='px-4 py-4 text-right'>
+                            <button
+                              className='inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
+                              disabled={saveState === 'saving'}
+                              onClick={() => void deleteUsageHistoryEntry(entry.id)}
+                              type='button'
+                            >
+                              <Trash2 className='h-3.5 w-3.5' />
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+
+        <GithubFooter className='mt-5' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep history'
+        confirmLabel='Clear history'
+        confirmTone='danger'
+        description='This permanently deletes every saved autofill history entry from local browser storage on this device.'
+        onCancel={() => setClearHistoryConfirmOpen(false)}
+        onConfirm={() => {
+          setClearHistoryConfirmOpen(false);
+          void clearUsageHistory();
+        }}
+        open={clearHistoryConfirmOpen}
+        title='Clear saved autofill history?'
+      />
+
+      <ConfirmDialog
+        cancelLabel='Keep off'
+        confirmLabel='Turn on'
+        confirmTone='primary'
+        description='SudoFill will generate passwords for supported signup forms. They stay local and are not encrypted or particularly safe.'
+        onCancel={() => setPasswordAutofillConfirmOpen(false)}
+        onConfirm={confirmPasswordAutofill}
+        open={passwordAutofillConfirmOpen}
+        title='Turn on password autofill?'
+      />
+
+      <ConfirmDialog
+        cancelLabel='Do not save'
+        confirmLabel='Save passwords'
+        confirmTone='danger'
+        description='Saved passwords stay in browser storage on this device. They are not encrypted and should be treated as unsafe.'
+        onCancel={() => setPasswordHistoryConfirmOpen(false)}
+        onConfirm={confirmPasswordHistorySave}
+        open={passwordHistoryConfirmOpen}
+        title='Save passwords in history?'
+      />
     </main>
   );
 }
@@ -421,12 +868,14 @@ function AgeField({
 function ToggleField({
   ariaLabel = 'Toggle setting',
   checked,
+  disabled = false,
   disabledLabel = 'Disabled',
   enabledLabel = 'Enabled',
   onChange,
 }: {
   ariaLabel?: string;
   checked: boolean;
+  disabled?: boolean;
   disabledLabel?: string;
   enabledLabel?: string;
   onChange: (next: boolean) => void;
@@ -439,7 +888,8 @@ function ToggleField({
         checked
           ? 'border-accent/30 bg-accent-bg text-ink'
           : 'border-border bg-surface text-ink-secondary'
-      }`}
+      } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       role='switch'
       type='button'
@@ -458,6 +908,57 @@ function ToggleField({
       <span className='text-sm font-medium'>{checked ? enabledLabel : disabledLabel}</span>
     </button>
   );
+}
+
+function DetailToggleRow({
+  title,
+  description,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className='flex items-start justify-between gap-4 rounded-lg border border-border-dim bg-surface px-3 py-3'>
+      <div className='space-y-0.5'>
+        <p className='text-sm font-medium text-ink'>{title}</p>
+        <p className='text-xs leading-relaxed text-ink-secondary'>{description}</p>
+      </div>
+      <ToggleField
+        ariaLabel={title}
+        checked={checked}
+        disabled={disabled}
+        disabledLabel='Off'
+        enabledLabel='On'
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function formatHistoryAddress(entry: AutofillUsageHistoryEntry) {
+  const cityState = [entry.city, entry.state].filter(Boolean).join(', ');
+  const cityStatePostal = [cityState, entry.postalCode].filter(Boolean).join(' ');
+
+  return [entry.addressLine1, entry.addressLine2, cityStatePostal].filter(Boolean).join('\n');
+}
+
+function formatHistoryTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 createRoot(document.getElementById('root')!).render(<OptionsApp />);

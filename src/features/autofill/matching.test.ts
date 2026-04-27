@@ -9,11 +9,13 @@ const profile = {
   businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
+  password: 'P@ssw0rd123!',
   sex: 'female',
   birthDateIso: '1990-01-15',
   birthDay: '15',
   birthMonth: '01',
   birthYear: '1990',
+  ageAtFill: 35,
   addressLine1: '123 Main St',
   addressLine2: 'Apt 4',
   city: 'Austin',
@@ -163,6 +165,31 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('mobile number', profile)).toBeNull();
     expect(resolveAutofillMatch('tel', profile)).toBeNull();
     expect(resolveAutofillMatch('phonenumber', profile)).toBeNull();
+  });
+
+  it('only matches password fields when password autofill is enabled', () => {
+    expect(resolveAutofillMatch('password', profile)).toBeNull();
+    expect(resolveAutofillMatch('password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('new password', profile)).toBeNull();
+    expect(resolveAutofillMatch('new password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('create password', profile)).toBeNull();
+    expect(resolveAutofillMatch('create password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('confirm password', profile)).toBeNull();
+    expect(resolveAutofillMatch('confirm password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('current password', profile, { allowPassword: true })).toBeNull();
+    expect(resolveAutofillMatch('old password', profile, { allowPassword: true })).toBeNull();
+    expect(resolveAutofillMatch('password hint', profile, { allowPassword: true })).toBeNull();
+    expect(
+      resolveAutofillMatch('security question password', profile, { allowPassword: true }),
+    ).toBeNull();
   });
 
   it('matches common camelCase and concatenated identifiers', () => {

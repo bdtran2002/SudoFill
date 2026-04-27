@@ -60,6 +60,21 @@ describe('generateAutofillProfile', () => {
     expect(profile.businessName).toBeTruthy();
   });
 
+  it('only generates a password when password autofill is enabled', () => {
+    expect(generateAutofillProfile(DEFAULT_AUTOFILL_SETTINGS).password).toBe('');
+
+    const profile = generateAutofillProfile({
+      ...DEFAULT_AUTOFILL_SETTINGS,
+      enablePasswordAutofill: true,
+    });
+
+    expect(profile.password.length).toBeGreaterThanOrEqual(12);
+    expect(profile.password).toMatch(/[A-Z]/);
+    expect(profile.password).toMatch(/[a-z]/);
+    expect(profile.password).toMatch(/[0-9]/);
+    expect(profile.password).toMatch(/[^A-Za-z0-9]/);
+  });
+
   it('uses the selected state when constraining postal codes', () => {
     const profile = generateAutofillProfile({
       ...DEFAULT_AUTOFILL_SETTINGS,
@@ -79,5 +94,11 @@ describe('generateAutofillProfile', () => {
     expect(profile.birthDateIso).toBe(
       `${profile.birthYear}-${profile.birthMonth}-${profile.birthDay}`,
     );
+  });
+
+  it('captures a stable age at fill from the generated birthdate', () => {
+    const profile = generateAutofillProfile(DEFAULT_AUTOFILL_SETTINGS);
+
+    expect(profile.ageAtFill).toBe(getAge(profile.birthDateIso));
   });
 });

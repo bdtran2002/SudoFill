@@ -404,6 +404,15 @@ describe('mail-tm', () => {
           { label: 'example.com', url: 'https://example.com' },
           { label: 'example.org', url: 'https://example.org' },
         ],
+        verification: {
+          bestLink: null,
+          linkCandidates: [
+            { label: 'example.com', url: 'https://example.com' },
+            { label: 'example.org', url: 'https://example.org' },
+          ],
+          bestCode: null,
+          codeCandidates: [],
+        },
       });
     }
 

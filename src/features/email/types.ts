@@ -5,6 +5,18 @@ export interface MailboxLink {
   url: string;
 }
 
+export interface MailboxVerificationCode {
+  code: string;
+  label: string;
+}
+
+export interface MailboxVerificationDetails {
+  bestLink: MailboxLink | null;
+  linkCandidates: MailboxLink[];
+  bestCode: MailboxVerificationCode | null;
+  codeCandidates: MailboxVerificationCode[];
+}
+
 export interface MailboxMessageSummary {
   id: string;
   from: string;
@@ -20,6 +32,7 @@ export interface MailboxMessageDetail extends MailboxMessageSummary {
   text: string;
   html: string;
   links: MailboxLink[];
+  verification: MailboxVerificationDetails;
 }
 
 export interface MailboxDiagnostics {

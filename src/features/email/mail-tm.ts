@@ -3,6 +3,7 @@ import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 
 import { toUnexpectedMailboxError, type MailboxError } from './errors';
 import { extractMailboxLinks } from './link-extractor';
+import { extractMailboxVerificationDetails } from './verification-extractor';
 import type { ActiveMailboxSession, MailboxMessageDetail, MailboxMessageSummary } from './types';
 
 const MAIL_TM_API_BASE_URL = 'https://api.mail.tm';
@@ -234,13 +235,19 @@ export function getMailTmMessage(
     const summary = normalizeMessageSummary(message);
     const text = message.text?.trim() ?? '';
     const html = normalizeHtml(message.html);
+    const verification = extractMailboxVerificationDetails({
+      subject: summary.subject,
+      text,
+      html,
+    });
 
     return {
       ...summary,
       to: (message.to ?? []).map((recipient) => recipient.address).filter(Boolean) as string[],
       text,
       html,
-      links: extractMailboxLinks(text, html),
+      links: extractMailboxLinks(summary.subject, text, html),
+      verification,
     };
   });
 }

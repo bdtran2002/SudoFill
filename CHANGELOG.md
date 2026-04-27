@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.3.1...sudofill-v0.4.0) (2026-04-24)
+
+
+### Features
+
+* add active polling status to the mailbox UI ([ed6cca9](https://github.com/bdtran2002/SudoFill/commit/ed6cca9b491109e79a0a8485577f6313e897f9a8))
+
+
+### Bug Fixes
+
+* address polling review feedback ([ceb2294](https://github.com/bdtran2002/SudoFill/commit/ceb2294789a37189ae886e2cd6152aba7921f821))
+* harden settings and mailbox status updates ([406a255](https://github.com/bdtran2002/SudoFill/commit/406a25597f51187b190788eb976208226e3773c1))
+* keep mailbox polling alive in the background ([bb6cc50](https://github.com/bdtran2002/SudoFill/commit/bb6cc508330c62abed38702270c3def483579264))
+* let the sidebar panel use the full width ([daee9e9](https://github.com/bdtran2002/SudoFill/commit/daee9e9b365e8f2db64efd47a7d76ec0fb833641))
+* show actual mailbox polling status ([fed33e1](https://github.com/bdtran2002/SudoFill/commit/fed33e10c84b6d1296d57c40b244b174218fff85))
+* tighten mailbox visibility tracking ([2059657](https://github.com/bdtran2002/SudoFill/commit/20596578600025a199a12414cb9444bc1de2e0fe))
+
 ## [0.3.1](https://github.com/bdtran2002/SudoFill/compare/sudofill-v0.3.0...sudofill-v0.3.1) (2026-04-21)
 
 

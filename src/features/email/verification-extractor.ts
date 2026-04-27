@@ -335,8 +335,8 @@ export function extractMailboxVerificationDetails({
     .filter((candidate) => candidate.score >= 6)
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_LINK_CANDIDATES)
-    .map((candidate) => {
-      const { score: _score, ...rest } = candidate;
+    .map(({ score, ...rest }) => {
+      void score;
       return rest;
     });
   const bestLink = linkCandidates[0] ?? null;

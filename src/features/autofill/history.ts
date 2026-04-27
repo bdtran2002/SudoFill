@@ -8,34 +8,6 @@ function normalizeString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function isAutofillUsageHistoryEntry(value: unknown): value is AutofillUsageHistoryEntry {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const entry = value as Record<string, unknown>;
-
-  return (
-    [
-      'id',
-      'createdAt',
-      'siteHostname',
-      'siteUrl',
-      'email',
-      'username',
-      'password',
-      'fullName',
-      'firstName',
-      'lastName',
-      'addressLine1',
-      'addressLine2',
-      'city',
-      'state',
-      'postalCode',
-    ].every((key) => typeof entry[key] === 'string') && typeof entry.age === 'number'
-  );
-}
-
 export function normalizeUsageHistoryEntry(
   value: Partial<AutofillUsageHistoryEntry> | null | undefined,
 ): AutofillUsageHistoryEntry | null {

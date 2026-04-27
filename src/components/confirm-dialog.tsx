@@ -45,7 +45,12 @@ export function ConfirmDialog({
     ].join(',');
 
     window.setTimeout(() => {
-      cancelButtonRef.current?.focus() ?? dialogRef.current?.focus();
+      if (cancelButtonRef.current) {
+        cancelButtonRef.current.focus();
+        return;
+      }
+
+      dialogRef.current?.focus();
     }, 0);
 
     function handleKeyDown(event: KeyboardEvent) {

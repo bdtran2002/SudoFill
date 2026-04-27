@@ -553,10 +553,9 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       browserNotificationMessageIds: session.browserNotificationMessageIds ?? [],
       unreadMessageIds: session.unreadMessageIds ?? [],
       messages: session.messages ?? [],
-      knownMessageIds:
-        session.knownMessageIds?.length
-          ? session.knownMessageIds
-          : (session.messages ?? []).map((message) => message.id),
+      knownMessageIds: session.knownMessageIds?.length
+        ? session.knownMessageIds
+        : (session.messages ?? []).map((message) => message.id),
     };
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))

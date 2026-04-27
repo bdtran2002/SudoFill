@@ -120,7 +120,9 @@ function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
 
 type GroupedVerificationFillResult = 'filled' | 'not-applicable' | 'refused';
 
-function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaElement): HTMLInputElement[] {
+function getGroupedVerificationInputs(
+  target: HTMLInputElement | HTMLTextAreaElement,
+): HTMLInputElement[] {
   const group =
     target.closest('fieldset, [role="group"]') ??
     target.parentElement?.closest('div, label, section, form');

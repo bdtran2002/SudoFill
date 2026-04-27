@@ -110,8 +110,10 @@ describe('verification popup helpers', () => {
     };
 
     expect(
-      findRelatedVerificationMessage('app.example.com', messages, (messageId) =>
-        detailsById[messageId as keyof typeof detailsById] ?? null,
+      findRelatedVerificationMessage(
+        'app.example.com',
+        messages,
+        (messageId) => detailsById[messageId as keyof typeof detailsById] ?? null,
       ),
     ).toMatchObject({ messageId: 'newer', subject: 'Newer code' });
   });

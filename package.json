@@ -8,6 +8,7 @@
     "dev": "wxt -b firefox",
     "dev:firefox": "wxt -b firefox",
     "dev:chrome": "wxt",
+    "ci:check": "bun run release:check && bun run lint && bun run format:check && bun run typecheck && bun run test && bun run firefox-addon:check && bun run build:chrome",
     "dev:test": "bun run typecheck && bun run test && bun run build:firefox && bun run build:chrome",
     "build": "wxt build -b firefox",
     "build:firefox": "wxt build -b firefox",

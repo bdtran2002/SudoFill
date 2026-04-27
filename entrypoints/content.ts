@@ -47,9 +47,7 @@ export default defineContentScript({
       (
         message: AutofillContentRequest | VerificationPopupRequest | VerificationContentCommand,
         _sender,
-        sendResponse: (
-          response: AutofillContentResponse | { ok: boolean; error?: string },
-        ) => void,
+        sendResponse: (response: AutofillContentResponse | { ok: boolean; error?: string }) => void,
       ) => {
         if (message.type === 'verification:fill-code') {
           const didFill = fillVerificationCode(message.code);

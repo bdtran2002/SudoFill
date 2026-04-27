@@ -365,21 +365,24 @@ export function MailboxApp() {
     }
   }, []);
 
-  const openMessage = useCallback(async (messageId: string, source: 'manual' | 'auto') => {
-    if (source === 'manual') {
-      manualMessageSelectionRef.current = true;
-    }
-
-    const response = await runCommand({ type: 'mailbox:open-message', messageId });
-
-    if (source === 'auto') {
-      if (response.ok) {
-        autoOpenedMessageIdRef.current = messageId;
-      } else if (autoOpenedMessageIdRef.current === messageId) {
-        autoOpenedMessageIdRef.current = null;
+  const openMessage = useCallback(
+    async (messageId: string, source: 'manual' | 'auto') => {
+      if (source === 'manual') {
+        manualMessageSelectionRef.current = true;
       }
-    }
-  }, [runCommand]);
+
+      const response = await runCommand({ type: 'mailbox:open-message', messageId });
+
+      if (source === 'auto') {
+        if (response.ok) {
+          autoOpenedMessageIdRef.current = messageId;
+        } else if (autoOpenedMessageIdRef.current === messageId) {
+          autoOpenedMessageIdRef.current = null;
+        }
+      }
+    },
+    [runCommand],
+  );
 
   useEffect(() => {
     if (

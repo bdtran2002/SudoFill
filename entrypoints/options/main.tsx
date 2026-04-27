@@ -517,8 +517,8 @@ function OptionsApp() {
                 ) : null}
 
                 <p className='text-sm leading-relaxed text-ink-secondary'>
-                  History stays in browser storage on this device and is not encrypted.
-                  Uninstalling the extension removes that local browser storage.
+                  History stays in browser storage on this device and is not encrypted. Uninstalling
+                  the extension removes that local browser storage.
                 </p>
               </div>
             </SettingSection>

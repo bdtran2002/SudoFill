@@ -32,7 +32,10 @@ function MessageDetail({
   snapshot: MailboxSnapshot;
   onBack: () => void;
   onOpenLink: (url: string) => void;
-  onFillCode: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
+  onFillCode: (
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) => void;
   pendingMessageId: string | null;
 }) {
   const isPendingDifferentMessage =

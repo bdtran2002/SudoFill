@@ -1,4 +1,8 @@
-import type { MailboxMessageDetail, MailboxMessageSummary, MailboxVerificationDetails } from './types';
+import type {
+  MailboxMessageDetail,
+  MailboxMessageSummary,
+  MailboxVerificationDetails,
+} from './types';
 
 const NORMALIZE_HOST_PREFIX = /^www\./;
 
@@ -52,7 +56,9 @@ function getVerificationPopupTargetHostnames(
   verification: MailboxVerificationDetails,
   from: string,
 ) {
-  return [...new Set([getHostnameFromUrl(verification.bestLink?.url ?? ''), domainFromAddress(from)])]
+  return [
+    ...new Set([getHostnameFromUrl(verification.bestLink?.url ?? ''), domainFromAddress(from)]),
+  ]
     .map((hostname) => normalizeHostname(hostname))
     .filter(Boolean);
 }
@@ -91,7 +97,10 @@ export function findRelatedVerificationMessage(
 ) {
   for (const summary of messages) {
     const message = getMessage(summary.id);
-    if (message && isVerificationPopupRelevant(activeHostname, message.verification, message.from)) {
+    if (
+      message &&
+      isVerificationPopupRelevant(activeHostname, message.verification, message.from)
+    ) {
       const payload = buildVerificationPopupPayload(message);
       if (payload) return payload;
     }

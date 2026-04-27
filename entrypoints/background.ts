@@ -281,8 +281,14 @@ function syncMessages(
   return nextMessages.filter((message) => !previousKnownMessageIds.has(message.id));
 }
 
-function isMailboxMessageDetail(value: unknown): value is NonNullable<ActiveMailboxSession['selectedMessage']> {
-  return !!value && typeof value === 'object' && typeof (value as { verification?: unknown }).verification === 'object';
+function isMailboxMessageDetail(
+  value: unknown,
+): value is NonNullable<ActiveMailboxSession['selectedMessage']> {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { verification?: unknown }).verification === 'object'
+  );
 }
 
 function isCurrentSession(session: ActiveMailboxSession) {
@@ -302,7 +308,7 @@ async function tryShowVerificationPopup(
       currentWindow: true,
     });
 
-    if (!activeTab?.id || !activeTab.url) return;
+    if (activeTab?.id == null || !activeTab.url) return;
     const activeHostname = getHostnameFromUrl(activeTab.url);
     if (!activeHostname) return;
 
@@ -315,7 +321,10 @@ async function tryShowVerificationPopup(
       if (!message) continue;
 
       const payload = buildVerificationPopupPayload(message);
-      if (!payload || !isVerificationPopupRelevant(activeHostname, message.verification, message.from)) {
+      if (
+        !payload ||
+        !isVerificationPopupRelevant(activeHostname, message.verification, message.from)
+      ) {
         continue;
       }
 

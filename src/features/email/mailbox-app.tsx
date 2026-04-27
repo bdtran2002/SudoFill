@@ -147,7 +147,9 @@ function MessagePanel({
   return (
     <section className={wrapperClassName}>
       <div>
-        <h2 className={`font-brand break-words font-semibold leading-snug text-ink ${inline ? 'text-base' : 'text-lg'}`}>
+        <h2
+          className={`font-brand break-words font-semibold leading-snug text-ink ${inline ? 'text-base' : 'text-lg'}`}
+        >
           {message.subject}
         </h2>
         <p className={`${inline ? 'mt-1 text-[11px]' : 'mt-1 text-xs'} break-words text-ink-muted`}>
@@ -161,7 +163,9 @@ function MessagePanel({
         verification={message.verification}
       />
 
-      <div className={`${inline ? 'mt-3 text-[13px]' : 'mt-4 text-sm'} overflow-x-hidden leading-relaxed text-ink-secondary`}>
+      <div
+        className={`${inline ? 'mt-3 text-[13px]' : 'mt-4 text-sm'} overflow-x-hidden leading-relaxed text-ink-secondary`}
+      >
         <MailboxMessageBody message={message} onOpenLink={onOpenLink} />
       </div>
     </section>
@@ -551,7 +555,10 @@ export function MailboxApp() {
         </header>
 
         {hasMailbox ? (
-          <div className='animate-fade-in space-y-3 px-3 pb-4 sm:px-4' style={{ animationDelay: '60ms' }}>
+          <div
+            className='animate-fade-in space-y-3 px-3 pb-4 sm:px-4'
+            style={{ animationDelay: '60ms' }}
+          >
             <div className='overflow-hidden rounded-xl border border-border-dim bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)]'>
               <div className='p-3'>
                 <button
@@ -672,7 +679,9 @@ export function MailboxApp() {
                           <MessagePanel
                             inline
                             onFillCode={handleFillCode}
-                            onOpenLink={(url) => void runCommand({ type: 'mailbox:open-link', url })}
+                            onOpenLink={(url) =>
+                              void runCommand({ type: 'mailbox:open-link', url })
+                            }
                             pendingMessageId={pendingMessageId}
                             snapshot={snapshot}
                           />
@@ -824,7 +833,8 @@ export function MailboxApp() {
                         Autofill
                       </p>
                       <p className='mt-2 text-sm leading-relaxed text-ink-secondary'>
-                        Use your saved ranges to generate a fake profile and fill common signup fields.
+                        Use your saved ranges to generate a fake profile and fill common signup
+                        fields.
                       </p>
                     </div>
                     <WandSparkles className='mt-0.5 h-4 w-4 shrink-0 text-accent' />
@@ -886,7 +896,6 @@ export function MailboxApp() {
                 </div>
               </div>
             )}
-
           </>
         )}
         <GithubFooter className='px-3 pb-4 sm:px-4' />

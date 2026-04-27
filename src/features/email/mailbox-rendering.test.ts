@@ -14,7 +14,11 @@ import {
 describe('mailbox rendering', () => {
   it('linkifies plain-text urls without swallowing trailing punctuation', () => {
     const markup = renderToStaticMarkup(
-      createElement('div', null, renderTextWithLinks('Open https://example.com/path).', () => {})),
+      createElement(
+        'div',
+        null,
+        renderTextWithLinks('Open https://example.com/path).', () => {}),
+      ),
     );
 
     expect(markup).toContain('href="https://example.com/path"');

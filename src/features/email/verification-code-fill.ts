@@ -14,7 +14,9 @@ function getReferencedText(element: Element, attribute: 'aria-labelledby' | 'ari
 }
 
 function getAssociatedLabelText(element: HTMLInputElement | HTMLTextAreaElement) {
-  return element.labels ? [...element.labels].map((label) => label.textContent ?? '').join(' ') : '';
+  return element.labels
+    ? [...element.labels].map((label) => label.textContent ?? '').join(' ')
+    : '';
 }
 
 function getFieldDescriptorText(element: HTMLInputElement | HTMLTextAreaElement) {
@@ -87,8 +89,8 @@ function isLikelyVerificationCodeField(element: HTMLInputElement | HTMLTextAreaE
   ];
 
   const weakCodePhrase = 'code';
-  const hasStrongCue = strongPhrases.some((phrase) =>
-    descriptorText.includes(phrase) || nearbyText.includes(phrase),
+  const hasStrongCue = strongPhrases.some(
+    (phrase) => descriptorText.includes(phrase) || nearbyText.includes(phrase),
   );
 
   if (hasStrongCue) return true;
@@ -118,28 +120,28 @@ function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {
 
 function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaElement) {
   const group =
-    target.closest('fieldset, [role="group"]') ?? target.parentElement?.closest('div, label, section, form');
+    target.closest('fieldset, [role="group"]') ??
+    target.parentElement?.closest('div, label, section, form');
 
   if (!group) return [] as Array<HTMLInputElement | HTMLTextAreaElement>;
 
-  return [...group.querySelectorAll('input, textarea')].filter((element): element is HTMLInputElement => {
-    if (!(element instanceof HTMLInputElement)) return false;
-    if (element.readOnly || element.disabled) return false;
-    if (element === target) return true;
+  return [...group.querySelectorAll('input, textarea')].filter(
+    (element): element is HTMLInputElement => {
+      if (!(element instanceof HTMLInputElement)) return false;
+      if (element.readOnly || element.disabled) return false;
+      if (element === target) return true;
 
-    const type = element.type.toLowerCase();
-    const maxLength = element.maxLength;
-    return (
-      ['text', 'tel', 'number', 'search', 'password'].includes(type) &&
-      (maxLength === 1 || element.size === 1 || element.getAttribute('inputmode') === 'numeric')
-    );
-  }) as Array<HTMLInputElement | HTMLTextAreaElement>;
+      const type = element.type.toLowerCase();
+      const maxLength = element.maxLength;
+      return (
+        ['text', 'tel', 'number', 'search', 'password'].includes(type) &&
+        (maxLength === 1 || element.size === 1 || element.getAttribute('inputmode') === 'numeric')
+      );
+    },
+  ) as Array<HTMLInputElement | HTMLTextAreaElement>;
 }
 
-function fillGroupedVerificationCode(
-  code: string,
-  target: HTMLInputElement | HTMLTextAreaElement,
-) {
+function fillGroupedVerificationCode(code: string, target: HTMLInputElement | HTMLTextAreaElement) {
   if (code.length < 2 || !(target instanceof HTMLInputElement)) return false;
 
   const groupedInputs = getGroupedVerificationInputs(target).filter(
@@ -177,9 +179,7 @@ function fillGroupedVerificationCode(
   return true;
 }
 
-export function scoreVerificationCodeField(
-  element: HTMLInputElement | HTMLTextAreaElement,
-) {
+export function scoreVerificationCodeField(element: HTMLInputElement | HTMLTextAreaElement) {
   if (!isLikelyVerificationCodeField(element)) return 0;
 
   let score = 0;
@@ -188,10 +188,18 @@ export function scoreVerificationCodeField(
   if (element === document.activeElement) score += 40;
   if (descriptorText.includes('verification') || descriptorText.includes('security')) score += 30;
   if (descriptorText.includes('one-time') || descriptorText.includes('one time')) score += 30;
-  if (descriptorText.includes('sign-in') || descriptorText.includes('signin') || descriptorText.includes('login')) score += 20;
+  if (
+    descriptorText.includes('sign-in') ||
+    descriptorText.includes('signin') ||
+    descriptorText.includes('login')
+  )
+    score += 20;
   if (descriptorText.includes('otp') || descriptorText.includes('passcode')) score += 20;
   if ((element.getAttribute('autocomplete') ?? '').toLowerCase() === 'one-time-code') score += 50;
-  if (element instanceof HTMLInputElement && ['text', 'tel', 'number', 'search'].includes(element.type)) {
+  if (
+    element instanceof HTMLInputElement &&
+    ['text', 'tel', 'number', 'search'].includes(element.type)
+  ) {
     score += 8;
   }
   if (element.value.trim().length === 0) score += 6;
@@ -212,8 +220,7 @@ export function fillVerificationCode(code: string, doc: Document = document) {
     candidates
       .filter((element) => !element.readOnly && !element.disabled)
       .sort(
-        (left, right) =>
-          scoreVerificationCodeField(right) - scoreVerificationCodeField(left),
+        (left, right) => scoreVerificationCodeField(right) - scoreVerificationCodeField(left),
       )[0] ?? null;
 
   if (!target || scoreVerificationCodeField(target) <= 0) return false;

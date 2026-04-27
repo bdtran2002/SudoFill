@@ -9,7 +9,8 @@ const CODE_LINE_PATTERNS = [
   /code[^\n\r]{0,12}?\b([A-Z0-9]{4,8}(?:-[A-Z0-9]{2,8})+)\b/gi,
   /code[^\n\r]{0,12}?\b([A-Z0-9]{4,10})\b/gi,
 ];
-const TOKEN_PATTERN = /\b(?:[A-Z0-9]{2,8}-){1,3}[A-Z0-9]{2,8}\b|\b(?=.{4,10}\b)(?=.*\d)[A-Z0-9]{4,10}\b/g;
+const TOKEN_PATTERN =
+  /\b(?:[A-Z0-9]{2,8}-){1,3}[A-Z0-9]{2,8}\b|\b(?=.{4,10}\b)(?=.*\d)[A-Z0-9]{4,10}\b/g;
 const MAX_LINK_CANDIDATES = 8;
 const MAX_CODE_CANDIDATES = 5;
 const HIGH_CONFIDENCE_LINK_SCORE = 18;
@@ -195,7 +196,11 @@ function collectRawLinkCandidates(subject: string, text: string, html: string) {
 
   for (const match of html.matchAll(new RegExp(HTML_LINK_PATTERN))) {
     const [, url = '', rawAnchorText = ''] = match;
-    addCandidate(url, `${subject} ${stripHtml(rawAnchorText)} ${strippedHtml}`, stripHtml(rawAnchorText));
+    addCandidate(
+      url,
+      `${subject} ${stripHtml(rawAnchorText)} ${strippedHtml}`,
+      stripHtml(rawAnchorText),
+    );
   }
 
   return [...candidates.values()].sort((left, right) => right.score - left.score);
@@ -203,7 +208,11 @@ function collectRawLinkCandidates(subject: string, text: string, html: string) {
 
 function toMailboxLink(candidate: RawLinkCandidate): MailboxLink {
   return {
-    label: buildLinkLabel(candidate.url, candidate.score, `${candidate.anchorText} ${candidate.context}`),
+    label: buildLinkLabel(
+      candidate.url,
+      candidate.score,
+      `${candidate.anchorText} ${candidate.context}`,
+    ),
     url: candidate.url,
   };
 }
@@ -231,13 +240,19 @@ function isLikelyCodeToken(value: string) {
   const normalized = normalizeCandidateCode(value).toUpperCase();
   if (!normalized || normalized.length < 4 || normalized.length > 14) return false;
   if (/^(below|above|here|there|that|this|code|token|link|button)$/.test(normalized)) return false;
-  return /(?:[A-Z0-9]{2,8}-){1,3}[A-Z0-9]{2,8}/.test(normalized) || /(?=.*\d)[A-Z0-9]{4,10}/.test(normalized);
+  return (
+    /(?:[A-Z0-9]{2,8}-){1,3}[A-Z0-9]{2,8}/.test(normalized) ||
+    /(?=.*\d)[A-Z0-9]{4,10}/.test(normalized)
+  );
 }
 
 function collectRawCodeCandidates(subject: string, text: string, html: string) {
   const candidates = new Map<string, RawCodeCandidate>();
   const normalizedBody = [subject, text, stripHtml(html)].filter(Boolean).join('\n');
-  const lines = normalizedBody.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const lines = normalizedBody
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
   const addCandidate = (code: string, context: string, baseScore: number) => {
     const normalizedCode = normalizeCandidateCode(code);
@@ -317,7 +332,11 @@ export function extractMailboxVerificationDetails({
     .filter((candidate) => candidate.score >= 6)
     .sort((left, right) => right.score - left.score)
     .slice(0, MAX_LINK_CANDIDATES)
-    .map(({ score: _score, ...candidate }) => candidate);
+    .map((candidate) => {
+      const { score, ...rest } = candidate;
+      void score;
+      return rest;
+    });
   const bestLink = linkCandidates[0] ?? null;
   const codeCandidates = collectRawCodeCandidates(subject, text, html)
     .filter((candidate) => candidate.score >= 18)
@@ -332,9 +351,7 @@ export function extractMailboxVerificationDetails({
 
   return {
     bestLink:
-      bestLink && rankVerificationLink(bestLink) >= HIGH_CONFIDENCE_LINK_SCORE
-        ? bestLink
-        : null,
+      bestLink && rankVerificationLink(bestLink) >= HIGH_CONFIDENCE_LINK_SCORE ? bestLink : null,
     linkCandidates,
     bestCode,
     codeCandidates,

@@ -352,9 +352,7 @@ function renderSanitizedHtml(html: string, onOpenLink: (url: string) => void) {
     return [];
   }
 
-  return nodes.map((node, index) =>
-    renderEmailNode(node, `html-${index}`, onOpenLink),
-  );
+  return nodes.map((node, index) => renderEmailNode(node, `html-${index}`, onOpenLink));
 }
 
 function ActionButton({
@@ -421,7 +419,10 @@ function FillableCode({
   fillContext,
 }: {
   code: string;
-  onFillCode: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
+  onFillCode: (
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) => void;
   fillContext?: { preferredUrl?: string; preferredHostname?: string };
 }) {
   const { copied, flash } = useCopiedFlash();
@@ -439,7 +440,9 @@ function FillableCode({
         type='button'
       >
         <div className='min-w-0'>
-          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/70'>Code</p>
+          <p className='text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/70'>
+            Code
+          </p>
           <p className='mt-1 break-all font-mono text-lg font-semibold leading-tight'>{code}</p>
         </div>
         <span className='inline-flex shrink-0 items-center gap-1 rounded-md border border-accent/20 bg-surface px-2 py-1 text-xs font-medium text-accent transition-colors group-hover:border-accent/40'>
@@ -497,7 +500,10 @@ export function MailboxVerificationActions({
 }: {
   verification: MailboxMessageDetail['verification'];
   onOpenLink: (url: string) => void;
-  onFillCode?: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
+  onFillCode?: (
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) => void;
 }) {
   const bestLink = verification.bestLink;
   const bestCode = verification.bestCode;
@@ -531,7 +537,10 @@ export function MailboxVerificationActions({
                   code={bestCode.code}
                   fillContext={
                     bestLink
-                      ? { preferredUrl: bestLink.url, preferredHostname: normalizeHost(bestLink.url) }
+                      ? {
+                          preferredUrl: bestLink.url,
+                          preferredHostname: normalizeHost(bestLink.url),
+                        }
                       : undefined
                   }
                   onFillCode={onFillCode}

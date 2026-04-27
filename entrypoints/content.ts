@@ -262,9 +262,11 @@ async function showVerificationPopup(payload: VerificationPopupPayload) {
     link.href = payload.link.url;
     link.addEventListener('click', (event) => {
       event.preventDefault();
-      void chrome.runtime.sendMessage({ type: 'mailbox:open-link', url: payload.link?.url }).catch(() => {
-        window.open(payload.link?.url, '_blank', 'noopener,noreferrer');
-      });
+      void chrome.runtime
+        .sendMessage({ type: 'mailbox:open-link', url: payload.link?.url })
+        .catch(() => {
+          window.open(payload.link?.url, '_blank', 'noopener,noreferrer');
+        });
       rootHost.remove();
     });
     actions.appendChild(link);

@@ -21,7 +21,10 @@ import {
   isAutofillAgeRangeValid,
   setStoredAutofillSettings,
 } from '../../src/features/autofill/settings';
-import type { AutofillSettings, AutofillUsageHistoryEntry } from '../../src/features/autofill/types';
+import type {
+  AutofillSettings,
+  AutofillUsageHistoryEntry,
+} from '../../src/features/autofill/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -123,11 +126,7 @@ function OptionsApp() {
     () =>
       usageHistory.some((entry) =>
         Boolean(
-          entry.addressLine1 ||
-            entry.addressLine2 ||
-            entry.city ||
-            entry.state ||
-            entry.postalCode,
+          entry.addressLine1 || entry.addressLine2 || entry.city || entry.state || entry.postalCode,
         ),
       ),
     [usageHistory],
@@ -498,7 +497,6 @@ function OptionsApp() {
                         }
                       />
                     </div>
-
                   </div>
                 ) : null}
 
@@ -543,7 +541,10 @@ function OptionsApp() {
         </section>
 
         {settings.saveUsageHistory ? (
-          <section className='animate-fade-in mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]' style={{ animationDelay: '120ms' }}>
+          <section
+            className='animate-fade-in mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]'
+            style={{ animationDelay: '120ms' }}
+          >
             <div className='flex flex-wrap items-start justify-between gap-4 border-b border-border-dim bg-[linear-gradient(135deg,rgba(239,75,75,0.1),transparent_55%)] px-4 py-3 sm:px-5'>
               <div>
                 <p className='text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-muted'>
@@ -601,7 +602,10 @@ function OptionsApp() {
                     </thead>
                     <tbody className='divide-y divide-border-dim'>
                       {usageHistory.map((entry) => (
-                        <tr key={entry.id} className='align-top transition-colors hover:bg-surface-hover/60'>
+                        <tr
+                          key={entry.id}
+                          className='align-top transition-colors hover:bg-surface-hover/60'
+                        >
                           <td className='px-4 py-4'>
                             <div className='space-y-1'>
                               <p className='font-medium text-ink'>{entry.siteHostname}</p>
@@ -622,14 +626,20 @@ function OptionsApp() {
                           </td>
                           <td className='px-4 py-4 text-ink-secondary'>
                             <span className='block max-w-[180px] truncate'>
-                              {entry.username && entry.username !== entry.email ? entry.username : '—'}
+                              {entry.username && entry.username !== entry.email
+                                ? entry.username
+                                : '—'}
                             </span>
                           </td>
                           {showNameColumn ? (
-                            <td className='px-4 py-4 text-ink-secondary'>{entry.firstName || '—'}</td>
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.firstName || '—'}
+                            </td>
                           ) : null}
                           {showNameColumn ? (
-                            <td className='px-4 py-4 text-ink-secondary'>{entry.lastName || '—'}</td>
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              {entry.lastName || '—'}
+                            </td>
                           ) : null}
                           {showAgeColumn ? (
                             <td className='px-4 py-4 text-ink-secondary'>

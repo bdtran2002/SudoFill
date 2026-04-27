@@ -67,13 +67,11 @@ function isFillablePageTab(tab: chrome.tabs.Tab | undefined) {
 }
 
 function getMostRelevantPageTab(tabs: chrome.tabs.Tab[]) {
-  return [...tabs]
-    .filter(isFillablePageTab)
-    .sort((left, right) => {
-      if (left.active && !right.active) return -1;
-      if (!left.active && right.active) return 1;
-      return (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0);
-    })[0];
+  return [...tabs].filter(isFillablePageTab).sort((left, right) => {
+    if (left.active && !right.active) return -1;
+    if (!left.active && right.active) return 1;
+    return (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0);
+  })[0];
 }
 
 function getTabHostname(tab: chrome.tabs.Tab | undefined) {
@@ -123,7 +121,9 @@ function findPreferredUrlMatch(tabs: chrome.tabs.Tab[], preferredUrl: string | u
   }
 
   return (
-    tabs.find((tab) => isFillablePageTab(tab) && (tab.url ?? tab.pendingUrl ?? '') === preferredUrl) ?? null
+    tabs.find(
+      (tab) => isFillablePageTab(tab) && (tab.url ?? tab.pendingUrl ?? '') === preferredUrl,
+    ) ?? null
   );
 }
 
@@ -196,7 +196,7 @@ export async function fillVerificationCodeOnPageForContext(
 ) {
   const targetTab = await getPageInteractionTabForContext(context);
 
-  if (!targetTab?.id) {
+  if (targetTab?.id == null) {
     return false;
   }
 

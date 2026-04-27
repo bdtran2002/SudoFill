@@ -18,9 +18,7 @@ describe('mailbox shared tab selection', () => {
 
   it('prefers the active https tab over extension pages', async () => {
     vi.mocked(callWebExtensionApi)
-      .mockResolvedValueOnce([
-        { id: 1, active: true, url: 'chrome-extension://abc/popup.html' },
-      ])
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/popup.html' }])
       .mockResolvedValueOnce([
         { id: 1, active: true, url: 'chrome-extension://abc/popup.html' },
         { id: 2, active: false, url: 'https://example.com/login' },
@@ -39,18 +37,17 @@ describe('mailbox shared tab selection', () => {
   });
 
   it('returns false when no page tab can receive the code', async () => {
-    vi.mocked(callWebExtensionApi).mockResolvedValueOnce([
-      { id: 1, active: true, url: 'chrome-extension://abc/popup.html' },
-    ]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/popup.html' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     await expect(fillVerificationCodeOnPage('123456')).resolves.toBe(false);
   });
 
   it('prefers a matching page tab from the current mailbox link context', async () => {
     vi.mocked(callWebExtensionApi)
-      .mockResolvedValueOnce([
-        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
-      ])
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' }])
       .mockResolvedValueOnce([
         { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
         { id: 2, active: false, url: 'https://example.com/account' },

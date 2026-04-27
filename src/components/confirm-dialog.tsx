@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -21,19 +21,79 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) {
       return undefined;
     }
 
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const focusableSelector = [
+      'button:not([disabled])',
+      '[href]',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    window.setTimeout(() => {
+      cancelButtonRef.current?.focus() ?? dialogRef.current?.focus();
+    }, 0);
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         onCancel();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const dialog = dialogRef.current;
+      if (!dialog) {
+        return;
+      }
+
+      const focusableElements = [...dialog.querySelectorAll<HTMLElement>(focusableSelector)].filter(
+        (element) => !element.hasAttribute('disabled') && element.tabIndex !== -1,
+      );
+
+      const firstElement = focusableElements[0] ?? dialog;
+      const lastElement = focusableElements.at(-1) ?? dialog;
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      restoreFocusRef.current?.focus();
+      restoreFocusRef.current = null;
+    };
   }, [open, onCancel]);
 
   if (!open) {
@@ -48,23 +108,29 @@ export function ConfirmDialog({
     >
       <div className='flex min-h-full items-center justify-center'>
         <div
-          aria-labelledby='confirm-dialog-title'
+          aria-describedby={descriptionId}
+          aria-labelledby={titleId}
           aria-modal='true'
           className='w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.4)]'
           onClick={(event) => event.stopPropagation()}
+          ref={dialogRef}
           role='dialog'
+          tabIndex={-1}
         >
           <div className='border-b border-border-dim bg-[linear-gradient(135deg,rgba(239,75,75,0.14),transparent_55%)] px-5 py-4'>
-            <p id='confirm-dialog-title' className='text-base font-semibold text-ink'>
+            <p id={titleId} className='text-base font-semibold text-ink'>
               {title}
             </p>
-            <p className='mt-2 text-sm leading-relaxed text-ink-secondary'>{description}</p>
+            <p id={descriptionId} className='mt-2 text-sm leading-relaxed text-ink-secondary'>
+              {description}
+            </p>
           </div>
 
           <div className='flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:justify-end'>
             <button
               className='inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink'
               onClick={onCancel}
+              ref={cancelButtonRef}
               type='button'
             >
               {cancelLabel}

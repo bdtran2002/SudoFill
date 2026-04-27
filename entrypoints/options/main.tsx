@@ -13,8 +13,8 @@ import {
 } from '../../src/features/autofill/constants';
 import {
   clearStoredAutofillUsageHistory,
-  deleteAutofillUsageHistoryEntryById,
   getStoredAutofillUsageHistory,
+  setStoredAutofillUsageHistory,
 } from '../../src/features/autofill/history';
 import {
   getStoredAutofillSettings,
@@ -36,6 +36,7 @@ function OptionsApp() {
   const [usageHistoryState, setUsageHistoryState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [passwordAutofillConfirmOpen, setPasswordAutofillConfirmOpen] = useState(false);
   const [passwordHistoryConfirmOpen, setPasswordHistoryConfirmOpen] = useState(false);
+  const [clearHistoryConfirmOpen, setClearHistoryConfirmOpen] = useState(false);
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -215,10 +216,25 @@ function OptionsApp() {
   }
 
   async function deleteUsageHistoryEntry(id: string) {
+    clearStatusTimeout();
+    setHint('');
+
+    let previousEntries: AutofillUsageHistoryEntry[] = [];
+    let nextEntries: AutofillUsageHistoryEntry[] = [];
+
+    setUsageHistory((current) => {
+      previousEntries = current;
+      nextEntries = current.filter((entry) => entry.id !== id);
+      return nextEntries;
+    });
+    setSaveState('saving');
+
     try {
-      await deleteAutofillUsageHistoryEntryById(id);
-      setUsageHistory((current) => current.filter((entry) => entry.id !== id));
+      await setStoredAutofillUsageHistory(nextEntries);
+      setSaveState('saved');
+      scheduleIdleStatus(1200);
     } catch {
+      setUsageHistory(previousEntries);
       setSaveState('error');
       setHint('Could not delete that history entry.');
     }
@@ -502,6 +518,7 @@ function OptionsApp() {
 
                 <p className='text-sm leading-relaxed text-ink-secondary'>
                   History stays in browser storage on this device and is not encrypted.
+                  Uninstalling the extension removes that local browser storage.
                 </p>
               </div>
             </SettingSection>
@@ -562,7 +579,7 @@ function OptionsApp() {
                 <button
                   className='inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:border-accent/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
                   disabled={usageHistory.length === 0 || saveState === 'saving'}
-                  onClick={() => void clearUsageHistory()}
+                  onClick={() => setClearHistoryConfirmOpen(true)}
                   type='button'
                 >
                   Clear history
@@ -686,6 +703,20 @@ function OptionsApp() {
 
         <GithubFooter className='mt-5' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep history'
+        confirmLabel='Clear history'
+        confirmTone='danger'
+        description='This permanently deletes every saved autofill history entry from local browser storage on this device.'
+        onCancel={() => setClearHistoryConfirmOpen(false)}
+        onConfirm={() => {
+          setClearHistoryConfirmOpen(false);
+          void clearUsageHistory();
+        }}
+        open={clearHistoryConfirmOpen}
+        title='Clear saved autofill history?'
+      />
 
       <ConfirmDialog
         cancelLabel='Keep off'

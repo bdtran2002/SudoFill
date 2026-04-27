@@ -94,7 +94,7 @@ These settings are saved in browser storage. If you enable usage history, the sa
 
 ## Limitations
 
-- Best for short-lived signups, not accounts you plan to keep long term
+- Best for short-lived signups, not accounts you plan to keep long-term
 - Sites that require phone or SMS verification are not supported
 - Very custom or multi-step forms may still need manual fixes
 - Autofill only targets normal `https://` pages

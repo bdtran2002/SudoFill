@@ -8,7 +8,7 @@ export function GithubFooter({ className = '' }: { className?: string }) {
       <a
         className='inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-accent'
         href={GITHUB_REPO_URL}
-        rel='noreferrer'
+        rel='noreferrer noopener'
         target='_blank'
       >
         GitHub repo

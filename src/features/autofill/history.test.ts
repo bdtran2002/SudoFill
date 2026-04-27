@@ -40,6 +40,7 @@ const baseEntry = {
   siteUrl: 'https://example.com/signup',
   email: 'ada@example.com',
   username: 'ada@example.com',
+  password: 'P@ssw0rd123!',
   fullName: 'Ada Lovelace',
   firstName: 'Ada',
   lastName: 'Lovelace',
@@ -62,6 +63,7 @@ describe('autofill usage history', () => {
     expect(normalizeUsageHistoryEntry({ ...baseEntry, username: '  ' })).toEqual({
       ...baseEntry,
       username: baseEntry.email,
+      password: baseEntry.password,
     });
   });
 
@@ -72,6 +74,7 @@ describe('autofill usage history', () => {
         fullName: undefined,
         firstName: undefined,
         lastName: undefined,
+        password: undefined,
         age: undefined,
       }),
     ).toEqual({
@@ -79,6 +82,7 @@ describe('autofill usage history', () => {
       fullName: '',
       firstName: '',
       lastName: '',
+      password: '',
       age: 0,
     });
   });

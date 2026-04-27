@@ -2,6 +2,8 @@ export type AutofillSex = '' | 'female' | 'male' | 'nonbinary';
 
 export interface AutofillSettings {
   generateAddress: boolean;
+  enablePasswordAutofill: boolean;
+  savePasswordToUsageHistory: boolean;
   showVerificationAssistPopup: boolean;
   saveUsageHistory: boolean;
   saveUsageHistoryDetails: {
@@ -22,6 +24,7 @@ export interface GeneratedProfile {
   businessName: string;
   email: string;
   phone: string;
+  password: string;
   sex: Exclude<AutofillSex, ''> | 'unspecified';
   birthDateIso: string;
   birthDay: string;
@@ -61,6 +64,7 @@ export interface AutofillUsageHistoryEntry {
   siteUrl: string;
   email: string;
   username: string;
+  password: string;
   fullName: string;
   firstName: string;
   lastName: string;

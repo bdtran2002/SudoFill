@@ -9,6 +9,8 @@ export const DEFAULT_AUTOFILL_COUNTRY_NAME = 'United States';
 
 export const DEFAULT_AUTOFILL_SETTINGS: AutofillSettings = {
   generateAddress: true,
+  enablePasswordAutofill: false,
+  savePasswordToUsageHistory: false,
   showVerificationAssistPopup: false,
   saveUsageHistory: false,
   saveUsageHistoryDetails: {

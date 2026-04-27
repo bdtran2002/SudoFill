@@ -86,6 +86,14 @@ export function normalizeAutofillSettings(
       value?.generateAddress,
       DEFAULT_AUTOFILL_SETTINGS.generateAddress,
     ),
+    enablePasswordAutofill: normalizeBoolean(
+      value?.enablePasswordAutofill,
+      DEFAULT_AUTOFILL_SETTINGS.enablePasswordAutofill,
+    ),
+    savePasswordToUsageHistory: normalizeBoolean(
+      value?.savePasswordToUsageHistory,
+      DEFAULT_AUTOFILL_SETTINGS.savePasswordToUsageHistory,
+    ),
     showVerificationAssistPopup: normalizeBoolean(
       value?.showVerificationAssistPopup,
       DEFAULT_AUTOFILL_SETTINGS.showVerificationAssistPopup,

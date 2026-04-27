@@ -358,6 +358,7 @@ export async function runMailboxAutofillFlow({
           const saveNameDetails = settings.saveUsageHistoryDetails.name;
           const saveAgeDetails = settings.saveUsageHistoryDetails.age;
           const saveAddressDetails = settings.saveUsageHistoryDetails.address;
+          const savePasswordDetails = settings.savePasswordToUsageHistory;
 
           await appendAutofillUsageHistoryEntry({
             id: globalThis.crypto?.randomUUID?.() ?? `history-${Date.now()}`,
@@ -369,6 +370,7 @@ export async function runMailboxAutofillFlow({
             fullName: saveNameDetails ? profile.fullName : '',
             firstName: saveNameDetails ? profile.firstName : '',
             lastName: saveNameDetails ? profile.lastName : '',
+            password: savePasswordDetails ? profile.password : '',
             age: saveAgeDetails ? profile.ageAtFill : 0,
             addressLine1: saveAddressDetails ? profile.addressLine1 : '',
             addressLine2: saveAddressDetails ? profile.addressLine2 : '',

@@ -9,6 +9,7 @@ const profile = {
   businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
+  password: 'P@ssw0rd123!',
   sex: 'female',
   birthDateIso: '1990-01-15',
   birthDay: '15',
@@ -164,6 +165,15 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('mobile number', profile)).toBeNull();
     expect(resolveAutofillMatch('tel', profile)).toBeNull();
     expect(resolveAutofillMatch('phonenumber', profile)).toBeNull();
+  });
+
+  it('only matches password fields when password autofill is enabled', () => {
+    expect(resolveAutofillMatch('password', profile)).toBeNull();
+    expect(resolveAutofillMatch('password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('current password', profile, { allowPassword: true })).toBeNull();
+    expect(resolveAutofillMatch('old password', profile, { allowPassword: true })).toBeNull();
   });
 
   it('matches common camelCase and concatenated identifiers', () => {

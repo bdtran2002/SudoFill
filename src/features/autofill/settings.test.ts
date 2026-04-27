@@ -8,6 +8,8 @@ describe('normalizeAutofillSettings', () => {
     expect(
       normalizeAutofillSettings({
         generateAddress: 'yes' as never,
+        enablePasswordAutofill: 'yes' as never,
+        savePasswordToUsageHistory: 'yes' as never,
         showVerificationAssistPopup: 'yes' as never,
         saveUsageHistory: 'yes' as never,
         state: 'ZZ',
@@ -60,6 +62,8 @@ describe('normalizeAutofillSettings', () => {
     expect(
       normalizeAutofillSettings({
         showVerificationAssistPopup: true,
+        enablePasswordAutofill: true,
+        savePasswordToUsageHistory: true,
         saveUsageHistory: true,
         saveUsageHistoryDetails: {
           name: true,
@@ -69,6 +73,8 @@ describe('normalizeAutofillSettings', () => {
       }),
     ).toMatchObject({
       showVerificationAssistPopup: true,
+      enablePasswordAutofill: true,
+      savePasswordToUsageHistory: true,
       saveUsageHistory: true,
       saveUsageHistoryDetails: {
         name: true,
@@ -86,6 +92,13 @@ describe('normalizeAutofillSettings', () => {
         age: false,
         address: false,
       },
+    });
+  });
+
+  it('defaults password-related toggles to off', () => {
+    expect(normalizeAutofillSettings({})).toMatchObject({
+      enablePasswordAutofill: false,
+      savePasswordToUsageHistory: false,
     });
   });
 });

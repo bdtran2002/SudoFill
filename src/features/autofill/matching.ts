@@ -7,6 +7,10 @@ export type AutofillFieldMatch = {
   values: string[];
 };
 
+export type AutofillMatchOptions = {
+  allowPassword?: boolean;
+};
+
 export type DobFieldContext = {
   inputType?: string;
   placeholder?: string;
@@ -235,8 +239,18 @@ function resolveDobMatch(
 export function resolveAutofillMatch(
   key: string,
   profile: GeneratedProfile,
+  options: AutofillMatchOptions = {},
 ): AutofillFieldMatch | null {
   const normalizedKey = normalizeFieldKey(key);
+  const allowPassword = options.allowPassword ?? false;
+  const isCurrentPasswordField = hasAnyToken(normalizedKey, [
+    'current password',
+    'old password',
+    'existing password',
+    'current passcode',
+    'old passcode',
+    'existing passcode',
+  ]);
   const guardedNameLabel = hasAnyToken(normalizedKey, [
     'preferred',
     'display',
@@ -331,6 +345,14 @@ export function resolveAutofillMatch(
   if (dobMatch) return dobMatch;
 
   if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };
+
+  if (allowPassword && hasAnyToken(normalizedKey, ['password', 'passcode', 'pass phrase'])) {
+    if (isCurrentPasswordField) {
+      return null;
+    }
+
+    return profile.password ? { field: 'password', values: [profile.password] } : null;
+  }
 
   if (isObviousNameFallback(normalizedKey)) {
     return { field: 'fullName', values: [profile.fullName] };

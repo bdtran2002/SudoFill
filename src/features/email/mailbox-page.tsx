@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Copy, Inbox, Mail, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react';
 
+import { ConfirmDialog } from '../../components/confirm-dialog';
+import { GithubFooter } from '../../components/github-footer';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
@@ -13,7 +15,6 @@ import {
   useMailboxUiVisibilityReporting,
 } from './mailbox-shared';
 import { MailboxMessageBody, MailboxVerificationActions } from './mailbox-rendering';
-import { callWebExtensionApi } from '../../lib/webext-async';
 
 type MailboxActionStatus = {
   tone: 'idle' | 'success' | 'error';
@@ -100,6 +101,7 @@ export function MailboxPage() {
     source: null,
   });
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
   const isPollingActive = snapshot.pollingActive;
@@ -205,6 +207,19 @@ export function MailboxPage() {
       }
       setIsBusy(false);
     }
+  }
+
+  function openDiscardConfirm() {
+    setDiscardConfirmOpen(true);
+  }
+
+  function closeDiscardConfirm() {
+    setDiscardConfirmOpen(false);
+  }
+
+  async function confirmDiscardMailbox() {
+    setDiscardConfirmOpen(false);
+    await runCommand({ type: 'mailbox:discard' });
   }
 
   async function copyAddress() {
@@ -360,7 +375,7 @@ export function MailboxPage() {
                   <button
                     className='inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                     disabled={isBusy}
-                    onClick={() => void runCommand({ type: 'mailbox:discard' })}
+                    onClick={openDiscardConfirm}
                     type='button'
                   >
                     <Trash2 className='h-4 w-4' />
@@ -501,7 +516,20 @@ export function MailboxPage() {
             />
           </div>
         </div>
+
+        <GithubFooter className='mt-4 pb-4' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep mailbox'
+        confirmLabel='Discard'
+        confirmTone='danger'
+        description='This deletes the mailbox and all messages. They cannot be recovered.'
+        onCancel={closeDiscardConfirm}
+        onConfirm={() => void confirmDiscardMailbox()}
+        open={discardConfirmOpen}
+        title='Discard this email?'
+      />
     </main>
   );
 }

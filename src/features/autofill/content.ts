@@ -290,7 +290,11 @@ function getElementContext(element: FillableElement) {
   };
 }
 
-function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
+function getFieldMatch(
+  element: FillableElement,
+  profile: GeneratedProfile,
+  allowPassword = false,
+) {
   if (element.disabled) return null;
   if (
     element instanceof HTMLInputElement &&
@@ -300,7 +304,7 @@ function getFieldMatch(element: FillableElement, profile: GeneratedProfile) {
   }
   if (hasExistingUserValue(element)) return null;
 
-  const match = resolveAutofillMatch(buildFieldKey(element), profile);
+  const match = resolveAutofillMatch(buildFieldKey(element), profile, { allowPassword });
   return match?.values.some(Boolean) ? match : null;
 }
 
@@ -671,6 +675,17 @@ export async function fillProfile(
 ): Promise<AutofillContentResponse> {
   const targetRoot = selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
   const inferredUsername = inferUsernameFromExistingValues(doc, profile, targetRoot);
+  const targetAnalysis = analyzeScope(
+    targetRoot,
+    getVisibleEditableFillableElements(doc).filter((element) => isElementInTargetScope(element, targetRoot)),
+    profile,
+    doc,
+  );
+  const allowPasswordFill =
+    Boolean(profile.password) &&
+    !targetAnalysis.emailFirstAuthFlow &&
+    !targetAnalysis.hasNonSignupAccountCue &&
+    (targetAnalysis.strongSignupIntent || (targetAnalysis.hasPassword && targetAnalysis.identityFieldCount >= 2));
 
   const filledFields = new Set<string>();
   let filledCount = 0;
@@ -688,7 +703,7 @@ export async function fillProfile(
     let didFillSelect = false;
 
     for (const element of prioritizedElements) {
-      const match = getFieldMatch(element, profile);
+      const match = getFieldMatch(element, profile, allowPasswordFill);
       if (!match) continue;
 
       const didFill = assignValue(

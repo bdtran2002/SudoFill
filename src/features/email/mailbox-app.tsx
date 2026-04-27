@@ -12,6 +12,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { ConfirmDialog } from '../../components/confirm-dialog';
+import { GithubFooter } from '../../components/github-footer';
 import { EMPTY_MAILBOX_SNAPSHOT } from './state';
 import type { MailboxCommand, MailboxSnapshot } from './types';
 import {
@@ -180,6 +182,7 @@ export function MailboxApp() {
     message: '',
     source: null,
   });
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const { copied, flash } = useCopiedFlash();
   const snapshotRef = useRef(snapshot);
   const scrollRegionRef = useRef<HTMLDivElement | null>(null);
@@ -442,6 +445,19 @@ export function MailboxApp() {
     } finally {
       setIsBusy(false);
     }
+  }
+
+  function openDiscardConfirm() {
+    setDiscardConfirmOpen(true);
+  }
+
+  function closeDiscardConfirm() {
+    setDiscardConfirmOpen(false);
+  }
+
+  async function confirmDiscardMailbox() {
+    setDiscardConfirmOpen(false);
+    await runCommand({ type: 'mailbox:discard' });
   }
 
   async function openAutofillSettings() {
@@ -709,7 +725,7 @@ export function MailboxApp() {
                     <button
                       className='flex cursor-pointer items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-danger-border hover:text-danger disabled:cursor-not-allowed disabled:opacity-40'
                       disabled={isBusy}
-                      onClick={() => void runCommand({ type: 'mailbox:discard' })}
+                      onClick={openDiscardConfirm}
                       type='button'
                     >
                       <Trash2 className='h-3 w-3' />
@@ -870,9 +886,22 @@ export function MailboxApp() {
                 </div>
               </div>
             )}
+
           </>
         )}
+        <GithubFooter className='px-3 pb-4 sm:px-4' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep mailbox'
+        confirmLabel='Discard'
+        confirmTone='danger'
+        description='This deletes the mailbox and all messages. They cannot be recovered.'
+        onCancel={closeDiscardConfirm}
+        onConfirm={() => void confirmDiscardMailbox()}
+        open={discardConfirmOpen}
+        title='Discard this email?'
+      />
     </main>
   );
 }

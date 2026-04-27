@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { ChevronDown, ChevronUp, Mail, RotateCcw, Save, Settings, Trash2 } from 'lucide-react';
 
 import '../../src/styles.css';
+import { ConfirmDialog } from '../../src/components/confirm-dialog';
+import { GithubFooter } from '../../src/components/github-footer';
 import {
   AUTOFILL_SEX_OPTIONS,
   DEFAULT_AUTOFILL_SETTINGS,
@@ -29,6 +31,8 @@ function OptionsApp() {
   const [hint, setHint] = useState('');
   const [usageHistory, setUsageHistory] = useState<AutofillUsageHistoryEntry[]>([]);
   const [usageHistoryState, setUsageHistoryState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [passwordAutofillConfirmOpen, setPasswordAutofillConfirmOpen] = useState(false);
+  const [passwordHistoryConfirmOpen, setPasswordHistoryConfirmOpen] = useState(false);
   const statusTimeoutRef = useRef<number | null>(null);
   const mailboxUrl = chrome.runtime.getURL('mailbox.html');
   const settingsUrl = chrome.runtime.getURL('options.html');
@@ -128,9 +132,14 @@ function OptionsApp() {
       ),
     [usageHistory],
   );
+  const hasSavedPasswordDetails = useMemo(
+    () => usageHistory.some((entry) => Boolean(entry.password)),
+    [usageHistory],
+  );
   const showNameColumn = settings.saveUsageHistoryDetails.name || hasSavedNameDetails;
   const showAgeColumn = settings.saveUsageHistoryDetails.age || hasSavedAgeDetails;
   const showAddressColumn = settings.saveUsageHistoryDetails.address || hasSavedAddressDetails;
+  const showPasswordColumn = settings.savePasswordToUsageHistory || hasSavedPasswordDetails;
 
   async function persistSettings(
     next: AutofillSettings,
@@ -171,6 +180,8 @@ function OptionsApp() {
     const previousSettings = settings;
 
     setSettings(DEFAULT_AUTOFILL_SETTINGS);
+    setPasswordAutofillConfirmOpen(false);
+    setPasswordHistoryConfirmOpen(false);
     clearStatusTimeout();
     setSaveState('saving');
     setHint('');
@@ -212,6 +223,34 @@ function OptionsApp() {
       setSaveState('error');
       setHint('Could not delete that history entry.');
     }
+  }
+
+  function handlePasswordAutofillToggle(next: boolean) {
+    if (next && !settings.enablePasswordAutofill) {
+      setPasswordAutofillConfirmOpen(true);
+      return;
+    }
+
+    setSettings((current) => ({ ...current, enablePasswordAutofill: next }));
+  }
+
+  function confirmPasswordAutofill() {
+    setPasswordAutofillConfirmOpen(false);
+    setSettings((current) => ({ ...current, enablePasswordAutofill: true }));
+  }
+
+  function handlePasswordHistoryToggle(next: boolean) {
+    if (next && !settings.savePasswordToUsageHistory) {
+      setPasswordHistoryConfirmOpen(true);
+      return;
+    }
+
+    setSettings((current) => ({ ...current, savePasswordToUsageHistory: next }));
+  }
+
+  function confirmPasswordHistorySave() {
+    setPasswordHistoryConfirmOpen(false);
+    setSettings((current) => ({ ...current, savePasswordToUsageHistory: true }));
   }
 
   return (
@@ -277,6 +316,21 @@ function OptionsApp() {
                   setSettings((current) => ({ ...current, generateAddress: checked }))
                 }
               />
+            </SettingSection>
+
+            <SettingSection
+              description='Fill password fields with a generated password.'
+              title='Password autofill'
+            >
+              <div className='space-y-3'>
+                <ToggleField
+                  checked={settings.enablePasswordAutofill}
+                  onChange={handlePasswordAutofillToggle}
+                />
+                <div className='rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs leading-relaxed text-danger'>
+                  Generated passwords stay local and are not encrypted.
+                </div>
+              </div>
             </SettingSection>
 
             <SettingSection
@@ -381,6 +435,23 @@ function OptionsApp() {
                       <p className='text-sm leading-relaxed text-ink-secondary'>
                         Choose which richer autofill fields to keep with each history entry.
                       </p>
+                    </div>
+
+                    <div className='space-y-3 rounded-lg border border-border-dim bg-surface px-3 py-3'>
+                      <DetailToggleRow
+                        checked={settings.savePasswordToUsageHistory}
+                        description={
+                          settings.enablePasswordAutofill
+                            ? 'Store generated passwords in history entries.'
+                            : 'Turn on password autofill first.'
+                        }
+                        disabled={!settings.enablePasswordAutofill}
+                        title='Password history'
+                        onChange={handlePasswordHistoryToggle}
+                      />
+                      <div className='rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs leading-relaxed text-danger'>
+                        Saved passwords stay local and are not encrypted.
+                      </div>
                     </div>
 
                     <div className='grid gap-2'>
@@ -513,7 +584,7 @@ function OptionsApp() {
                 </div>
               ) : (
                 <div className='overflow-x-auto rounded-xl border border-border-dim bg-surface-raised/70'>
-                  <table className='min-w-[980px] w-full border-separate border-spacing-0 text-left text-sm'>
+                  <table className='min-w-[1080px] w-full border-separate border-spacing-0 text-left text-sm'>
                     <thead className='bg-surface-raised/90 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted'>
                       <tr>
                         <th className='px-4 py-3'>Site</th>
@@ -523,6 +594,7 @@ function OptionsApp() {
                         {showNameColumn ? <th className='px-4 py-3'>Last name</th> : null}
                         {showAgeColumn ? <th className='px-4 py-3'>Age</th> : null}
                         {showAddressColumn ? <th className='px-4 py-3'>Address</th> : null}
+                        {showPasswordColumn ? <th className='px-4 py-3'>Password</th> : null}
                         <th className='px-4 py-3'>Saved</th>
                         <th className='px-4 py-3 text-right'>Actions</th>
                       </tr>
@@ -571,6 +643,13 @@ function OptionsApp() {
                               </span>
                             </td>
                           ) : null}
+                          {showPasswordColumn ? (
+                            <td className='px-4 py-4 text-ink-secondary'>
+                              <span className='block max-w-[220px] truncate font-mono text-xs'>
+                                {entry.password || '—'}
+                              </span>
+                            </td>
+                          ) : null}
                           <td className='px-4 py-4 text-ink-secondary'>
                             {formatHistoryTimestamp(entry.createdAt)}
                           </td>
@@ -594,7 +673,31 @@ function OptionsApp() {
             </div>
           </section>
         ) : null}
+
+        <GithubFooter className='mt-5' />
       </div>
+
+      <ConfirmDialog
+        cancelLabel='Keep off'
+        confirmLabel='Turn on'
+        confirmTone='primary'
+        description='SudoFill will generate passwords for supported signup forms. They stay local and are not encrypted or particularly safe.'
+        onCancel={() => setPasswordAutofillConfirmOpen(false)}
+        onConfirm={confirmPasswordAutofill}
+        open={passwordAutofillConfirmOpen}
+        title='Turn on password autofill?'
+      />
+
+      <ConfirmDialog
+        cancelLabel='Do not save'
+        confirmLabel='Save passwords'
+        confirmTone='danger'
+        description='Saved passwords stay in browser storage on this device. They are not encrypted and should be treated as unsafe.'
+        onCancel={() => setPasswordHistoryConfirmOpen(false)}
+        onConfirm={confirmPasswordHistorySave}
+        open={passwordHistoryConfirmOpen}
+        title='Save passwords in history?'
+      />
     </main>
   );
 }
@@ -724,12 +827,14 @@ function AgeField({
 function ToggleField({
   ariaLabel = 'Toggle setting',
   checked,
+  disabled = false,
   disabledLabel = 'Disabled',
   enabledLabel = 'Enabled',
   onChange,
 }: {
   ariaLabel?: string;
   checked: boolean;
+  disabled?: boolean;
   disabledLabel?: string;
   enabledLabel?: string;
   onChange: (next: boolean) => void;
@@ -742,7 +847,8 @@ function ToggleField({
         checked
           ? 'border-accent/30 bg-accent-bg text-ink'
           : 'border-border bg-surface text-ink-secondary'
-      }`}
+      } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       role='switch'
       type='button'
@@ -767,11 +873,13 @@ function DetailToggleRow({
   title,
   description,
   checked,
+  disabled = false,
   onChange,
 }: {
   title: string;
   description: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (next: boolean) => void;
 }) {
   return (
@@ -783,6 +891,7 @@ function DetailToggleRow({
       <ToggleField
         ariaLabel={title}
         checked={checked}
+        disabled={disabled}
         disabledLabel='Off'
         enabledLabel='On'
         onChange={onChange}

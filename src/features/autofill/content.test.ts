@@ -11,6 +11,7 @@ const profile = {
   businessName: 'Ada Labs LLC',
   email: 'ada@example.com',
   phone: '555-0100',
+  password: 'P@ssw0rd123!',
   sex: 'female',
   birthDateIso: '1990-01-15',
   birthDay: '15',
@@ -155,6 +156,38 @@ describe('content autofill targeting', () => {
       'Ada Labs LLC',
     );
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
+  });
+
+  it('fills password fields on signup forms when the profile includes a password', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#signup [name="password"]') as HTMLInputElement).value).toBe(
+      profile.password,
+    );
+  });
+
+  it('does not fill password fields on login forms', async () => {
+    document.body.innerHTML = `
+      <form id="login" aria-label="Log in">
+        <label>Email <input name="email" /></label>
+        <label>Password <input type="password" name="password" /></label>
+        <button type="submit">Sign in</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect((document.querySelector('#login [name="password"]') as HTMLInputElement).value).toBe('');
   });
 
   it('fills an eBay-like business signup form while keeping username blocked', async () => {
@@ -336,8 +369,32 @@ describe('content autofill targeting', () => {
       'ada@example.com',
     );
     expect((document.querySelector('#account [name="password"]') as HTMLInputElement).value).toBe(
-      '',
+      profile.password,
     );
+  });
+
+  it('does not autofill password fields on account settings forms', async () => {
+    document.body.innerHTML = `
+      <form id="settings" aria-label="Account settings">
+        <label>First name <input name="firstName" /></label>
+        <label>Last name <input name="lastName" /></label>
+        <label>Current password <input type="password" name="currentPassword" /></label>
+        <label>New password <input type="password" name="newPassword" /></label>
+        <button type="submit">Save changes</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect((document.querySelector('#settings [name="firstName"]') as HTMLInputElement).value).toBe(
+      'Ada',
+    );
+    expect((document.querySelector('#settings [name="lastName"]') as HTMLInputElement).value).toBe(
+      'Lovelace',
+    );
+    expect((document.querySelector('#settings [name="currentPassword"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#settings [name="newPassword"]') as HTMLInputElement).value).toBe('');
   });
 
   it('fills ungrouped fields when no form tags exist', async () => {

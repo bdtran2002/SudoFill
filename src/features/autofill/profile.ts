@@ -13,6 +13,13 @@ interface GenerateAutofillProfileOptions {
   email?: string | null;
 }
 
+const PASSWORD_CHARSETS = {
+  upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  lower: 'abcdefghijkmnopqrstuvwxyz',
+  number: '23456789',
+  special: '!@#$%&*?-_+=',
+} as const;
+
 function getDateParts(date: Date) {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -68,6 +75,26 @@ function getAgeAtFill(birthDate: Date) {
   return age;
 }
 
+function generateStrongPassword() {
+  const required = [
+    faker.helpers.arrayElement([...PASSWORD_CHARSETS.upper]),
+    faker.helpers.arrayElement([...PASSWORD_CHARSETS.lower]),
+    faker.helpers.arrayElement([...PASSWORD_CHARSETS.number]),
+    faker.helpers.arrayElement([...PASSWORD_CHARSETS.special]),
+  ];
+
+  const alphabet = [
+    ...PASSWORD_CHARSETS.upper,
+    ...PASSWORD_CHARSETS.lower,
+    ...PASSWORD_CHARSETS.number,
+    ...PASSWORD_CHARSETS.special,
+  ];
+
+  const extraLength = faker.number.int({ min: 8, max: 12 });
+  const extra = faker.helpers.arrayElements(alphabet, extraLength);
+  return faker.helpers.shuffle([...required, ...extra]).join('');
+}
+
 export function generateAutofillProfile(
   settings: AutofillSettings,
   options: GenerateAutofillProfileOptions = {},
@@ -106,6 +133,7 @@ export function generateAutofillProfile(
     businessName: faker.company.name(),
     email: options.email?.trim() || faker.internet.email({ firstName, lastName }).toLowerCase(),
     phone: faker.phone.number({ style: 'national' }),
+    password: settings.enablePasswordAutofill ? generateStrongPassword() : '',
     sex,
     birthDateIso: birthDateParts.iso,
     birthDay: birthDateParts.day,

@@ -336,12 +336,18 @@ function inferUsernameFromExistingValues(
     const candidate = element.value.trim();
     if (!candidate || candidate.toLowerCase() === profile.email.toLowerCase()) continue;
     if (candidate.includes('@')) continue;
+    if (!/^[\w.-]{3,}$/.test(candidate)) continue;
 
     return candidate;
   }
 
-  return profile.email;
+  return undefined;
 }
+
+type TargetScopeSelection = {
+  targetRoot: HTMLElement | null;
+  targetAnalysis: ScopeAnalysis;
+};
 
 function getScopeMatchSummary(elements: FillableElement[], profile: GeneratedProfile) {
   const matchedFields = new Map<keyof GeneratedProfile, number>();
@@ -680,7 +686,7 @@ function selectTargetScope(
   visibleElements: FillableElement[],
   profile: GeneratedProfile,
   doc: Document,
-) {
+): TargetScopeSelection {
   const activeForm = getActiveForm(doc);
   const activeScopeRoot = getActiveScopeRoot(doc);
 
@@ -700,7 +706,25 @@ function selectTargetScope(
     .filter((candidate) => candidate.score > 0 && isEligibleScope(candidate.analysis))
     .sort((left, right) => right.score - left.score);
 
-  return scoredScopes[0]?.root ?? null;
+  const bestScope = scoredScopes[0];
+
+  if (bestScope) {
+    return {
+      targetRoot: bestScope.root,
+      targetAnalysis: bestScope.analysis,
+    };
+  }
+
+  const targetRoot = null;
+  return {
+    targetRoot,
+    targetAnalysis: analyzeScope(
+      targetRoot,
+      visibleElements.filter((element) => isElementInTargetScope(element, targetRoot)),
+      profile,
+      doc,
+    ),
+  };
 }
 
 async function yieldToNextTick() {
@@ -711,16 +735,9 @@ export async function fillProfile(
   profile: GeneratedProfile,
   doc: Document = document,
 ): Promise<AutofillContentResponse> {
-  const targetRoot = selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
+  const visibleElements = getVisibleEditableFillableElements(doc);
+  const { targetRoot, targetAnalysis } = selectTargetScope(visibleElements, profile, doc);
   const inferredUsername = inferUsernameFromExistingValues(doc, profile, targetRoot);
-  const targetAnalysis = analyzeScope(
-    targetRoot,
-    getVisibleEditableFillableElements(doc).filter((element) =>
-      isElementInTargetScope(element, targetRoot),
-    ),
-    profile,
-    doc,
-  );
   const allowPasswordFill =
     Boolean(profile.password) &&
     !targetAnalysis.emailFirstAuthFlow &&
@@ -731,7 +748,9 @@ export async function fillProfile(
       (targetAnalysis.hasPassword &&
         targetAnalysis.hasPasswordSetupCue &&
         !hasCue(targetAnalysis.text, LOGIN_CUES)) ||
-      (targetAnalysis.passwordFieldCount >= 2 && !hasCue(targetAnalysis.text, LOGIN_CUES)));
+      (targetAnalysis.passwordFieldCount >= 2 &&
+        !hasCue(targetAnalysis.text, LOGIN_CUES) &&
+        (targetAnalysis.strongSignupIntent || targetAnalysis.hasPasswordSetupCue)));
 
   const filledFields = new Set<string>();
   let filledCount = 0;
@@ -791,7 +810,7 @@ export function getTargetRootForTesting(
   profile: GeneratedProfile,
   doc: Document = document,
 ): HTMLElement | null {
-  return selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc);
+  return selectTargetScope(getVisibleEditableFillableElements(doc), profile, doc).targetRoot;
 }
 
 export function getTargetFormForTesting(

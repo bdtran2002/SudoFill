@@ -95,6 +95,30 @@ describe('normalizeAutofillSettings', () => {
     });
   });
 
+  it('falls back to the default usage history details shape for malformed values', () => {
+    expect(
+      normalizeAutofillSettings({
+        saveUsageHistory: true,
+        saveUsageHistoryDetails: 'yes' as never,
+      }).saveUsageHistoryDetails,
+    ).toEqual({
+      name: false,
+      age: false,
+      address: false,
+    });
+
+    expect(
+      normalizeAutofillSettings({
+        saveUsageHistory: true,
+        saveUsageHistoryDetails: [] as never,
+      }).saveUsageHistoryDetails,
+    ).toEqual({
+      name: false,
+      age: false,
+      address: false,
+    });
+  });
+
   it('defaults password-related toggles to off', () => {
     expect(normalizeAutofillSettings({})).toMatchObject({
       enablePasswordAutofill: false,

@@ -172,8 +172,22 @@ describe('resolveAutofillMatch', () => {
     expect(resolveAutofillMatch('password', profile, { allowPassword: true })?.field).toBe(
       'password',
     );
+    expect(resolveAutofillMatch('new password', profile)).toBeNull();
+    expect(resolveAutofillMatch('new password', profile, { allowPassword: true })?.field).toBe(
+      'password',
+    );
+    expect(resolveAutofillMatch('create password', profile)).toBeNull();
+    expect(
+      resolveAutofillMatch('create password', profile, { allowPassword: true })?.field,
+    ).toBe('password');
+    expect(resolveAutofillMatch('confirm password', profile)).toBeNull();
+    expect(
+      resolveAutofillMatch('confirm password', profile, { allowPassword: true })?.field,
+    ).toBe('password');
     expect(resolveAutofillMatch('current password', profile, { allowPassword: true })).toBeNull();
     expect(resolveAutofillMatch('old password', profile, { allowPassword: true })).toBeNull();
+    expect(resolveAutofillMatch('password hint', profile, { allowPassword: true })).toBeNull();
+    expect(resolveAutofillMatch('security question password', profile, { allowPassword: true })).toBeNull();
   });
 
   it('matches common camelCase and concatenated identifiers', () => {

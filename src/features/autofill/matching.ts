@@ -243,14 +243,26 @@ export function resolveAutofillMatch(
 ): AutofillFieldMatch | null {
   const normalizedKey = normalizeFieldKey(key);
   const allowPassword = options.allowPassword ?? false;
-  const isCurrentPasswordField = hasAnyToken(normalizedKey, [
-    'current password',
-    'old password',
-    'existing password',
-    'current passcode',
-    'old passcode',
-    'existing passcode',
-  ]);
+  const isUnsafePasswordField =
+    hasAnyToken(normalizedKey, [
+      'current password',
+      'old password',
+      'existing password',
+      'current passcode',
+      'old passcode',
+      'existing passcode',
+    ]) ||
+    hasAnyToken(normalizedKey, [
+      'hint',
+      'reminder',
+      'recovery',
+      'security question',
+      'password hint',
+      'password reminder',
+      'password recovery question',
+      'password question',
+      'password answer',
+    ]);
   const guardedNameLabel = hasAnyToken(normalizedKey, [
     'preferred',
     'display',
@@ -347,7 +359,7 @@ export function resolveAutofillMatch(
   if (hasAnyToken(normalizedKey, ['sex', 'gender'])) return { field: 'sex', values: [profile.sex] };
 
   if (allowPassword && hasAnyToken(normalizedKey, ['password', 'passcode', 'pass phrase'])) {
-    if (isCurrentPasswordField) {
+    if (isUnsafePasswordField) {
       return null;
     }
 

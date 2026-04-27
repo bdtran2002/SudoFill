@@ -79,11 +79,7 @@ export function normalizeAutofillUsageHistory(value: unknown): AutofillUsageHist
   }
 
   return value
-    .map((candidate) =>
-      isAutofillUsageHistoryEntry(candidate)
-        ? normalizeUsageHistoryEntry(candidate)
-        : normalizeUsageHistoryEntry(candidate as Partial<AutofillUsageHistoryEntry>),
-    )
+    .map((candidate) => normalizeUsageHistoryEntry(candidate))
     .filter((candidate): candidate is AutofillUsageHistoryEntry => Boolean(candidate))
     .slice(0, MAX_AUTOFILL_USAGE_HISTORY_ENTRIES);
 }
@@ -128,7 +124,7 @@ export async function appendAutofillUsageHistoryEntry(entry: AutofillUsageHistor
         createdAt === normalizedEntry.createdAt
       );
     }),
-  ].slice(0, MAX_AUTOFILL_USAGE_HISTORY_ENTRIES);
+  ];
 
   await setStoredAutofillUsageHistory(nextEntries);
 }

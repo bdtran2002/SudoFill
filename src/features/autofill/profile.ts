@@ -76,11 +76,24 @@ function getAgeAtFill(birthDate: Date) {
 }
 
 function generateStrongPassword() {
+  const randomIndex = (length: number) => {
+    const limit = Math.floor(256 / length) * length;
+    const bytes = new Uint8Array(1);
+
+    do {
+      globalThis.crypto.getRandomValues(bytes);
+    } while (bytes[0] >= limit);
+
+    return bytes[0] % length;
+  };
+
+  const pickRandomChar = (charset: string) => charset[randomIndex(charset.length)] ?? '';
+
   const required = [
-    faker.helpers.arrayElement([...PASSWORD_CHARSETS.upper]),
-    faker.helpers.arrayElement([...PASSWORD_CHARSETS.lower]),
-    faker.helpers.arrayElement([...PASSWORD_CHARSETS.number]),
-    faker.helpers.arrayElement([...PASSWORD_CHARSETS.special]),
+    pickRandomChar(PASSWORD_CHARSETS.upper),
+    pickRandomChar(PASSWORD_CHARSETS.lower),
+    pickRandomChar(PASSWORD_CHARSETS.number),
+    pickRandomChar(PASSWORD_CHARSETS.special),
   ];
 
   const alphabet = [
@@ -90,9 +103,18 @@ function generateStrongPassword() {
     ...PASSWORD_CHARSETS.special,
   ];
 
-  const extraLength = faker.number.int({ min: 8, max: 12 });
-  const extra = faker.helpers.arrayElements(alphabet, extraLength);
-  return faker.helpers.shuffle([...required, ...extra]).join('');
+  const extraLength = 8 + randomIndex(5);
+  const password = [
+    ...required,
+    ...Array.from({ length: extraLength }, () => pickRandomChar(alphabet.join(''))),
+  ];
+
+  for (let index = password.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [password[index], password[swapIndex]] = [password[swapIndex] ?? '', password[index] ?? ''];
+  }
+
+  return password.join('');
 }
 
 export function generateAutofillProfile(

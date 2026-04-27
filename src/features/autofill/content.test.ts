@@ -264,7 +264,7 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('#email') as HTMLInputElement).value).toBe('ada@example.com');
   });
 
-  it('defaults the inferred username to the email when no custom username exists', async () => {
+  it('leaves inferred username empty when no custom username exists', async () => {
     document.body.innerHTML = `
       <form id="signup" aria-label="Create account">
         <label for="username">Username</label>
@@ -280,7 +280,7 @@ describe('content autofill targeting', () => {
     const result = await fillProfile(profile, document);
 
     expect(result.ok).toBe(true);
-    expect(result.inferredUsername).toBe('ada@example.com');
+    expect(result.inferredUsername).toBeUndefined();
   });
 
   it('ignores prefilled usernames from a different form outside the target scope', async () => {
@@ -300,7 +300,7 @@ describe('content autofill targeting', () => {
     const result = await fillProfile(profile, document);
 
     expect(result.ok).toBe(true);
-    expect(result.inferredUsername).toBe('ada@example.com');
+    expect(result.inferredUsername).toBeUndefined();
   });
 
   it("fills a Wendy's-style email-first sign-in step when the page title indicates auth intent", async () => {
@@ -371,6 +371,43 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('#account [name="password"]') as HTMLInputElement).value).toBe(
       profile.password,
     );
+  });
+
+  it('does not autofill passwords into generic two-password widgets without signup intent', async () => {
+    document.body.innerHTML = `
+      <form id="widget" aria-label="Security widget">
+        <label>Email <input name="email" /></label>
+        <label>Key one <input type="password" name="password" /></label>
+        <label>Key two <input type="password" name="confirmPassword" /></label>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect((document.querySelector('#widget [name="email"]') as HTMLInputElement).value).toBe('');
+    expect((document.querySelector('#widget [name="password"]') as HTMLInputElement).value).toBe(
+      '',
+    );
+  });
+
+  it('ignores weak username candidates and lets callers fall back to email', async () => {
+    document.body.innerHTML = `
+      <form id="signup" aria-label="Create account">
+        <label for="username">Username</label>
+        <input id="username" name="username" value="a!" />
+
+        <label for="email">Email</label>
+        <input id="email" name="email" />
+
+        <button type="submit">Create account</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(result.inferredUsername).toBeUndefined();
   });
 
   it('does not autofill password fields on account settings forms', async () => {

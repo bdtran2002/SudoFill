@@ -97,4 +97,19 @@ describe('mailbox rendering', () => {
     expect(markup).toContain('HTML body');
     expect(markup).not.toContain('Plain fallback');
   });
+
+  it('falls back to plain text when sanitized html is empty', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MailboxMessageBody, {
+        message: {
+          text: 'Plain fallback',
+          html: '<div><span> </span><script>alert(1)</script></div>',
+        },
+        onOpenLink: () => {},
+      }),
+    );
+
+    expect(markup).toContain('Plain fallback');
+    expect(markup).not.toContain('script');
+  });
 });

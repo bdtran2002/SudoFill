@@ -308,13 +308,51 @@ function renderEmailNode(node: Node, key: string, onOpenLink: (url: string) => v
   return <span key={key}>{children}</span>;
 }
 
+function hasMeaningfulRenderedContent(node: Node): boolean {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent ?? '').trim().length > 0;
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+
+  const element = node as Element;
+  const tagName = element.tagName.toLowerCase();
+
+  if (
+    tagName === 'script' ||
+    tagName === 'style' ||
+    tagName === 'iframe' ||
+    tagName === 'object' ||
+    tagName === 'embed' ||
+    tagName === 'form' ||
+    tagName === 'input' ||
+    tagName === 'button' ||
+    tagName === 'textarea' ||
+    tagName === 'select' ||
+    tagName === 'option' ||
+    tagName === 'noscript'
+  ) {
+    return false;
+  }
+
+  return Array.from(element.childNodes).some(hasMeaningfulRenderedContent);
+}
+
 function renderSanitizedHtml(html: string, onOpenLink: (url: string) => void) {
   if (typeof DOMParser === 'undefined') {
     return [];
   }
 
   const document = new DOMParser().parseFromString(html, 'text/html');
-  return Array.from(document.body.childNodes).map((node, index) =>
+  const nodes = Array.from(document.body.childNodes);
+
+  if (!nodes.some(hasMeaningfulRenderedContent)) {
+    return [];
+  }
+
+  return nodes.map((node, index) =>
     renderEmailNode(node, `html-${index}`, onOpenLink),
   );
 }
@@ -380,9 +418,11 @@ function CopyableCode({ code }: { code: string }) {
 function FillableCode({
   code,
   onFillCode,
+  fillContext,
 }: {
   code: string;
-  onFillCode: (code: string) => void;
+  onFillCode: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
+  fillContext?: { preferredUrl?: string; preferredHostname?: string };
 }) {
   const { copied, flash } = useCopiedFlash();
 
@@ -410,7 +450,7 @@ function FillableCode({
 
       <button
         className='inline-flex items-center justify-center gap-1 rounded-lg border border-accent/20 bg-surface px-3 py-3 text-sm font-medium text-accent transition-colors hover:border-accent/40 hover:bg-accent-bg-strong'
-        onClick={() => onFillCode(code)}
+        onClick={() => onFillCode(code, fillContext)}
         type='button'
       >
         <KeyRound className='h-3.5 w-3.5' />
@@ -457,7 +497,7 @@ export function MailboxVerificationActions({
 }: {
   verification: MailboxMessageDetail['verification'];
   onOpenLink: (url: string) => void;
-  onFillCode?: (code: string) => void;
+  onFillCode?: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
 }) {
   const bestLink = verification.bestLink;
   const bestCode = verification.bestCode;
@@ -487,7 +527,11 @@ export function MailboxVerificationActions({
           {bestCode ? (
             <div className={bestLink ? '' : 'lg:col-span-2'}>
               {onFillCode ? (
-                <FillableCode code={bestCode.code} onFillCode={onFillCode} />
+                <FillableCode
+                  code={bestCode.code}
+                  fillContext={bestLink ? { preferredUrl: bestLink.url } : undefined}
+                  onFillCode={onFillCode}
+                />
               ) : (
                 <CopyableCode code={bestCode.code} />
               )}

@@ -5,7 +5,11 @@ vi.mock('../../lib/webext-async', () => ({
 }));
 
 import { callWebExtensionApi } from '../../lib/webext-async';
-import { fillVerificationCodeOnPage, getPageInteractionTab } from './mailbox-shared';
+import {
+  fillVerificationCodeOnPage,
+  fillVerificationCodeOnPageForContext,
+  getPageInteractionTab,
+} from './mailbox-shared';
 
 describe('mailbox shared tab selection', () => {
   beforeEach(() => {
@@ -40,5 +44,27 @@ describe('mailbox shared tab selection', () => {
     ]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await expect(fillVerificationCodeOnPage('123456')).resolves.toBe(false);
+  });
+
+  it('prefers a matching page tab from the current mailbox link context', async () => {
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
+      ])
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
+        { id: 2, active: false, url: 'https://example.com/account' },
+        { id: 3, active: false, url: 'https://other.example.com' },
+      ])
+      .mockResolvedValueOnce({ ok: true });
+
+    await expect(
+      fillVerificationCodeOnPageForContext('123456', {
+        preferredUrl: 'https://example.com/verify',
+        preferredHostname: 'example.com',
+      }),
+    ).resolves.toBe(true);
+
+    expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
   });
 });

@@ -31,7 +31,7 @@ function MessageDetail({
   snapshot: MailboxSnapshot;
   onBack: () => void;
   onOpenLink: (url: string) => void;
-  onFillCode: (code: string) => void;
+  onFillCode: (code: string, context?: { preferredUrl?: string; preferredHostname?: string }) => void;
   pendingMessageId: string | null;
 }) {
   const isPendingDifferentMessage =
@@ -225,9 +225,12 @@ export function MailboxPage() {
     }
   }
 
-  async function handleFillCode(code: string) {
+  async function handleFillCode(
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) {
     try {
-      const didFill = await fillVerificationCodeOnPage(code);
+      const didFill = await fillVerificationCodeOnPage(code, context);
       if (didFill) {
         setActionStatus({
           tone: 'success',

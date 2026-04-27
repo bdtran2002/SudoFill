@@ -76,19 +76,74 @@ function getMostRelevantPageTab(tabs: chrome.tabs.Tab[]) {
     })[0];
 }
 
+function getTabHostname(tab: chrome.tabs.Tab | undefined) {
+  const url = tab?.url ?? tab?.pendingUrl ?? '';
+
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function isMatchingInteractionTab(
+  tab: chrome.tabs.Tab | undefined,
+  preferredUrl: string | undefined,
+  preferredHostname: string | undefined,
+) {
+  if (!isFillablePageTab(tab)) {
+    return false;
+  }
+
+  const tabUrl = tab?.url ?? tab?.pendingUrl ?? '';
+  const tabHostname = getTabHostname(tab);
+
+  if (preferredUrl && tabUrl === preferredUrl) {
+    return true;
+  }
+
+  if (preferredHostname && tabHostname === preferredHostname) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function getPageInteractionTab() {
+  return getPageInteractionTabForContext();
+}
+
+export async function getPageInteractionTabForContext({
+  preferredUrl,
+  preferredHostname,
+}: {
+  preferredUrl?: string;
+  preferredHostname?: string;
+} = {}) {
   const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
     active: true,
     currentWindow: true,
   });
 
-  if (isFillablePageTab(activeTab)) {
+  if (isMatchingInteractionTab(activeTab, preferredUrl, preferredHostname)) {
+    return activeTab;
+  }
+
+  if (isFillablePageTab(activeTab) && !preferredHostname && !preferredUrl) {
     return activeTab;
   }
 
   const currentWindowTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
     currentWindow: true,
   });
+  const currentWindowMatch = [...currentWindowTabs].find((tab) =>
+    isMatchingInteractionTab(tab, preferredUrl, preferredHostname),
+  );
+
+  if (currentWindowMatch) {
+    return currentWindowMatch;
+  }
+
   const currentWindowCandidate = getMostRelevantPageTab(currentWindowTabs);
 
   if (currentWindowCandidate) {
@@ -103,8 +158,11 @@ function isVerificationFillResponse(value: unknown): value is { ok: boolean } {
   return !!value && typeof value === 'object' && 'ok' in value && typeof value.ok === 'boolean';
 }
 
-export async function fillVerificationCodeOnPage(code: string) {
-  const targetTab = await getPageInteractionTab();
+export async function fillVerificationCodeOnPageForContext(
+  code: string,
+  context?: { preferredUrl?: string; preferredHostname?: string },
+) {
+  const targetTab = await getPageInteractionTabForContext(context);
 
   if (!targetTab?.id) {
     return false;
@@ -116,6 +174,13 @@ export async function fillVerificationCodeOnPage(code: string) {
   });
 
   return isVerificationFillResponse(response) ? response.ok : false;
+}
+
+export async function fillVerificationCodeOnPage(
+  code: string,
+  context?: { preferredUrl?: string; preferredHostname?: string },
+) {
+  return fillVerificationCodeOnPageForContext(code, context);
 }
 
 export function useCopiedFlash() {

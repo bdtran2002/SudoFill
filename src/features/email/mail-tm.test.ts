@@ -406,10 +406,7 @@ describe('mail-tm', () => {
         ],
         verification: {
           bestLink: null,
-          linkCandidates: [
-            { label: 'example.com', url: 'https://example.com' },
-            { label: 'example.org', url: 'https://example.org' },
-          ],
+          linkCandidates: [],
           bestCode: null,
           codeCandidates: [],
         },

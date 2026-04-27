@@ -1,0 +1,773 @@
+(() => {
+  const API_BASE_URL = 'https://api.mail.tm';
+  const STORAGE_KEY = 'sudofill.pages.mailbox.session';
+  const POLL_INTERVAL_MS = 15000;
+  const CODE_PATTERN =
+    /\b(?:code|verification|otp|auth|pin|passcode)\D{0,24}([A-Z0-9-]{4,10}|\d{4,8})\b/i;
+  const FALLBACK_CODE_PATTERN = /\b\d{4,8}\b/g;
+  const LINK_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
+
+  const elements = {
+    shell: document.querySelector('[data-shell]'),
+    availability: document.querySelector('[data-mailbox-availability]'),
+    unread: document.querySelector('[data-mailbox-unread]'),
+    polling: document.querySelector('[data-mailbox-polling]'),
+    address: document.querySelector('[data-mailbox-address]'),
+    disclaimer: document.querySelector('[data-mailbox-disclaimer]'),
+    count: document.querySelector('[data-mailbox-count]'),
+    messageList: document.querySelector('[data-message-list]'),
+    detailEmpty: document.querySelector('[data-detail-empty]'),
+    detailView: document.querySelector('[data-detail-view]'),
+    detailSubject: document.querySelector('[data-detail-subject]'),
+    detailFrom: document.querySelector('[data-detail-from]'),
+    detailTime: document.querySelector('[data-detail-time]'),
+    detailActions: document.querySelector('[data-detail-actions]'),
+    detailBody: document.querySelector('[data-detail-body]'),
+    detailMeta: document.querySelector('[data-detail-meta]'),
+    footer: document.querySelector('[data-mailbox-footer]'),
+    messageTemplate: document.querySelector('#message-row-template'),
+  };
+
+  const state = {
+    session: loadSession(),
+    messages: [],
+    selectedMessageId: null,
+    selectedMessage: null,
+    unreadIds: new Set(),
+    pollTimer: null,
+    busy: false,
+    statusText: 'Ready',
+  };
+
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveSession() {
+    if (!state.session) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.session));
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    document.querySelectorAll('button[data-action]').forEach((button) => {
+      button.disabled = busy;
+    });
+
+    elements.messageList?.setAttribute('aria-busy', String(busy));
+  }
+
+  function setStatus(text) {
+    state.statusText = text;
+    renderStatus();
+  }
+
+  function renderStatus() {
+    const unreadCount = state.messages.filter((message) => state.unreadIds.has(message.id)).length;
+    const hasSession = Boolean(state.session?.token);
+    const pollingOn = Boolean(state.pollTimer);
+
+    if (elements.availability) {
+      elements.availability.textContent = state.statusText;
+    }
+
+    if (elements.unread) {
+      elements.unread.textContent = `${unreadCount} unread`;
+    }
+
+    if (elements.polling) {
+      elements.polling.textContent = pollingOn ? 'Polling on' : 'Polling off';
+    }
+
+    if (elements.count) {
+      elements.count.textContent = `${state.messages.length} ${state.messages.length === 1 ? 'message' : 'messages'}`;
+    }
+
+    if (elements.address) {
+      elements.address.textContent =
+        state.session?.address ?? 'Create a temporary mailbox to begin.';
+    }
+
+    if (elements.disclaimer) {
+      elements.disclaimer.textContent = hasSession
+        ? 'Web mailbox version. Verification links and codes work here, but extension-only actions stay in the add-on.'
+        : 'Web mailbox version. Create an inbox to start collecting verification mail.';
+    }
+
+    if (elements.footer) {
+      elements.footer.textContent = hasSession
+        ? `Web mailbox version · ${state.session.address}`
+        : 'Web mailbox version';
+    }
+
+    elements.shell?.setAttribute('data-mailbox-state', hasSession ? 'active' : 'empty');
+  }
+
+  async function api(path, init = {}, token = state.session?.token) {
+    const headers = new Headers(init.headers || {});
+    if (!headers.has('Content-Type') && init.body) {
+      headers.set('Content-Type', 'application/json');
+    }
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers,
+    });
+
+    if (!response.ok) {
+      let message = `Mail.tm request failed with ${response.status}`;
+      try {
+        const body = await response.json();
+        if (typeof body?.detail === 'string' && body.detail) {
+          message = body.detail;
+        }
+      } catch {
+        const text = await response.text().catch(() => '');
+        if (text) {
+          message = text;
+        }
+      }
+
+      throw new Error(message);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+  async function listDomains() {
+    const response = await api('/domains');
+    const domains = (response['hydra:member'] || [])
+      .filter((domain) => domain.isActive && !domain.isPrivate)
+      .map((domain) => domain.domain)
+      .filter(Boolean);
+
+    if (!domains.length) {
+      throw new Error('No Mail.tm domains are currently available.');
+    }
+
+    return domains;
+  }
+
+  function randomString(length) {
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+  }
+
+  function createCredentials(domain) {
+    return {
+      address: `${randomString(12)}@${domain}`,
+      password: `${randomString(16)}A1`,
+    };
+  }
+
+  function formatTimestamp(value) {
+    if (!value) {
+      return 'Just now';
+    }
+
+    const date = new Date(value);
+    const diff = Date.now() - date.getTime();
+    const minute = 60_000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+
+    if (diff < minute) {
+      return 'Just now';
+    }
+    if (diff < hour) {
+      return `${Math.max(1, Math.round(diff / minute))} min ago`;
+    }
+    if (diff < day) {
+      return `${Math.max(1, Math.round(diff / hour))} hr ago`;
+    }
+
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[character];
+    });
+  }
+
+  function trimTrailingLinkPunctuation(url) {
+    return url.replace(/[),.;]+$/g, '');
+  }
+
+  function unique(values) {
+    return [...new Set(values.filter(Boolean))];
+  }
+
+  function normalizeMessageSummary(message) {
+    const fromAddress = message.from?.address || 'Unknown sender';
+    const fromName = message.from?.name?.trim();
+
+    return {
+      id: message.id,
+      from: fromName ? `${fromName} <${fromAddress}>` : fromAddress,
+      subject: message.subject?.trim() || '(no subject)',
+      intro: message.intro?.trim() || 'No preview available.',
+      createdAt: message.createdAt || new Date().toISOString(),
+      seen: Boolean(message.seen),
+      hasAttachments: Boolean(message.hasAttachments),
+    };
+  }
+
+  function normalizeHtml(html) {
+    if (Array.isArray(html)) {
+      return html.join('\n\n');
+    }
+
+    return html || '';
+  }
+
+  function extractPlainText(detail) {
+    if (detail.text?.trim()) {
+      return detail.text.trim();
+    }
+
+    if (!detail.html) {
+      return '';
+    }
+
+    const documentFragment = new DOMParser().parseFromString(detail.html, 'text/html');
+    return documentFragment.body.textContent?.replace(/\s+/g, ' ').trim() || '';
+  }
+
+  function detectVerificationContent(detail) {
+    const searchableText = [detail.subject, detail.text, detail.html].filter(Boolean).join('\n');
+    const links = unique(
+      [...searchableText.matchAll(LINK_PATTERN)].map((match) =>
+        trimTrailingLinkPunctuation(match[0]),
+      ),
+    );
+
+    const primaryCode = searchableText.match(CODE_PATTERN)?.[1] || null;
+    const fallbackCodes = [...searchableText.matchAll(FALLBACK_CODE_PATTERN)].map(
+      (match) => match[0],
+    );
+    const codes = unique(primaryCode ? [primaryCode, ...fallbackCodes] : fallbackCodes).slice(0, 5);
+
+    return {
+      links,
+      codes,
+      bestLink: links[0] || null,
+      bestCode: codes[0] || null,
+    };
+  }
+
+  function renderMessageList() {
+    if (!elements.messageList || !elements.messageTemplate) {
+      return;
+    }
+
+    elements.messageList.innerHTML = '';
+
+    if (!state.messages.length) {
+      const empty = document.createElement('div');
+      empty.className = 'detail-empty';
+      empty.innerHTML = `
+        <p class="eyebrow">Inbox</p>
+        <h2>No messages yet</h2>
+        <p>Keep this tab open while signing up, then refresh or wait for new mail to arrive.</p>
+      `;
+      elements.messageList.append(empty);
+      return;
+    }
+
+    const selectedId = state.selectedMessageId || state.messages[0].id;
+
+    for (const message of state.messages) {
+      const fragment = elements.messageTemplate.content.cloneNode(true);
+      const button = fragment.querySelector('[data-message-id]');
+      const subject = fragment.querySelector('[data-message-subject]');
+      const time = fragment.querySelector('[data-message-time]');
+      const from = fragment.querySelector('[data-message-from]');
+      const snippet = fragment.querySelector('[data-message-snippet]');
+      const dot = fragment.querySelector('.message-dot');
+
+      button.dataset.messageId = message.id;
+      button.classList.toggle('is-active', message.id === selectedId);
+      button.setAttribute('aria-current', message.id === selectedId ? 'true' : 'false');
+
+      if (!message.seen || state.unreadIds.has(message.id)) {
+        dot.classList.add('is-unread');
+      }
+
+      subject.textContent = message.subject;
+      time.textContent = formatTimestamp(message.createdAt);
+      from.textContent = message.from;
+      snippet.textContent = message.intro;
+      elements.messageList.append(fragment);
+    }
+  }
+
+  function renderDetail() {
+    const detail = state.selectedMessage;
+
+    if (!detail) {
+      elements.detailEmpty.hidden = false;
+      elements.detailView.hidden = true;
+      return;
+    }
+
+    const verification = detectVerificationContent(detail);
+    elements.detailEmpty.hidden = true;
+    elements.detailView.hidden = false;
+    elements.detailSubject.textContent = detail.subject;
+    elements.detailFrom.textContent = detail.from;
+    elements.detailTime.textContent = formatTimestamp(detail.createdAt);
+    elements.detailActions.innerHTML = '';
+    elements.detailMeta.innerHTML = '';
+
+    const actionDefinitions = [];
+    if (verification.bestLink) {
+      actionDefinitions.push({
+        label: 'Open link',
+        action: () => window.open(verification.bestLink, '_blank', 'noopener,noreferrer'),
+      });
+      actionDefinitions.push({
+        label: 'Copy link',
+        action: () => copyToClipboard(verification.bestLink, 'Link copied.'),
+      });
+    }
+    if (verification.bestCode) {
+      actionDefinitions.push({
+        label: 'Copy code',
+        action: () => copyToClipboard(verification.bestCode, 'Code copied.'),
+      });
+    }
+
+    if (!actionDefinitions.length) {
+      actionDefinitions.push({
+        label: 'Copy message text',
+        action: () => copyToClipboard(extractPlainText(detail), 'Message text copied.'),
+      });
+    }
+
+    for (const definition of actionDefinitions) {
+      const button = document.createElement('button');
+      button.className = 'detail-button';
+      button.type = 'button';
+      button.textContent = definition.label;
+      button.addEventListener('click', () => {
+        void definition.action();
+      });
+      elements.detailActions.append(button);
+    }
+
+    renderDetailBody(detail);
+
+    const chips = [
+      `${verification.links.length} ${verification.links.length === 1 ? 'link' : 'links'}`,
+      `${verification.codes.length} ${verification.codes.length === 1 ? 'code' : 'codes'}`,
+      detail.seen ? 'Seen' : 'Unread',
+    ];
+
+    if (detail.hasAttachments) {
+      chips.push('Has attachments');
+    }
+
+    for (const chipText of chips) {
+      const chip = document.createElement('span');
+      chip.className = 'meta-chip';
+      chip.textContent = chipText;
+      elements.detailMeta.append(chip);
+    }
+  }
+
+  function renderDetailBody(detail) {
+    elements.detailBody.innerHTML = '';
+
+    const verification = detectVerificationContent(detail);
+    if (verification.bestCode || verification.bestLink) {
+      const intro = document.createElement('p');
+      const hints = [];
+      if (verification.bestCode) {
+        hints.push(`Best code: ${verification.bestCode}`);
+      }
+      if (verification.bestLink) {
+        hints.push('Verification link detected');
+      }
+      intro.textContent = hints.join(' · ');
+      elements.detailBody.append(intro);
+    }
+
+    if (detail.html?.trim()) {
+      const documentFragment = new DOMParser().parseFromString(detail.html, 'text/html');
+      sanitizeHtml(documentFragment.body);
+      elements.detailBody.append(...Array.from(documentFragment.body.childNodes));
+      return;
+    }
+
+    const paragraphs = (detail.text || '').split(/\n{2,}/).filter(Boolean);
+    if (!paragraphs.length) {
+      const empty = document.createElement('p');
+      empty.textContent = '[empty message]';
+      elements.detailBody.append(empty);
+      return;
+    }
+
+    for (const paragraphText of paragraphs) {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = paragraphText.trim();
+      elements.detailBody.append(paragraph);
+    }
+  }
+
+  function sanitizeHtml(root) {
+    const blockedTags = new Set([
+      'script',
+      'style',
+      'iframe',
+      'object',
+      'embed',
+      'form',
+      'input',
+      'button',
+      'textarea',
+      'select',
+      'option',
+    ]);
+
+    for (const element of Array.from(root.querySelectorAll('*'))) {
+      const tagName = element.tagName.toLowerCase();
+      if (blockedTags.has(tagName)) {
+        element.remove();
+        continue;
+      }
+
+      for (const attribute of Array.from(element.attributes)) {
+        const name = attribute.name.toLowerCase();
+        const value = attribute.value;
+        const isEventHandler = name.startsWith('on');
+        const isUnsafeHref = (name === 'href' || name === 'src') && !/^https?:/i.test(value);
+        const isStyle = name === 'style';
+
+        if (isEventHandler || isUnsafeHref || isStyle) {
+          element.removeAttribute(attribute.name);
+        }
+      }
+
+      if (tagName === 'a') {
+        element.setAttribute('target', '_blank');
+        element.setAttribute('rel', 'noreferrer noopener');
+      }
+    }
+  }
+
+  function render() {
+    renderStatus();
+    renderMessageList();
+    renderDetail();
+  }
+
+  async function copyToClipboard(value, successMessage) {
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus(successMessage);
+    } catch {
+      setStatus('Clipboard access failed.');
+    }
+  }
+
+  async function createMailbox() {
+    setBusy(true);
+    setStatus('Creating inbox…');
+
+    try {
+      const domains = await listDomains();
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const credentials = createCredentials(domains[Math.floor(Math.random() * domains.length)]);
+
+        try {
+          const account = await api('/accounts', {
+            method: 'POST',
+            body: JSON.stringify(credentials),
+          });
+          const token = await api('/token', {
+            method: 'POST',
+            body: JSON.stringify(credentials),
+          });
+
+          state.session = {
+            accountId: account.id,
+            address: account.address,
+            password: credentials.password,
+            token: token.token,
+            createdAt: new Date().toISOString(),
+          };
+          state.messages = [];
+          state.selectedMessageId = null;
+          state.selectedMessage = null;
+          state.unreadIds = new Set();
+          saveSession();
+          await refreshInbox();
+          setStatus('Temporary mailbox created.');
+          startPolling();
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError || new Error('Could not create mailbox.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not create mailbox.');
+      render();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function discardMailbox() {
+    if (!state.session) {
+      return;
+    }
+
+    const confirmed = window.confirm('Discard this mailbox and all cached messages?');
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(true);
+    setStatus('Discarding mailbox…');
+
+    try {
+      try {
+        await api(`/accounts/${state.session.accountId}`, { method: 'DELETE' });
+      } catch {
+        // Best effort, same as the extension path.
+      }
+
+      state.session = null;
+      state.messages = [];
+      state.selectedMessageId = null;
+      state.selectedMessage = null;
+      state.unreadIds = new Set();
+      saveSession();
+      stopPolling();
+      setStatus('Mailbox discarded.');
+      render();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshInbox() {
+    if (!state.session?.token) {
+      render();
+      return;
+    }
+
+    setStatus('Refreshing inbox…');
+
+    try {
+      const response = await api('/messages', {}, state.session.token);
+      const summaries = (response['hydra:member'] || []).map(normalizeMessageSummary);
+      state.messages = summaries;
+      state.unreadIds = new Set(
+        summaries.filter((message) => !message.seen).map((message) => message.id),
+      );
+
+      const nextSelectedId =
+        state.selectedMessageId &&
+        summaries.some((message) => message.id === state.selectedMessageId)
+          ? state.selectedMessageId
+          : summaries[0]?.id || null;
+
+      state.selectedMessageId = nextSelectedId;
+      if (nextSelectedId) {
+        await openMessage(nextSelectedId, { silent: true });
+      } else {
+        state.selectedMessage = null;
+        render();
+      }
+
+      setStatus('Mailbox refreshed.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not refresh inbox.';
+      setStatus(message);
+      if (/401|token|jwt|unauthorized/i.test(message)) {
+        state.session = null;
+        state.messages = [];
+        state.selectedMessage = null;
+        state.selectedMessageId = null;
+        state.unreadIds = new Set();
+        saveSession();
+        stopPolling();
+        render();
+      }
+    }
+  }
+
+  async function openMessage(messageId, options = {}) {
+    if (!state.session?.token) {
+      return;
+    }
+
+    if (!options.silent) {
+      setStatus('Loading message…');
+      setBusy(true);
+    }
+
+    try {
+      const response = await api(`/messages/${messageId}`, {}, state.session.token);
+      const summary = normalizeMessageSummary(response);
+      state.selectedMessageId = messageId;
+      state.selectedMessage = {
+        ...summary,
+        to: (response.to || []).map((recipient) => recipient.address).filter(Boolean),
+        text: response.text?.trim() || '',
+        html: normalizeHtml(response.html),
+        seen: Boolean(response.seen),
+      };
+      state.messages = state.messages.map((message) =>
+        message.id === messageId ? { ...message, seen: true } : message,
+      );
+      state.unreadIds.delete(messageId);
+      render();
+
+      if (!options.silent) {
+        setStatus('Message loaded.');
+      }
+    } catch (error) {
+      if (!options.silent) {
+        setStatus(error instanceof Error ? error.message : 'Could not load message.');
+      }
+    } finally {
+      if (!options.silent) {
+        setBusy(false);
+      }
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    if (document.hidden || !state.session?.token) {
+      renderStatus();
+      return;
+    }
+
+    state.pollTimer = window.setInterval(() => {
+      void refreshInbox();
+    }, POLL_INTERVAL_MS);
+    renderStatus();
+  }
+
+  function stopPolling() {
+    if (state.pollTimer) {
+      window.clearInterval(state.pollTimer);
+      state.pollTimer = null;
+    }
+    renderStatus();
+  }
+
+  async function handleAction(action) {
+    if (action === 'create') {
+      await createMailbox();
+      return;
+    }
+
+    if (action === 'refresh') {
+      await refreshInbox();
+      return;
+    }
+
+    if (action === 'copy-address') {
+      await copyToClipboard(state.session?.address, 'Address copied to clipboard.');
+      return;
+    }
+
+    if (action === 'discard') {
+      await discardMailbox();
+      return;
+    }
+
+    if (action === 'open-link') {
+      const bestLink = state.selectedMessage
+        ? detectVerificationContent(state.selectedMessage).bestLink
+        : null;
+      if (bestLink) {
+        window.open(bestLink, '_blank', 'noopener,noreferrer');
+        setStatus('Opened verification link.');
+      }
+      return;
+    }
+
+    if (action === 'copy-code') {
+      const bestCode = state.selectedMessage
+        ? detectVerificationContent(state.selectedMessage).bestCode
+        : null;
+      await copyToClipboard(bestCode, 'Code copied to clipboard.');
+    }
+  }
+
+  elements.messageList?.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-message-id]');
+    const messageId = target?.dataset.messageId;
+    if (messageId) {
+      void openMessage(messageId);
+    }
+  });
+
+  document.querySelectorAll('[data-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      void handleAction(button.dataset.action);
+    });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopPolling();
+      return;
+    }
+
+    startPolling();
+    if (state.session?.token) {
+      void refreshInbox();
+    }
+  });
+
+  render();
+
+  if (state.session?.token) {
+    setStatus('Restoring mailbox…');
+    startPolling();
+    void refreshInbox();
+  }
+})();

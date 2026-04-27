@@ -273,6 +273,10 @@ function syncMessages(
   return nextMessages.filter((message) => !previousKnownMessageIds.has(message.id));
 }
 
+function isMailboxMessageDetail(value: unknown): value is NonNullable<ActiveMailboxSession['selectedMessage']> {
+  return !!value && typeof value === 'object' && typeof (value as { verification?: unknown }).verification === 'object';
+}
+
 function isCurrentSession(session: ActiveMailboxSession) {
   return activeSession === session;
 }
@@ -487,6 +491,11 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
 
     if (!session) {
       return updateSnapshot(EMPTY_MAILBOX_SNAPSHOT);
+    }
+
+    if (session.selectedMessage && !isMailboxMessageDetail(session.selectedMessage)) {
+      session.selectedMessageId = null;
+      session.selectedMessage = null;
     }
 
     activeSession = {

@@ -275,8 +275,10 @@ async function showVerificationPopup(payload: VerificationPopupPayload) {
     shadow.querySelector('.codeLabel')!.textContent = payload.code.label;
     shadow.querySelector('.codeValue')!.textContent = payload.code.code;
     shadow.querySelector('.fill')!.addEventListener('click', async () => {
-      await chrome.runtime.sendMessage({ type: 'verification:fill-code', code: payload.code!.code });
-      rootHost.remove();
+      const didFill = fillVerificationCode(payload.code!.code);
+      if (didFill) {
+        rootHost.remove();
+      }
     });
     shadow.querySelector('.copy')!.addEventListener('click', async () => {
       await navigator.clipboard.writeText(payload.code!.code);

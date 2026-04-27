@@ -63,7 +63,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
 function isFillablePageTab(tab: chrome.tabs.Tab | undefined) {
   const url = tab?.url ?? tab?.pendingUrl ?? '';
 
-  return /^https?:\/\//i.test(url);
+  return /^https:\/\//i.test(url);
 }
 
 function getMostRelevantPageTab(tabs: chrome.tabs.Tab[]) {

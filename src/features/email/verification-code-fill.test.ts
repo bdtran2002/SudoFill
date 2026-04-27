@@ -60,4 +60,32 @@ describe('verification code fill', () => {
     expect(fillVerificationCode('123456')).toBe(true);
     expect((document.getElementById('code-box') as HTMLInputElement).value).toBe('123456');
   });
+
+  it('detects segmented otp inputs from nearby group text', () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Enter security code</legend>
+        <div class="otp-grid">
+          <input id="digit-1" type="text" inputmode="numeric" />
+          <input id="digit-2" type="text" inputmode="numeric" />
+          <input id="digit-3" type="text" inputmode="numeric" />
+          <input id="digit-4" type="text" inputmode="numeric" />
+        </div>
+      </fieldset>
+    `;
+
+    expect(fillVerificationCode('1234')).toBe(true);
+    expect((document.getElementById('digit-1') as HTMLInputElement).value).toBe('1234');
+  });
+
+  it('does not qualify generic code fields without verification cues', () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Code entry</legend>
+        <input id="code-box" type="text" />
+      </fieldset>
+    `;
+
+    expect(fillVerificationCode('1234')).toBe(false);
+  });
 });

@@ -38,8 +38,32 @@ function getNormalizedFieldDescriptorText(element: HTMLInputElement | HTMLTextAr
   return getFieldDescriptorText(element).toLowerCase();
 }
 
+function getReferencedGroupText(element: Element) {
+  const group = element.closest('fieldset, [role="group"], [aria-label], [aria-labelledby]');
+  if (!group) return '';
+
+  return [
+    group.getAttribute('aria-label') ?? '',
+    getReferencedText(group, 'aria-labelledby' as const),
+    group.textContent ?? '',
+  ]
+    .join(' ')
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getNearbyVerificationContextText(element: HTMLInputElement | HTMLTextAreaElement) {
+  return [getReferencedGroupText(element), element.parentElement?.textContent ?? '']
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function isLikelyVerificationCodeField(element: HTMLInputElement | HTMLTextAreaElement) {
   const descriptorText = getNormalizedFieldDescriptorText(element);
+  const nearbyText = getNearbyVerificationContextText(element);
   const autocomplete = element.getAttribute('autocomplete')?.toLowerCase() ?? '';
 
   if (autocomplete === 'one-time-code') return true;
@@ -62,7 +86,7 @@ function isLikelyVerificationCodeField(element: HTMLInputElement | HTMLTextAreaE
     'security token',
   ];
 
-  return strongPhrases.some((phrase) => descriptorText.includes(phrase));
+  return strongPhrases.some((phrase) => descriptorText.includes(phrase) || nearbyText.includes(phrase));
 }
 
 function getValueSetter(element: HTMLInputElement | HTMLTextAreaElement) {

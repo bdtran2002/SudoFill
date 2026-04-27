@@ -393,8 +393,54 @@ describe('content autofill targeting', () => {
     expect((document.querySelector('#settings [name="lastName"]') as HTMLInputElement).value).toBe(
       'Lovelace',
     );
-    expect((document.querySelector('#settings [name="currentPassword"]') as HTMLInputElement).value).toBe('');
-    expect((document.querySelector('#settings [name="newPassword"]') as HTMLInputElement).value).toBe('');
+    expect(
+      (document.querySelector('#settings [name="currentPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (document.querySelector('#settings [name="newPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+  });
+
+  it('fills password-only signup setup steps', async () => {
+    document.body.innerHTML = `
+      <form id="password-setup" aria-label="Set your password">
+        <label>Password <input type="password" name="password" /></label>
+        <label>Confirm password <input type="password" name="confirmPassword" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(true);
+    expect(
+      (document.querySelector('#password-setup [name="password"]') as HTMLInputElement).value,
+    ).toBe(profile.password);
+    expect(
+      (document.querySelector('#password-setup [name="confirmPassword"]') as HTMLInputElement)
+        .value,
+    ).toBe(profile.password);
+  });
+
+  it('does not autofill password reset flows', async () => {
+    document.body.innerHTML = `
+      <form id="password-reset" aria-label="Reset password">
+        <label>New password <input type="password" name="newPassword" /></label>
+        <label>Confirm password <input type="password" name="confirmPassword" /></label>
+        <button type="submit">Continue</button>
+      </form>
+    `;
+
+    const result = await fillProfile(profile, document);
+
+    expect(result.ok).toBe(false);
+    expect(
+      (document.querySelector('#password-reset [name="newPassword"]') as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (document.querySelector('#password-reset [name="confirmPassword"]') as HTMLInputElement)
+        .value,
+    ).toBe('');
   });
 
   it('fills ungrouped fields when no form tags exist', async () => {

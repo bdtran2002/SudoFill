@@ -7,6 +7,22 @@ const FILLABLE_SELECTOR = 'input, select, textarea';
 const SIGN_UP_CUES = ['sign up', 'signup', 'create account', 'register', 'join', 'get started'];
 const ACCOUNT_CUES = ['create profile', 'new customer', 'new account'];
 const LOGIN_CUES = ['sign in', 'signin', 'log in', 'login'];
+const PASSWORD_SETUP_CUES = [
+  'set your password',
+  'set password',
+  'create password',
+  'choose password',
+  'confirm password',
+];
+const PASSWORD_RESET_CUES = [
+  'reset password',
+  'forgot password',
+  'recover account',
+  'recovery code',
+  'reset your password',
+  'change password',
+  'update password',
+];
 const EMAIL_FIRST_AUTH_SUBMIT_CUES = ['next', 'continue'];
 const EMAIL_FIRST_AUTH_CONTEXT_CUES = [
   'stay logged in',
@@ -290,11 +306,7 @@ function getElementContext(element: FillableElement) {
   };
 }
 
-function getFieldMatch(
-  element: FillableElement,
-  profile: GeneratedProfile,
-  allowPassword = false,
-) {
+function getFieldMatch(element: FillableElement, profile: GeneratedProfile, allowPassword = false) {
   if (element.disabled) return null;
   if (
     element instanceof HTMLInputElement &&
@@ -353,6 +365,7 @@ type ScopeAnalysis = {
   matchedFields: Map<keyof GeneratedProfile, number>;
   matchingFieldCount: number;
   hasPassword: boolean;
+  passwordFieldCount: number;
   hasSubmit: boolean;
   hasLowIntentCue: boolean;
   hasExplicitSignupCue: boolean;
@@ -360,6 +373,8 @@ type ScopeAnalysis = {
   identityFieldCount: number;
   emailFirstAuthFlow: boolean;
   strongSignupIntent: boolean;
+  hasPasswordSetupCue: boolean;
+  hasPasswordResetCue: boolean;
   richIdentityScope: boolean;
 };
 
@@ -446,6 +461,12 @@ function hasPasswordField(elements: FillableElement[]) {
   );
 }
 
+function countPasswordFields(elements: FillableElement[]) {
+  return elements.filter(
+    (element) => element instanceof HTMLInputElement && element.type === 'password',
+  ).length;
+}
+
 function hasSubmitControl(root: HTMLElement | null) {
   if (!root) return false;
 
@@ -524,6 +545,7 @@ function analyzeScope(
   const text = getScopeText(root);
   const { matchedFields, matchingFieldCount } = getScopeMatchSummary(elements, profile);
   const hasPassword = hasPasswordField(elements);
+  const passwordFieldCount = countPasswordFields(elements);
   const hasSubmit = hasSubmitControl(root);
   const hasLowIntentCue = hasCue(text, LOW_INTENT_CUES);
   const hasExplicitSignupCue = hasCue(text, [...SIGN_UP_CUES, ...ACCOUNT_CUES]);
@@ -533,8 +555,13 @@ function analyzeScope(
   ).length;
   const authContextText = [text, getDocumentIntentText(doc)].filter(Boolean).join(' ');
   const submitText = getSubmitControlText(root);
+  const passwordContextText = [text, getDocumentIntentText(doc), submitText]
+    .filter(Boolean)
+    .join(' ');
   const hasAuthStepCue =
     hasCue(submitText, EMAIL_FIRST_AUTH_SUBMIT_CUES) || hasCue(text, EMAIL_FIRST_AUTH_CONTEXT_CUES);
+  const hasPasswordSetupCue = hasCue(passwordContextText, PASSWORD_SETUP_CUES);
+  const hasPasswordResetCue = hasCue(passwordContextText, PASSWORD_RESET_CUES);
   const emailFirstAuthFlow =
     Boolean(root) &&
     !hasPassword &&
@@ -557,6 +584,7 @@ function analyzeScope(
     matchedFields,
     matchingFieldCount,
     hasPassword,
+    passwordFieldCount,
     hasSubmit,
     hasLowIntentCue,
     hasExplicitSignupCue,
@@ -564,6 +592,8 @@ function analyzeScope(
     identityFieldCount,
     emailFirstAuthFlow,
     strongSignupIntent,
+    hasPasswordSetupCue,
+    hasPasswordResetCue,
     richIdentityScope,
   } satisfies ScopeAnalysis;
 }
@@ -580,6 +610,9 @@ function scoreScope(analysis: ScopeAnalysis) {
     strongSignupIntent,
     richIdentityScope,
     hasPassword,
+    passwordFieldCount,
+    hasPasswordSetupCue,
+    hasPasswordResetCue,
   } = analysis;
   const uniqueFieldScore = [...matchedFields.values()].reduce((sum, value) => sum + value, 0);
   const totalMatchScore = matchingFieldCount * 2;
@@ -592,6 +625,9 @@ function scoreScope(analysis: ScopeAnalysis) {
   if (hasExplicitSignupCue && !hasLowIntentCue) score += 8;
   if (hasCue(text, LOGIN_CUES) && !emailFirstAuthFlow) score -= 8;
   if (analysis.hasNonSignupAccountCue) score -= 10;
+  if (hasPasswordSetupCue && !hasPasswordResetCue) score += 8;
+  if (passwordFieldCount >= 2 && !hasPasswordResetCue) score += 5;
+  if (hasPasswordResetCue) score -= 12;
   if (matchedFields.size < 2 && !emailFirstAuthFlow) score -= 8;
   if (hasLowIntentCue && !strongSignupIntent) score -= 14;
   if (hasPassword && identityFieldCount >= 2) score += 3;
@@ -605,6 +641,8 @@ function isEligibleScope(analysis: ScopeAnalysis) {
   // Password-bearing account flows need to stay eligible even when the page copy is sparse.
   const hasStrongSignupCue =
     analysis.strongSignupIntent ||
+    (analysis.hasPasswordSetupCue && !analysis.hasPasswordResetCue) ||
+    (analysis.passwordFieldCount >= 2 && !analysis.hasPasswordResetCue) ||
     analysis.hasPassword ||
     (analysis.matchingFieldCount >= 3 &&
       !analysis.hasNonSignupAccountCue &&
@@ -677,7 +715,9 @@ export async function fillProfile(
   const inferredUsername = inferUsernameFromExistingValues(doc, profile, targetRoot);
   const targetAnalysis = analyzeScope(
     targetRoot,
-    getVisibleEditableFillableElements(doc).filter((element) => isElementInTargetScope(element, targetRoot)),
+    getVisibleEditableFillableElements(doc).filter((element) =>
+      isElementInTargetScope(element, targetRoot),
+    ),
     profile,
     doc,
   );
@@ -685,7 +725,13 @@ export async function fillProfile(
     Boolean(profile.password) &&
     !targetAnalysis.emailFirstAuthFlow &&
     !targetAnalysis.hasNonSignupAccountCue &&
-    (targetAnalysis.strongSignupIntent || (targetAnalysis.hasPassword && targetAnalysis.identityFieldCount >= 2));
+    !targetAnalysis.hasPasswordResetCue &&
+    (targetAnalysis.strongSignupIntent ||
+      (targetAnalysis.hasPassword && targetAnalysis.identityFieldCount >= 2) ||
+      (targetAnalysis.hasPassword &&
+        targetAnalysis.hasPasswordSetupCue &&
+        !hasCue(targetAnalysis.text, LOGIN_CUES)) ||
+      (targetAnalysis.passwordFieldCount >= 2 && !hasCue(targetAnalysis.text, LOGIN_CUES)));
 
   const filledFields = new Set<string>();
   let filledCount = 0;

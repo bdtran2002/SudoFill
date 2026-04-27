@@ -208,6 +208,15 @@ function toMailboxLink(candidate: RawLinkCandidate): MailboxLink {
   };
 }
 
+function isOpenableVerificationUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 type RawCodeCandidate = {
   code: string;
   label: string;
@@ -303,6 +312,7 @@ export function extractMailboxVerificationDetails({
   };
 
   const linkCandidates = extractMailboxLinks(subject, text, html)
+    .filter((candidate) => isOpenableVerificationUrl(candidate.url))
     .map((candidate) => ({ ...candidate, score: rankVerificationLink(candidate) }))
     .filter((candidate) => candidate.score >= 6)
     .sort((left, right) => right.score - left.score)

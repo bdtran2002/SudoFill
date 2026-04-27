@@ -117,6 +117,16 @@ function isMatchingInteractionTab(
   return false;
 }
 
+function findPreferredUrlMatch(tabs: chrome.tabs.Tab[], preferredUrl: string | undefined) {
+  if (!preferredUrl) {
+    return null;
+  }
+
+  return (
+    tabs.find((tab) => isFillablePageTab(tab) && (tab.url ?? tab.pendingUrl ?? '') === preferredUrl) ?? null
+  );
+}
+
 export async function getPageInteractionTab() {
   return getPageInteractionTabForContext();
 }
@@ -133,6 +143,16 @@ export async function getPageInteractionTabForContext({
     currentWindow: true,
   });
 
+  const currentWindowTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+    currentWindow: true,
+  });
+
+  const preferredUrlMatch = findPreferredUrlMatch(currentWindowTabs, preferredUrl);
+
+  if (preferredUrlMatch) {
+    return preferredUrlMatch;
+  }
+
   if (isMatchingInteractionTab(activeTab, preferredUrl, preferredHostname)) {
     return activeTab;
   }
@@ -141,9 +161,6 @@ export async function getPageInteractionTabForContext({
     return activeTab;
   }
 
-  const currentWindowTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-    currentWindow: true,
-  });
   const currentWindowMatch = [...currentWindowTabs].find((tab) =>
     isMatchingInteractionTab(tab, preferredUrl, preferredHostname),
   );
@@ -159,6 +176,13 @@ export async function getPageInteractionTabForContext({
   }
 
   const allTabs = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {});
+
+  const globalPreferredUrlMatch = findPreferredUrlMatch(allTabs, preferredUrl);
+
+  if (globalPreferredUrlMatch) {
+    return globalPreferredUrlMatch;
+  }
+
   return getMostRelevantPageTab(allTabs);
 }
 

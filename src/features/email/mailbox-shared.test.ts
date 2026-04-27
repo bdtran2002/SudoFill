@@ -85,4 +85,23 @@ describe('mailbox shared tab selection', () => {
 
     expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
   });
+
+  it('prefers an exact preferred url over the active related-host tab', async () => {
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'https://app.example.com/dashboard' }])
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'https://app.example.com/dashboard' },
+        { id: 2, active: false, url: 'https://login.example.com/verify?token=abc' },
+      ])
+      .mockResolvedValueOnce({ ok: true });
+
+    await expect(
+      fillVerificationCodeOnPageForContext('123456', {
+        preferredUrl: 'https://login.example.com/verify?token=abc',
+        preferredHostname: 'example.com',
+      }),
+    ).resolves.toBe(true);
+
+    expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
+  });
 });

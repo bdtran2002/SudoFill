@@ -250,6 +250,11 @@ function syncMessages(
   nextMessages: ActiveMailboxSession['messages'],
 ) {
   const previousKnownMessageIds = new Set(session.knownMessageIds);
+
+  if (previousKnownMessageIds.size === 0 && session.messages.length > 0) {
+    session.messages.forEach((message) => previousKnownMessageIds.add(message.id));
+  }
+
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
   const browserNotificationMessageIds = new Set(session.browserNotificationMessageIds);
@@ -284,10 +289,13 @@ function syncMessages(
 function isMailboxMessageDetail(
   value: unknown,
 ): value is NonNullable<ActiveMailboxSession['selectedMessage']> {
+  const verification = (value as { verification?: unknown } | null)?.verification;
+
   return (
     !!value &&
     typeof value === 'object' &&
-    typeof (value as { verification?: unknown }).verification === 'object'
+    verification !== null &&
+    typeof verification === 'object'
   );
 }
 
@@ -303,28 +311,51 @@ async function tryShowVerificationPopup(
     const settings = await getStoredAutofillSettings();
     if (!settings.showVerificationAssistPopup) return;
 
-    const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
-      active: true,
-      currentWindow: true,
-    });
-
-    if (activeTab?.id == null || !activeTab.url) return;
-    const activeHostname = getHostnameFromUrl(activeTab.url);
-    if (!activeHostname) return;
-
     for (const summary of newMessages) {
       if (summary.id === lastVerificationPopupMessageId) continue;
+
+      lastVerificationPopupMessageId = summary.id;
+
       const message = await getMailTmMessage(session.token, summary.id).match(
         (value) => value,
         () => null,
       );
-      if (!message) continue;
+      if (!message) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+        active: true,
+        currentWindow: true,
+      });
+
+      if (activeTab?.id == null || !activeTab.url) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
+
+      const activeHostname = getHostnameFromUrl(activeTab.url);
+      if (!activeHostname) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
+        continue;
+      }
 
       const payload = buildVerificationPopupPayload(message);
       if (
         !payload ||
+        lastVerificationPopupMessageId !== summary.id ||
         !isVerificationPopupRelevant(activeHostname, message.verification, message.from)
       ) {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
         continue;
       }
 
@@ -333,8 +364,10 @@ async function tryShowVerificationPopup(
           type: 'verification:show-popup',
           payload,
         });
-        lastVerificationPopupMessageId = payload.messageId;
       } catch {
+        if (lastVerificationPopupMessageId === summary.id) {
+          lastVerificationPopupMessageId = null;
+        }
         continue;
       }
 
@@ -519,8 +552,11 @@ function restoreMailboxFromSessionStorage(): ResultAsync<void, MailboxError> {
       ...session,
       browserNotificationMessageIds: session.browserNotificationMessageIds ?? [],
       unreadMessageIds: session.unreadMessageIds ?? [],
-      knownMessageIds: session.knownMessageIds ?? [],
       messages: session.messages ?? [],
+      knownMessageIds:
+        session.knownMessageIds?.length
+          ? session.knownMessageIds
+          : (session.messages ?? []).map((message) => message.id),
     };
     return ensureFallbackAlarm(true)
       .andThen(() => updateSnapshot(toMailboxSnapshot(activeSession)))

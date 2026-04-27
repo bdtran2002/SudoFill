@@ -6,15 +6,11 @@ import type {
 import { fillProfile } from '../src/features/autofill/content';
 import { fillVerificationCode } from '../src/features/email/verification-code-fill';
 import type { VerificationPopupPayload } from '../src/features/email/verification-popup';
+import type { VerificationContentCommand } from '../src/features/email/types';
 
 type VerificationPopupRequest = {
   type: 'verification:show-popup';
   payload: VerificationPopupPayload;
-};
-
-type VerificationFillCodeRequest = {
-  type: 'verification:fill-code';
-  code: string;
 };
 
 function isGeneratedProfile(value: unknown): value is GeneratedProfile {
@@ -49,9 +45,11 @@ export default defineContentScript({
   main() {
     chrome.runtime.onMessage.addListener(
       (
-        message: AutofillContentRequest | VerificationPopupRequest | VerificationFillCodeRequest,
+        message: AutofillContentRequest | VerificationPopupRequest | VerificationContentCommand,
         _sender,
-        sendResponse: (response: AutofillContentResponse | { ok: boolean }) => void,
+        sendResponse: (
+          response: AutofillContentResponse | { ok: boolean; error?: string },
+        ) => void,
       ) => {
         if (message.type === 'verification:fill-code') {
           const didFill = fillVerificationCode(message.code);
@@ -64,7 +62,15 @@ export default defineContentScript({
             return false;
           }
 
-          void showVerificationPopup(message.payload).then(() => sendResponse({ ok: true }));
+          void showVerificationPopup(message.payload)
+            .then(() => sendResponse({ ok: true }))
+            .catch((error) => {
+              console.error('showVerificationPopup failed', error);
+              sendResponse({
+                ok: false,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            });
           return true;
         }
 

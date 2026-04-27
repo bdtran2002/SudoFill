@@ -81,6 +81,44 @@ describe('verification code fill', () => {
     expect((document.getElementById('digit-4') as HTMLInputElement).value).toBe('4');
   });
 
+  it('fills partially completed segmented otp inputs without falling back', () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Enter security code</legend>
+        <div class="otp-grid">
+          <input id="digit-1" type="text" inputmode="numeric" value="1" />
+          <input id="digit-2" type="text" inputmode="numeric" />
+          <input id="digit-3" type="text" inputmode="numeric" />
+          <input id="digit-4" type="text" inputmode="numeric" />
+        </div>
+      </fieldset>
+    `;
+
+    expect(fillVerificationCode('1234')).toBe(true);
+    expect((document.getElementById('digit-1') as HTMLInputElement).value).toBe('1');
+    expect((document.getElementById('digit-2') as HTMLInputElement).value).toBe('2');
+    expect((document.getElementById('digit-3') as HTMLInputElement).value).toBe('3');
+    expect((document.getElementById('digit-4') as HTMLInputElement).value).toBe('4');
+  });
+
+  it('refuses mismatched partially filled segmented otp inputs', () => {
+    document.body.innerHTML = `
+      <fieldset>
+        <legend>Enter security code</legend>
+        <div class="otp-grid">
+          <input id="digit-1" type="text" inputmode="numeric" value="9" />
+          <input id="digit-2" type="text" inputmode="numeric" />
+          <input id="digit-3" type="text" inputmode="numeric" />
+          <input id="digit-4" type="text" inputmode="numeric" />
+        </div>
+      </fieldset>
+    `;
+
+    expect(fillVerificationCode('1234')).toBe(false);
+    expect((document.getElementById('digit-1') as HTMLInputElement).value).toBe('9');
+    expect((document.getElementById('digit-2') as HTMLInputElement).value).toBe('');
+  });
+
   it('does not qualify generic code fields without verification cues', () => {
     document.body.innerHTML = `
       <fieldset>

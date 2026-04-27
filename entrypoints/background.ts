@@ -42,7 +42,7 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollInFlight: Promise<void> | null = null;
 let pendingForcedPoll = false;
 let pendingForcedPollWaiters: Array<() => void> = [];
-const openMailboxUiInstanceIds = new Set<string>();
+const openMailboxUiInstanceIds = new Map<string, number>();
 let lastMailboxUiClosedAt = 0;
 let lastVerificationPopupMessageId: string | null = null;
 
@@ -66,6 +66,14 @@ type MailboxUiVisibilityMessage = {
 };
 
 function isMailboxUiOpen() {
+  const now = Date.now();
+
+  for (const [instanceId, lastSeenAt] of openMailboxUiInstanceIds) {
+    if (now - lastSeenAt > UI_ACTIVE_WINDOW_MS) {
+      openMailboxUiInstanceIds.delete(instanceId);
+    }
+  }
+
   return openMailboxUiInstanceIds.size > 0;
 }
 
@@ -595,7 +603,7 @@ export default defineBackground(() => {
         }
 
         if (message.visible) {
-          openMailboxUiInstanceIds.add(message.instanceId);
+          openMailboxUiInstanceIds.set(message.instanceId, Date.now());
         } else {
           openMailboxUiInstanceIds.delete(message.instanceId);
         }

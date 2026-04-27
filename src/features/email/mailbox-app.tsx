@@ -401,9 +401,12 @@ export function MailboxApp() {
     }
   }
 
-  async function handleFillCode(code: string) {
+  async function handleFillCode(
+    code: string,
+    context?: { preferredUrl?: string; preferredHostname?: string },
+  ) {
     try {
-      const didFill = await fillVerificationCodeOnPage(code);
+      const didFill = await fillVerificationCodeOnPage(code, context);
 
       if (didFill) {
         setSidebarActionStatus({

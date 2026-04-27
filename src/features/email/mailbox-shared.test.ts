@@ -67,4 +67,22 @@ describe('mailbox shared tab selection', () => {
 
     expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
   });
+
+  it('matches related subdomains when targeting a page tab', async () => {
+    vi.mocked(callWebExtensionApi)
+      .mockResolvedValueOnce([{ id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' }])
+      .mockResolvedValueOnce([
+        { id: 1, active: true, url: 'chrome-extension://abc/mailbox.html' },
+        { id: 2, active: false, url: 'https://login.example.com/verify' },
+      ])
+      .mockResolvedValueOnce({ ok: true });
+
+    await expect(
+      fillVerificationCodeOnPageForContext('123456', {
+        preferredHostname: 'example.com',
+      }),
+    ).resolves.toBe(true);
+
+    expect(vi.mocked(callWebExtensionApi).mock.calls[2]?.[2]).toBe(2);
+  });
 });

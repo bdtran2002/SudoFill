@@ -86,6 +86,14 @@ function getTabHostname(tab: chrome.tabs.Tab | undefined) {
   }
 }
 
+function isRelatedHostnameMatch(tabHostname: string, preferredHostname: string) {
+  return (
+    tabHostname === preferredHostname ||
+    tabHostname.endsWith(`.${preferredHostname}`) ||
+    preferredHostname.endsWith(`.${tabHostname}`)
+  );
+}
+
 function isMatchingInteractionTab(
   tab: chrome.tabs.Tab | undefined,
   preferredUrl: string | undefined,
@@ -102,7 +110,7 @@ function isMatchingInteractionTab(
     return true;
   }
 
-  if (preferredHostname && tabHostname === preferredHostname) {
+  if (preferredHostname && isRelatedHostnameMatch(tabHostname, preferredHostname)) {
     return true;
   }
 

@@ -124,21 +124,37 @@ function getGroupedVerificationInputs(target: HTMLInputElement | HTMLTextAreaEle
   }) as Array<HTMLInputElement | HTMLTextAreaElement>;
 }
 
-function fillGroupedVerificationCode(code: string, target: HTMLInputElement | HTMLTextAreaElement) {
+function fillGroupedVerificationCode(
+  code: string,
+  target: HTMLInputElement | HTMLTextAreaElement,
+) {
   if (code.length < 2 || !(target instanceof HTMLInputElement)) return false;
 
   const groupedInputs = getGroupedVerificationInputs(target).filter(
-    (element) => element instanceof HTMLInputElement && element.value.trim().length === 0,
+    (element) => element instanceof HTMLInputElement,
   ) as HTMLInputElement[];
 
-  if (groupedInputs.length < code.length || !groupedInputs.includes(target)) {
+  if (groupedInputs.length !== code.length || !groupedInputs.includes(target)) {
     return false;
   }
 
-  const valueSetter = getValueSetter(target);
-  if (!valueSetter) return false;
+  const existingValues = groupedInputs.map((input) => input.value.trim());
 
-  groupedInputs.slice(0, code.length).forEach((input, index) => {
+  if (existingValues.some((value) => value.length > 1)) {
+    return null;
+  }
+
+  for (const [index, value] of existingValues.entries()) {
+    if (value && value !== code[index]) {
+      return null;
+    }
+  }
+
+  groupedInputs.forEach((input, index) => {
+    if (input.value.trim().length > 0) {
+      return;
+    }
+
     const setter = getValueSetter(input);
     if (!setter) return;
     setter.call(input, code[index]);
@@ -193,9 +209,14 @@ export function fillVerificationCode(code: string, doc: Document = document) {
   const valueSetter = getValueSetter(target);
   if (!valueSetter) return false;
 
-  if (fillGroupedVerificationCode(code, target)) {
+  const groupedFillResult = fillGroupedVerificationCode(code, target);
+  if (groupedFillResult === true) {
     target.focus();
     return true;
+  }
+
+  if (groupedFillResult === null) {
+    return false;
   }
 
   target.focus();

@@ -2,6 +2,8 @@ export type AutofillSex = '' | 'female' | 'male' | 'nonbinary';
 
 export interface AutofillSettings {
   generateAddress: boolean;
+  showVerificationAssistPopup: boolean;
+  saveUsageHistory: boolean;
   state: string;
   sex: AutofillSex;
   ageMin: string;
@@ -43,4 +45,21 @@ export interface AutofillContentResponse {
   fields: string[];
   error?: string;
   reason?: AutofillFailureReason;
+}
+
+export interface AutofillUsageHistoryEntry {
+  id: string;
+  createdAt: string;
+  siteHostname: string;
+  siteUrl: string;
+  email: string;
+  username: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
 }

@@ -73,6 +73,14 @@ export function normalizeAutofillSettings(
       value?.generateAddress,
       DEFAULT_AUTOFILL_SETTINGS.generateAddress,
     ),
+    showVerificationAssistPopup: normalizeBoolean(
+      value?.showVerificationAssistPopup,
+      DEFAULT_AUTOFILL_SETTINGS.showVerificationAssistPopup,
+    ),
+    saveUsageHistory: normalizeBoolean(
+      value?.saveUsageHistory,
+      DEFAULT_AUTOFILL_SETTINGS.saveUsageHistory,
+    ),
     state: normalizeStateValue(value?.state),
     sex: normalizeSexValue(value?.sex),
     ageMin,

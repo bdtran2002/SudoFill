@@ -8,6 +8,8 @@ describe('normalizeAutofillSettings', () => {
     expect(
       normalizeAutofillSettings({
         generateAddress: 'yes' as never,
+        showVerificationAssistPopup: 'yes' as never,
+        saveUsageHistory: 'yes' as never,
         state: 'ZZ',
         sex: 'robot' as never,
         ageMin: 'abc',
@@ -52,5 +54,17 @@ describe('normalizeAutofillSettings', () => {
 
   it('preserves an explicit any-state choice', () => {
     expect(normalizeAutofillSettings({ state: '' }).state).toBe('');
+  });
+
+  it('preserves explicit boolean settings when valid', () => {
+    expect(
+      normalizeAutofillSettings({
+        showVerificationAssistPopup: true,
+        saveUsageHistory: true,
+      }),
+    ).toMatchObject({
+      showVerificationAssistPopup: true,
+      saveUsageHistory: true,
+    });
   });
 });

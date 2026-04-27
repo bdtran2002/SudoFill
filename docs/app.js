@@ -1,3 +1,5 @@
+/* global DOMParser, Headers, crypto, document, fetch, localStorage, navigator, window */
+
 (() => {
   const API_BASE_URL = 'https://api.mail.tm';
   const STORAGE_KEY = 'sudofill.pages.mailbox.session';
@@ -228,18 +230,6 @@
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-    });
-  }
-
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (character) => {
-      return {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      }[character];
     });
   }
 

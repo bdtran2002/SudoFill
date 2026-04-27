@@ -14,6 +14,12 @@ import {
 } from '../src/features/email/mail-tm';
 import { EMPTY_MAILBOX_SNAPSHOT, toMailboxSnapshot } from '../src/features/email/state';
 import { createCommandHandler } from '../src/features/email/command-router';
+import { getStoredAutofillSettings } from '../src/features/autofill/settings';
+import {
+  buildVerificationPopupPayload,
+  getHostnameFromUrl,
+  isVerificationPopupRelevant,
+} from '../src/features/email/verification-popup';
 import type {
   ActiveMailboxSession,
   MailboxCommand,
@@ -38,6 +44,7 @@ let pendingForcedPoll = false;
 let pendingForcedPollWaiters: Array<() => void> = [];
 const openMailboxUiInstanceIds = new Set<string>();
 let lastMailboxUiClosedAt = 0;
+let lastVerificationPopupMessageId: string | null = null;
 
 type ActionLikeApi = {
   onClicked?: {
@@ -234,6 +241,7 @@ function syncMessages(
   session: ActiveMailboxSession,
   nextMessages: ActiveMailboxSession['messages'],
 ) {
+  const previousKnownMessageIds = new Set(session.knownMessageIds);
   const nextMessageIds = new Set(nextMessages.map((message) => message.id));
   const unreadMessageIds = new Set(session.unreadMessageIds);
   const browserNotificationMessageIds = new Set(session.browserNotificationMessageIds);
@@ -261,10 +269,59 @@ function syncMessages(
     session.selectedMessageId = null;
     session.selectedMessage = null;
   }
+
+  return nextMessages.filter((message) => !previousKnownMessageIds.has(message.id));
 }
 
 function isCurrentSession(session: ActiveMailboxSession) {
   return activeSession === session;
+}
+
+async function tryShowVerificationPopup(
+  session: ActiveMailboxSession,
+  newMessages: ActiveMailboxSession['messages'],
+) {
+  try {
+    const settings = await getStoredAutofillSettings();
+    if (!settings.showVerificationAssistPopup) return;
+
+    const [activeTab] = await callWebExtensionApi<chrome.tabs.Tab[]>('tabs', 'query', {
+      active: true,
+      currentWindow: true,
+    });
+
+    if (!activeTab?.id || !activeTab.url) return;
+    const activeHostname = getHostnameFromUrl(activeTab.url);
+    if (!activeHostname) return;
+
+    for (const summary of newMessages) {
+      if (summary.id === lastVerificationPopupMessageId) continue;
+      const message = await getMailTmMessage(session.token, summary.id).match(
+        (value) => value,
+        () => null,
+      );
+      if (!message) continue;
+
+      const payload = buildVerificationPopupPayload(message);
+      if (!payload || !isVerificationPopupRelevant(activeHostname, message.verification, message.from)) {
+        continue;
+      }
+
+      try {
+        await callWebExtensionApi('tabs', 'sendMessage', activeTab.id, {
+          type: 'verification:show-popup',
+          payload,
+        });
+        lastVerificationPopupMessageId = payload.messageId;
+      } catch {
+        continue;
+      }
+
+      break;
+    }
+  } catch {
+    return;
+  }
 }
 
 function pollMailbox(force = false) {
@@ -298,7 +355,9 @@ function pollMailbox(force = false) {
           return okAsync(undefined);
         }
 
-        syncMessages(session, messages);
+        const newMessages = syncMessages(session, messages);
+
+        void tryShowVerificationPopup(session, newMessages);
 
         if (session.selectedMessageId && (!session.selectedMessage || force)) {
           return getMailTmMessage(session.token, session.selectedMessageId).andThen((message) => {

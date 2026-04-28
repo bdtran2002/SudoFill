@@ -1,1 +1,0 @@
-import{g as e,x as t}from"./settings-Cwouvesr.js";import{t as n}from"./mailbox-app-DcAHaWYi.js";var r=t(),i=e();(0,r.createRoot)(document.getElementById(`root`)).render((0,i.jsx)(n,{}));

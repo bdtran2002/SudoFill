@@ -182,4 +182,17 @@ describe('verification extractor', () => {
       url: 'https://example.com/action?id=abc123',
     });
   });
+
+  it('decodes html entities in verification link hrefs', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Confirm your email',
+      text: '',
+      html: '<p><a href="https://example.com/confirm?token=abc&amp;source=email">Confirm your email</a></p>',
+    });
+
+    expect(details.bestLink).toEqual({
+      label: 'Verify with this link',
+      url: 'https://example.com/confirm?token=abc&source=email',
+    });
+  });
 });

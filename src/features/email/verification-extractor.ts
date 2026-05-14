@@ -221,7 +221,7 @@ function collectRawLinkCandidates(subject: string, text: string, html: string) {
   for (const match of html.matchAll(new RegExp(HTML_LINK_PATTERN))) {
     const [, url = '', rawAnchorText = ''] = match;
     addCandidate(
-      url,
+      decodeHtmlEntities(url),
       `${subject} ${stripHtml(rawAnchorText)} ${strippedHtml}`,
       stripHtml(rawAnchorText),
     );

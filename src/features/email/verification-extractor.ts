@@ -111,6 +111,30 @@ function getCueScore(value: string, cues: string[], weight: number) {
   return cues.reduce((score, cue) => score + (normalized.includes(cue) ? weight : 0), 0);
 }
 
+function getSentenceBounds(value: string, index: number, length: number) {
+  const startBoundary = value.slice(0, index).search(/[.!?;][^.!?;]*$/);
+  const start = startBoundary >= 0 ? startBoundary + 1 : 0;
+  const remaining = value.slice(index + length);
+  const endBoundary = remaining.search(/[.!?;]/);
+  const end = endBoundary >= 0 ? index + length + endBoundary : value.length;
+  return { start, end };
+}
+
+function hasVerificationCueNearToken(value: string, index: number, length: number) {
+  const { start, end } = getSentenceBounds(value, index, length);
+  const sentence = value.slice(start, end);
+  const tokenStart = index - start;
+  const tokenEnd = tokenStart + length;
+  const beforeToken = sentence.slice(0, tokenStart);
+  const afterToken = sentence.slice(tokenEnd);
+
+  if (getCueScore(beforeToken, POSITIVE_VERIFICATION_CUES, 1) > 0) {
+    return true;
+  }
+
+  return getCueScore(afterToken.split(':')[0] ?? '', POSITIVE_VERIFICATION_CUES, 1) > 0;
+}
+
 function isLikelyAssetUrl(url: string) {
   return /\.(?:png|jpe?g|gif|svg|webp|css|js)(?:$|[?#])/i.test(url);
 }
@@ -288,7 +312,10 @@ function collectRawCodeCandidates(subject: string, text: string, html: string) {
 
     if (getCueScore(line, POSITIVE_VERIFICATION_CUES, 1) > 0) {
       for (const match of line.matchAll(new RegExp(TOKEN_PATTERN))) {
-        addCandidate(match[0], line, 16);
+        const token = match[0] ?? '';
+        if (hasVerificationCueNearToken(line, match.index ?? 0, token.length)) {
+          addCandidate(token, line, 16);
+        }
       }
     }
   }

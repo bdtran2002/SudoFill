@@ -99,4 +99,87 @@ describe('verification extractor', () => {
     expect(details.bestLink).toBeNull();
     expect(details.linkCandidates).toHaveLength(0);
   });
+
+  it('trims wrapping punctuation from verification links before ranking', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Confirm your account',
+      text: 'Confirm your email here: (https://app.example.com/verify?token=abc123). Support: https://example.com/support',
+      html: '',
+    });
+
+    expect(details.bestLink).toEqual({
+      label: 'Verify with this link',
+      url: 'https://app.example.com/verify?token=abc123',
+    });
+  });
+
+  it('selects strongest verification link when several links are present', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Action required for your account',
+      text: 'Account overview: https://example.com/account Status: https://example.com/status Confirm your email: https://example.com/email/confirm?token=secure-token',
+      html: '',
+    });
+
+    expect(details.bestLink?.url).toBe('https://example.com/email/confirm?token=secure-token');
+    expect(details.linkCandidates[0]).toEqual({
+      label: 'Verify with this link',
+      url: 'https://example.com/email/confirm?token=secure-token',
+    });
+  });
+
+  it('prefers nearby login code over unrelated numeric content', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Your login code',
+      text: 'Receipt number 123456: use login code 731942 within 10 minutes.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: '731942',
+      label: 'Sign-in code',
+      autofillLabel: 'Fill into active page',
+    });
+    expect(details.codeCandidates.map(({ code }) => code)).toEqual(['731942']);
+  });
+
+  it('keeps verification codes that appear before the cue text', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Your verification details',
+      text: '731942 is your verification code.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: '731942',
+      label: 'Verification code',
+      autofillLabel: 'Fill into active page',
+    });
+  });
+
+  it('handles irregular spacing in verification cues near the token', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Your sign in code',
+      text: 'Use sign   in 731942 within 10 minutes.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: '731942',
+      label: 'Sign-in code',
+      autofillLabel: 'Fill into active page',
+    });
+  });
+
+  it('uses verification anchor text when HTML link URL is generic', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Verify your email',
+      text: '',
+      html: '<p><a href="https://example.com/action?id=abc123">Confirm your email</a></p><p><a href="https://example.com/help">Help</a></p>',
+    });
+
+    expect(details.bestLink).toEqual({
+      label: 'Verify with this link',
+      url: 'https://example.com/action?id=abc123',
+    });
+  });
 });

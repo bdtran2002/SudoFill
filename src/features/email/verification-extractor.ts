@@ -80,6 +80,14 @@ function normalizeLabel(url: string) {
 function decodeHtmlEntities(value: string) {
   return value
     .replace(/&nbsp;/gi, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCharCode(code) : match;
+    })
+    .replace(/&#(\d+);/g, (match, decimal) => {
+      const code = Number.parseInt(decimal, 10);
+      return Number.isFinite(code) ? String.fromCharCode(code) : match;
+    })
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')

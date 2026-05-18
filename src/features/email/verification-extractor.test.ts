@@ -195,4 +195,17 @@ describe('verification extractor', () => {
       url: 'https://example.com/confirm?token=abc&source=email',
     });
   });
+
+  it('decodes numeric and hex html entities in verification link hrefs', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Confirm your email',
+      text: '',
+      html: '<p><a href="https:&#x2F;&#x2F;example.com&#x2F;confirm?token=abc&#38;source=email&#x26;campaign=verify">Confirm your email</a></p>',
+    });
+
+    expect(details.bestLink).toEqual({
+      label: 'Verify with this link',
+      url: 'https://example.com/confirm?token=abc&source=email&campaign=verify',
+    });
+  });
 });

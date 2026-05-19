@@ -22,6 +22,7 @@ const POSITIVE_VERIFICATION_CUES = [
   'activate',
   'magic link',
   'sign in',
+  'sign-in',
   'signin',
   'login',
   'passwordless',
@@ -80,6 +81,18 @@ function normalizeLabel(url: string) {
 function decodeHtmlEntities(value: string) {
   return value
     .replace(/&nbsp;/gi, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : match;
+    })
+    .replace(/&#(\d+);/g, (match, decimal) => {
+      const code = Number.parseInt(decimal, 10);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : match;
+    })
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
@@ -109,6 +122,36 @@ function normalizeText(value: string | null | undefined) {
 function getCueScore(value: string, cues: string[], weight: number) {
   const normalized = normalizeText(value);
   return cues.reduce((score, cue) => score + (normalized.includes(cue) ? weight : 0), 0);
+}
+
+function getSentenceBounds(value: string, index: number, length: number) {
+  const startBoundary = value.slice(0, index).search(/[.!?;][^.!?;]*$/);
+  const start = startBoundary >= 0 ? startBoundary + 1 : 0;
+  const remaining = value.slice(index + length);
+  const endBoundary = remaining.search(/[.!?;]/);
+  const end = endBoundary >= 0 ? index + length + endBoundary : value.length;
+  return { start, end };
+}
+
+function hasVerificationCueNearToken(value: string, index: number, length: number) {
+  const { start, end } = getSentenceBounds(value, index, length);
+  const sentence = value.slice(start, end);
+  const tokenStart = index - start;
+  const tokenEnd = tokenStart + length;
+  const beforeToken = sentence.slice(0, tokenStart);
+  const afterToken = sentence.slice(tokenEnd);
+
+  if (getCueScore(beforeToken, POSITIVE_VERIFICATION_CUES, 1) > 0) {
+    return true;
+  }
+
+  const normalizedAfterToken = afterToken.replace(/^:\s*/, '');
+  const nextTokenMatch = normalizedAfterToken.match(TOKEN_PATTERN);
+  if (nextTokenMatch?.[0]) {
+    return false;
+  }
+
+  return getCueScore(normalizedAfterToken.split(':')[0] ?? '', POSITIVE_VERIFICATION_CUES, 1) > 0;
 }
 
 function isLikelyAssetUrl(url: string) {
@@ -197,7 +240,7 @@ function collectRawLinkCandidates(subject: string, text: string, html: string) {
   for (const match of html.matchAll(new RegExp(HTML_LINK_PATTERN))) {
     const [, url = '', rawAnchorText = ''] = match;
     addCandidate(
-      url,
+      decodeHtmlEntities(url),
       `${subject} ${stripHtml(rawAnchorText)} ${strippedHtml}`,
       stripHtml(rawAnchorText),
     );
@@ -265,7 +308,7 @@ function collectRawCodeCandidates(subject: string, text: string, html: string) {
       baseScore +
       getCueScore(context, POSITIVE_VERIFICATION_CUES, 10) -
       getCueScore(context, NEGATIVE_LINK_CUES, 10);
-    const label = /sign in|signin|login/i.test(`${subject} ${context}`)
+    const label = /sign in|sign-in|signin|login/i.test(`${subject} ${context}`)
       ? 'Sign-in code'
       : 'Verification code';
 
@@ -288,7 +331,10 @@ function collectRawCodeCandidates(subject: string, text: string, html: string) {
 
     if (getCueScore(line, POSITIVE_VERIFICATION_CUES, 1) > 0) {
       for (const match of line.matchAll(new RegExp(TOKEN_PATTERN))) {
-        addCandidate(match[0], line, 16);
+        const token = match[0] ?? '';
+        if (hasVerificationCueNearToken(line, match.index ?? 0, token.length)) {
+          addCandidate(token, line, 16);
+        }
       }
     }
   }

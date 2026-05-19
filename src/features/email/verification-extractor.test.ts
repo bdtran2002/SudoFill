@@ -208,4 +208,45 @@ describe('verification extractor', () => {
       url: 'https://example.com/confirm?token=abc&source=email&campaign=verify',
     });
   });
+
+  it('decodes supplementary numeric html entities in verification link hrefs', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Confirm your email',
+      text: '',
+      html: '<p><a href="https://example.com/confirm?emoji=&#128512;&amp;token=abc">Confirm your email</a></p>',
+    });
+
+    expect(details.bestLink).toEqual({
+      label: 'Verify with this link',
+      url: 'https://example.com/confirm?emoji=😀&token=abc',
+    });
+  });
+
+  it('keeps verification codes when a colon immediately follows the token', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Your access details',
+      text: 'ABC123: use this as your sign-in code.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: 'ABC123',
+      label: 'Sign-in code',
+      autofillLabel: 'Fill into active page',
+    });
+  });
+
+  it('recognizes sign-in cue variants when token appears before the cue text', () => {
+    const details = extractMailboxVerificationDetails({
+      subject: 'Your access details',
+      text: '731942 is your sign-in code.',
+      html: '',
+    });
+
+    expect(details.bestCode).toEqual({
+      code: '731942',
+      label: 'Sign-in code',
+      autofillLabel: 'Fill into active page',
+    });
+  });
 });

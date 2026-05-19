@@ -22,6 +22,7 @@ const POSITIVE_VERIFICATION_CUES = [
   'activate',
   'magic link',
   'sign in',
+  'sign-in',
   'signin',
   'login',
   'passwordless',
@@ -82,11 +83,15 @@ function decodeHtmlEntities(value: string) {
     .replace(/&nbsp;/gi, ' ')
     .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
       const code = Number.parseInt(hex, 16);
-      return Number.isFinite(code) ? String.fromCharCode(code) : match;
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : match;
     })
     .replace(/&#(\d+);/g, (match, decimal) => {
       const code = Number.parseInt(decimal, 10);
-      return Number.isFinite(code) ? String.fromCharCode(code) : match;
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : match;
     })
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
@@ -140,7 +145,13 @@ function hasVerificationCueNearToken(value: string, index: number, length: numbe
     return true;
   }
 
-  return getCueScore(afterToken.split(':')[0] ?? '', POSITIVE_VERIFICATION_CUES, 1) > 0;
+  const normalizedAfterToken = afterToken.replace(/^:\s*/, '');
+  const nextTokenMatch = normalizedAfterToken.match(TOKEN_PATTERN);
+  if (nextTokenMatch?.[0]) {
+    return false;
+  }
+
+  return getCueScore(normalizedAfterToken.split(':')[0] ?? '', POSITIVE_VERIFICATION_CUES, 1) > 0;
 }
 
 function isLikelyAssetUrl(url: string) {
@@ -297,7 +308,7 @@ function collectRawCodeCandidates(subject: string, text: string, html: string) {
       baseScore +
       getCueScore(context, POSITIVE_VERIFICATION_CUES, 10) -
       getCueScore(context, NEGATIVE_LINK_CUES, 10);
-    const label = /sign in|signin|login/i.test(`${subject} ${context}`)
+    const label = /sign in|sign-in|signin|login/i.test(`${subject} ${context}`)
       ? 'Sign-in code'
       : 'Verification code';
 
